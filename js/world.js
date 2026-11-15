@@ -716,7 +716,7 @@ function buildNature() {
   const leafMat = new THREE.MeshPhongMaterial({ color: 0xffffff, flatShading: true, shininess: 0, specular: 0x000000 });
   // soft rounded leaves and needles, shaded darker underneath
   const softLeaf = new THREE.MeshLambertMaterial({ color: 0xffffff, vertexColors: true });
-  const DET = 1, BDET = 1;
+  const DET = 1, BDET = 0;   // the main canopy keeps its detail; the smaller side clumps are simpler (far fewer triangles)
   const birches = oaks.filter((t, i) => i % 5 === 0), broad = oaks.filter((t, i) => i % 5 !== 0);
   const trunkGeo = shadeY(new THREE.CylinderGeometry(0.24, 0.48, 3.6, 10), 0.7, 1.05);
   const trunkMatV = new THREE.MeshLambertMaterial({ color: 0x6b4a2b, vertexColors: true });

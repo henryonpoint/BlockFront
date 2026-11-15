@@ -417,8 +417,12 @@ function cockpitCamera(pl) {
   if (pl.model.canopy) pl.model.canopy.visible = false;
   if (pl.aimYaw === undefined) { const e = new THREE.Euler().setFromQuaternion(pl.quat, 'YXZ'); pl.aimYaw = e.y; pl.aimPitch = 0; }
   if (pl.onGround) pl.aimYaw = pl.groundYaw + clamp(wrapAngle(pl.aimYaw - pl.groundYaw), -1.2, 1.2);
-  const roll = new THREE.Euler().setFromQuaternion(pl.quat, 'YXZ').z;
-  camera.rotation.set(pl.aimPitch || 0, pl.aimYaw, roll * 0.3 + (Math.random() - 0.5) * camShake * 0.3, 'YXZ');
+  // the view sits between the nose and the aim, rolls with the plane, and glides there smoothly (no snapping)
+  const ne = new THREE.Euler().setFromQuaternion(pl.quat, 'YXZ'), now = performance.now(), cdt = clamp((now - (pl._camT || now)) / 1000, 0, 0.1); pl._camT = now;
+  const ty = ne.y + wrapAngle(pl.aimYaw - ne.y) * 0.6, tp = lerp(ne.x, pl.aimPitch || 0, 0.6);
+  const tq = new THREE.Quaternion().setFromEuler(new THREE.Euler(tp, ty, ne.z * 0.55 + (Math.random() - 0.5) * camShake * 0.3, 'YXZ'));
+  if (!pl._camQ) pl._camQ = tq.clone(); else pl._camQ.slerp(tq, cdt ? Math.min(1, cdt * 9) : 1);
+  camera.quaternion.copy(pl._camQ);
   const fov = (SET.fov || 75) + 18; if (Math.abs(camera.fov - fov) > 0.1) { camera.fov = fov; camera.updateProjectionMatrix(); }   // a wide view from the cockpit
 }
 // in the cockpit: a small ring showing where the guns point (the nose), which chases the crosshair as the plane turns
@@ -609,7 +613,7 @@ addEventListener('mousemove', e => {
 });
 function lookDelta(mx, my) {
   mx *= SET.sens; my *= SET.sens; if (SET.invert) my = -my;
-  if (player.vehicle && (planeView === 'cockpit' || DOGFIGHT)) { const pl = player.vehicle; if (pl.aimYaw === undefined && planeView === 'cockpit') setPlaneView('cockpit'); if (pl.aimYaw === undefined) { const e = new THREE.Euler().setFromQuaternion(pl.quat, 'YXZ'); pl.aimYaw = e.y; pl.aimPitch = 0; } pl.aimYaw -= mx * 0.0024; pl.aimPitch = clamp((pl.aimPitch || 0) + my * 0.0024, -0.9, 0.9); return; }   // like a flight stick: pull the mouse back (towards you) to climb
+  if (player.vehicle && (planeView === 'cockpit' || DOGFIGHT)) { const pl = player.vehicle; if (pl.aimYaw === undefined && planeView === 'cockpit') setPlaneView('cockpit'); if (pl.aimYaw === undefined) { const e = new THREE.Euler().setFromQuaternion(pl.quat, 'YXZ'); pl.aimYaw = e.y; pl.aimPitch = 0; } pl.aimYaw -= mx * 0.0021; pl.aimPitch = clamp((pl.aimPitch || 0) + my * 0.0021, -0.9, 0.9); { const ne = new THREE.Euler().setFromQuaternion(pl.quat, 'YXZ'); pl.aimYaw = ne.y + clamp(wrapAngle(pl.aimYaw - ne.y), -0.65, 0.65); pl.aimPitch = clamp(pl.aimPitch, ne.x - 0.5, ne.x + 0.5); }   /* the aim never runs far ahead of the nose, so the plane stays connected to the mouse */ return; }   // like a flight stick: pull the mouse back (towards you) to climb
   if (player.vehicle) { camOrbit.yaw = clamp(camOrbit.yaw - mx * 0.003, -2.5, 2.5); camOrbit.pitch = clamp(camOrbit.pitch - my * 0.003, -0.6, 0.8); camOrbit.t = 2; return; }
   if (player.turret) { const t = player.turret; t.yaw -= mx * 0.0022; t.pitch = clamp(t.pitch - my * 0.0022, -0.35, 1.2); return; }
   if (player.gv && player.gv.T.heli && player.seat === 0) {   // helicopter pilot: mouse left/right turns, up/down aims

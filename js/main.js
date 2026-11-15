@@ -207,6 +207,15 @@ const now0 = () => performance.now() / 1000;
 let balanceT = 2;
 // each part of a frame runs on its own: if one part hits an error, the rest of the battle still moves
 function guard(name, fn) { try { fn(); } catch (e) { loopError(name, e); } }
+// far soldiers and vehicles stop casting shadows (too small to see at that distance, and each one costs a draw)
+let _shT = 0;
+function updateShadowLOD(dt) {
+  _shT -= dt; if (_shT > 0) return; _shT = 0.3;
+  const cam = camera.position;
+  const set = (obj, on) => { if (!obj) return; if (obj._shOn === on) return; obj._shOn = on; if (!obj._shList) { obj._shList = []; obj.traverse(o => { if (o.isMesh && o.castShadow) obj._shList.push(o); }); } for (const o of obj._shList) o.castShadow = on; };
+  for (const c of chars) if (c.model && c.model.root) set(c.model.root, c.pos.distanceToSquared(cam) < 70 * 70);
+  for (const v of gvehicles) if (v.model && v.model.g) set(v.model.g, v.pos.distanceToSquared(cam) < 130 * 130);
+}
 function step(dt) {
   simTime += dt;
   soundBudget = 8;
@@ -220,6 +229,7 @@ function step(dt) {
   guard('projectiles', () => { suppressFx = true; try { updateProjectiles(dt); } finally { suppressFx = false; } });
   guard('builds', () => updateBuilds(dt));
   guard('bullets', () => updateBullets(dt));
+  guard('shadowlod', () => updateShadowLOD(dt));
   for (const [n, f] of [['chutes', 'updateChutes'], ['towers', 'updateTowers'], ['cheats', 'updateCheats'], ['specials', 'updateSpecials'], ['level', 'updateLevel'], ['zombies', 'updateZombies'], ['achievements', 'updateAchievements'], ['ships', 'updateShips'], ['treasure', 'updateTreasure'], ['clown', 'updateClown'], ['craters', 'updateCraters'], ['topview', 'updateTopView'], ['animals', 'updateAnimals'], ['loot', 'updateLoot'], ['stickies', 'updateStickies'], ['nukes', 'updateNukes'], ['city', 'updateCity']])
     if (typeof window[f] === 'function') guard(n, () => window[f](dt));
   if (HOUSTON && typeof updateHouston === 'function') guard('houston', () => updateHouston(dt));
