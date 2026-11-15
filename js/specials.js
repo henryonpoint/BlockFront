@@ -16,8 +16,8 @@ Object.assign(VTYPES, {
     seats: VTYPES.heli.seats,
   },
   hoverboard: {
-    name: 'Flying skateboard', hp: 150, maxSpeed: 70, accel: 40, turn: 3.6, radius: 0.9, len: 1.6, wid: 0.6, bulletMult: 1, expMult: 1, camDist: 6, heli: true, unarmed: true, agile: true,
-    seats: [{ p: [0, 1.48, 0], role: 'drive', pose: 'stand', exposed: true }],
+    name: 'Flying skateboard', hp: 150, maxSpeed: 100, accel: 55, turn: 4.2, radius: 0.9, len: 1.6, wid: 0.6, bulletMult: 1, expMult: 1, camDist: 6, heli: true, unarmed: true, agile: true,
+    seats: [{ p: [0, 0.34, 0], role: 'drive', pose: 'surf', exposed: true }],
   },
   balloon: {
     name: 'Hot air balloon', hp: 300, maxSpeed: 9, accel: 4, turn: 0.6, radius: 2.4, len: 3, wid: 3, bulletMult: 0.5, expMult: 1, camDist: 20, heli: true, unarmed: true,
@@ -115,7 +115,13 @@ function updateSpecials(dt) {
   for (const v of gvehicles) {
     if (!v.alive) continue;
     if (v.type === 'balloon' && v.model.flame) { const up = driverOf(v) && driverOf(v).isPlayer ? keys.Space : v.vel && v.vel.y > 1; v.model.flame.visible = !!up || Math.random() < 0.05; v.model.flame.scale.setScalar(0.8 + Math.random() * 0.5); }
-    if (v.type === 'hoverboard') v.model.body.position.y = Math.sin(simTime * 3 + v.idx) * 0.05;
+    if (v.type === 'hoverboard') {
+      v.model.body.position.y = Math.sin(simTime * 3 + v.idx) * 0.05;
+      const yr = dt > 0 ? wrapAngle(v.yaw - (v._lastYaw === undefined ? v.yaw : v._lastYaw)) / dt : 0; v._lastYaw = v.yaw;
+      const side = v.vel ? (v.vel.x * Math.cos(v.yaw) - v.vel.z * Math.sin(v.yaw)) : 0;   // sliding right is +
+      v.lean = lerp(v.lean || 0, clamp(yr * 0.35 + side * 0.025, -0.7, 0.7), Math.min(1, dt * 6));
+      v.model.body.rotation.z = -v.lean;   // the board tilts with the rider
+    }
   }
 }
 

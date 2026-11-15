@@ -605,13 +605,18 @@ function updateOccupants() {
     const v = c.gv, S = v.T.seats[c.seat];
     if (!S) { leaveSeat(c, true); continue; }   // a bad seat number must never stop everyone else being placed
     const p = seatWorld(v, c.seat);
-    if (S.pose === 'stand') c.pos.set(p.x, p.y - 1.0, p.z); else c.pos.set(p.x, p.y - 0.95, p.z);
+    if (S.pose === 'surf') c.pos.set(p.x, p.y + (v.model.body ? v.model.body.position.y : 0), p.z); else if (S.pose === 'stand') c.pos.set(p.x, p.y - 1.0, p.z); else c.pos.set(p.x, p.y - 0.95, p.z);
     const m = c.isPlayer ? player.body3p : c.model; if (!m) continue;
     m.root.visible = c.alive && S.pose !== 'hide' && !(c.isPlayer && S.role === 'gun') && !(c.isPlayer && v.T.heli && S.role === 'drive' && typeof heliView !== 'undefined' && heliView === 'cockpit');
     m.root.position.copy(c.pos);
     limbsStraight(m); m.body.rotation.x = 0;
     if (S.role === 'gun') { const gy = S.gun ? v.mg2Yaw : v.mgYaw, gp = S.gun ? v.mg2Pitch : v.mgPitch; m.root.rotation.set(0, gy + Math.PI, 0); m.armR.rotation.set(-Math.PI / 2 - gp, 0, 0); m.armL.rotation.set(-Math.PI / 2 - gp, 0.3, 0); m.legL.rotation.x = 0; m.legR.rotation.x = 0; m.gun.visible = false; }
-    else if (S.pose === 'bike') {
+    else if (S.pose === 'surf') {   // sideways on the board like a surfer, knees bent, arms out, leaning into the turn
+      const lean = v.lean || 0;
+      m.root.rotation.set(-lean, v.yaw + Math.PI * 1.5, 0, 'YXZ');
+      m.legL.rotation.set(-0.35, 0, 0.32); m.legR.rotation.set(0.25, 0, -0.32); m.shinL.rotation.x = 0.55; m.shinR.rotation.x = 0.45;
+      m.armL.rotation.set(0, 0, -1.15 + lean * 0.4); m.armR.rotation.set(0, 0, 1.15 + lean * 0.4); m.body.rotation.x = 0.18; m.gun.visible = false;
+    } else if (S.pose === 'bike') {
       m.root.rotation.set(v.pitch, v.yaw + Math.PI, -v.roll, 'YXZ');
       m.legL.rotation.set(-1.0, 0, -0.3); m.legR.rotation.set(-1.0, 0, 0.3); m.shinL.rotation.x = m.shinR.rotation.x = 1.5;
       m.armR.rotation.set(-1.25, 0, 0.12); m.armL.rotation.set(-1.25, 0, -0.12); m.body.rotation.x = S.role === 'drive' ? 0.25 : 0.1; m.gun.visible = false;
