@@ -555,6 +555,7 @@ function updateOccupants() {
   for (const c of chars) {
     if (!c.gv) continue;
     const v = c.gv, S = v.T.seats[c.seat];
+    if (!S) { leaveSeat(c, true); continue; }   // a bad seat number must never stop everyone else being placed
     const p = seatWorld(v, c.seat);
     if (S.pose === 'stand') c.pos.set(p.x, p.y - 1.0, p.z); else c.pos.set(p.x, p.y - 0.95, p.z);
     const m = c.isPlayer ? player.body3p : c.model; if (!m) continue;

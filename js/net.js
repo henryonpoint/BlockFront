@@ -108,8 +108,9 @@ function buildWorld1() {
       if (n.inactive) return 0;
       let f = (n.alive ? 1 : 0) | (n.tgtVisible || n.planeTarget ? 2 : 0) | (n.moving ? 4 : 0) | ((n.shots || 0) << 4);
       if (n.turret) f |= (turrets.indexOf(n.turret) + 1) << 8;
-      if (n.gv) f |= ((n.gv.idx + 1) << 13) | (n.seat << 17);
-      return [Math.round(n.pos.x * 5), Math.round(n.pos.z * 5), Math.round(n.pos.y * 5), Math.round(n.heading * 20), f];
+      const a = [Math.round(n.pos.x * 5), Math.round(n.pos.z * 5), Math.round(n.pos.y * 5), Math.round(n.heading * 20), f];
+      if (n.gv) a.push((n.gv.idx + 1) * 8 + n.seat);   // which vehicle and seat (its own number: there are more vehicles than the old packed bits could hold)
+      return a;
     });
     o.P = points.map(q => Math.round(q.progress * 100)); o.O = points.map(q => q.owner ? q.owner[0] : '-').join(''); if (FOUR) o.CT = points.map(q => q.capTeam ? q.capTeam[0] : '-').join('');
     o.TK = TEAMS.map(t => teamKills[t] || 0); o.KF = net.kf.filter(e => simTime - e[e.length - 1] < 8).map(e => e.slice(0, -1));
@@ -128,7 +129,7 @@ function buildWorld2() {
 }
 
 // ---------- connecting ----------
-const GAME_BUILD = 15;   // bump when vehicles or the world change, so mismatched versions never mix
+const GAME_BUILD = 16;   // bump when vehicles or the world change, so mismatched versions never mix
 // the version number on the start screen and pause menu, so everyone can check they are on the same one
 const GAME_DATE = 'Nov 15, 2026';
 setTimeout(() => { const v = document.getElementById('verTag'); if (v) v.textContent = `Version ${GAME_BUILD}  \u00b7  ${GAME_DATE}${window.STANDALONE ? '' : '  \u00b7  Claude'}`; const p = document.getElementById('verPause'); if (p) p.textContent = `Version ${GAME_BUILD}`; }, 0);
@@ -181,6 +182,7 @@ async function netConnect(code, asHost) {
   try { game = await r.room.join(base); net.w1 = await r.room.join(base + '-w1'); net.w2 = await r.room.join(base + '-w2'); } catch (e) { game = null; }
   if (!game) { netNote(asHost ? 'Could not set up the game. Try again.' : 'Could not find a game with that code. Check it and try again.'); return false; }
   net.game = game; net.closeGame = r.close; net.active = true; net.jt = Date.now(); net.joinPerf = performance.now();
+  if (!asHost) net.noHostUntil = performance.now() + 8000;   // a joiner never takes over the battle while it is still settling in
   if (asHost) { net.isHost = true; net.hostId = net.myId; return true; }
   // joining: wait until we can see the host, and read the game's map and mode
   for (let i = 0; i < 40; i++) {
@@ -473,8 +475,8 @@ function applySnapshot(P, dt) {
       }
     }
     n.lastShots = shots;
-    const gi = ((f >> 13) & 15) - 1, gs = (f >> 17) & 7;
-    if (gi >= 0 && gvehicles[gi] && alive) { const v = gvehicles[gi]; if ((n.gv !== v || n.seat !== gs) && (!v.seats[gs] || v.seats[gs] === n)) enterSeat(n, v, gs); }
+    const g = d[5] | 0, gi = g ? Math.floor(g / 8) - 1 : -1, gs = g % 8;
+    if (gi >= 0 && gvehicles[gi] && alive && gs < gvehicles[gi].T.seats.length) { const v = gvehicles[gi]; if ((n.gv !== v || n.seat !== gs) && (!v.seats[gs] || v.seats[gs] === n)) enterSeat(n, v, gs); }
     else if (n.gv) leaveSeat(n, true);
     const ti = ((f >> 8) & 31) - 1;
     if (ti >= 0 && turrets[ti]) { const t = turrets[ti]; t.user = n; n.turret = t; t.yaw = n.netHeading - Math.PI; updateTurretVisual(t); }
