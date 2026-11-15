@@ -300,6 +300,12 @@
     #tHint { bottom: 70px; left: 50%; transform: translateX(-50%); }
     #tPause { top: 64px; }
   }
+  .foldCard summary { cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; }
+  .foldCard summary::-webkit-details-marker { display: none; }
+  .foldCard summary h3 { margin: 0; }
+  .foldCard summary::after { content: "Show"; font: 600 12px system-ui, sans-serif; color: #c9b27a; }
+  .foldCard[open] summary::after { content: "Hide"; }
+  .foldCard[open] summary { margin-bottom: 10px; }
 </style>
 </head>
 <body>
@@ -398,8 +404,8 @@
       <p class="small">Host a public game (anyone can find it) or a private one (only people with your code). Computer soldiers fill the empty spots, and the host's setup is used for everyone.</p>
     </div>
     <div class="rightSide">
-      <div class="card howTo">
-        <h3>How to play</h3>
+      <details class="card howTo foldCard">
+        <summary><h3>How to play</h3></summary>
         <div class="keys">
           <b>W A S D</b><span>Move (Shift run, Space jump)</span>
           <b>Mouse</b><span>Shoot, right click to aim</span>
@@ -412,8 +418,8 @@
           <b>C</b><span>Crouch</span>
           <b>N</b><span>Music on or off</span>
         </div>
-      </div>
-      <div class="card"><h3>Settings</h3><div class="settings" id="setStart"></div><div class="settings extraSettings"></div></div>
+      </details><!--howToEnd-->
+      <details class="card foldCard"><summary><h3>Settings</h3></summary><div class="settings" id="setStart"></div><div class="settings extraSettings"></div></details>
     </div>
   </div>
   <div class="lobbyPanel" id="hostPanel">
@@ -449,53 +455,53 @@
 <script src="lib/three.min.js"></script>
 <script src="lib/cannon.min.js"></script>
 <script src="lib/peerjs.min.js"></script>
-<script src="js/core.js?v=39"></script>
-<script src="js/world.js?v=39"></script>
-<script src="js/bunker.js?v=39"></script>
-<script src="js/trenches.js?v=39"></script>
-<script src="js/tunnels.js?v=39"></script>
-<script src="js/chars.js?v=39"></script>
-<script src="js/fx.js?v=39"></script>
-<script src="js/models.js?v=39"></script>
-<script src="js/weapons.js?v=39"></script>
-<script src="js/vehicles.js?v=39"></script>
-<script src="js/gvehicles.js?v=39"></script>
-<script src="js/vmodels.js?v=39"></script>
-<script src="js/heliboat.js?v=39"></script>
-<script src="js/specials.js?v=39"></script>
-<script src="js/snowmap.js?v=39"></script>
-<script src="js/houston.js?v=39"></script>
-<script src="js/suburbs.js?v=39"></script>
-<script src="js/levels.js?v=39"></script>
-<script src="js/wake.js?v=39"></script>
-<script src="js/ai.js?v=39"></script>
-<script src="js/build.js?v=39"></script>
-<script src="js/relaynet.js?v=39"></script>
-<script src="js/peernet.js?v=39"></script>
-<script src="js/net.js?v=39"></script>
-<script src="js/player.js?v=39"></script>
-<script src="js/setup.js?v=39"></script>
-<script src="js/main.js?v=39"></script>
-<script src="js/lobby.js?v=39"></script>
-<script src="js/polish.js?v=39"></script>
-<script src="js/clown.js?v=39"></script>
-<script src="js/craters.js?v=39"></script>
-<script src="js/topview.js?v=39"></script>
-<script src="js/animals.js?v=39"></script>
-<script src="js/loot.js?v=39"></script>
-<script src="js/sticky.js?v=39"></script>
-<script src="js/nuke.js?v=39"></script>
-<script src="js/city.js?v=39"></script>
-<script src="js/towers.js?v=39"></script>
-<script src="js/treasure.js?v=39"></script>
-<script src="js/zombies.js?v=39"></script>
-<script src="js/achievements.js?v=39"></script>
-<script src="js/ships.js?v=39"></script>
-<script src="js/sound.js?v=39"></script>
-<script src="js/controls.js?v=39"></script>
-<script src="js/chat.js?v=39"></script>
-<script src="js/console.js?v=39"></script>
-<script src="js/touch.js?v=39"></script>
-<script src="js/intro.js?v=39"></script>
+<script src="js/core.js?v=40"></script>
+<script src="js/world.js?v=40"></script>
+<script src="js/bunker.js?v=40"></script>
+<script src="js/trenches.js?v=40"></script>
+<script src="js/tunnels.js?v=40"></script>
+<script src="js/chars.js?v=40"></script>
+<script src="js/fx.js?v=40"></script>
+<script src="js/models.js?v=40"></script>
+<script src="js/weapons.js?v=40"></script>
+<script src="js/vehicles.js?v=40"></script>
+<script src="js/gvehicles.js?v=40"></script>
+<script src="js/vmodels.js?v=40"></script>
+<script src="js/heliboat.js?v=40"></script>
+<script src="js/specials.js?v=40"></script>
+<script src="js/snowmap.js?v=40"></script>
+<script src="js/houston.js?v=40"></script>
+<script src="js/suburbs.js?v=40"></script>
+<script src="js/levels.js?v=40"></script>
+<script src="js/wake.js?v=40"></script>
+<script src="js/ai.js?v=40"></script>
+<script src="js/build.js?v=40"></script>
+<script src="js/relaynet.js?v=40"></script>
+<script src="js/peernet.js?v=40"></script>
+<script src="js/net.js?v=40"></script>
+<script src="js/player.js?v=40"></script>
+<script src="js/setup.js?v=40"></script>
+<script src="js/main.js?v=40"></script>
+<script src="js/lobby.js?v=40"></script>
+<script src="js/polish.js?v=40"></script>
+<script src="js/clown.js?v=40"></script>
+<script src="js/craters.js?v=40"></script>
+<script src="js/topview.js?v=40"></script>
+<script src="js/animals.js?v=40"></script>
+<script src="js/loot.js?v=40"></script>
+<script src="js/sticky.js?v=40"></script>
+<script src="js/nuke.js?v=40"></script>
+<script src="js/city.js?v=40"></script>
+<script src="js/towers.js?v=40"></script>
+<script src="js/treasure.js?v=40"></script>
+<script src="js/zombies.js?v=40"></script>
+<script src="js/achievements.js?v=40"></script>
+<script src="js/ships.js?v=40"></script>
+<script src="js/sound.js?v=40"></script>
+<script src="js/controls.js?v=40"></script>
+<script src="js/chat.js?v=40"></script>
+<script src="js/console.js?v=40"></script>
+<script src="js/touch.js?v=40"></script>
+<script src="js/intro.js?v=40"></script>
 </body>
 </html>

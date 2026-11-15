@@ -189,15 +189,31 @@ function planeGroundCheck(pl) {
   }
   return true;
 }
+// the player's aim assist: the enemy plane nearest the nose, and where it will be when the bullets get there
+function planeLeadTarget(pl, maxAng = 0.26, range = 520) {
+  const f = planeFwd(pl); let best = null, bs = Infinity;
+  for (const t of planes) {
+    if (t === pl || !t.alive || t.team === pl.team || t.onGround) continue;
+    const v = t.pos.clone().sub(pl.pos), d = v.length(); if (d > range || d < 6) continue;
+    const ang = Math.acos(clamp(v.dot(f) / d, -1, 1)); if (ang > maxAng) continue;
+    if (ang * 300 + d * 0.2 < bs) { bs = ang * 300 + d * 0.2; best = t; }
+  }
+  if (!best) return null;
+  const d = best.pos.distanceTo(pl.pos), lead = best.pos.clone().addScaledVector(planeFwd(best), best.speed * d / 380);
+  return { t: best, lead };
+}
 function planeGuns(pl, shooter, accurate) {
   pl.gunT = 0.07;
   const fwd = planeFwd(pl), right = new THREE.Vector3(1, 0, 0).applyQuaternion(pl.quat);
+  const lock = shooter === player ? planeLeadTarget(pl) : null;   // bullets bend towards the enemy in front of you
   for (const s of [-1, 1]) {
     const o = pl.pos.clone().addScaledVector(right, s * 2.4).addScaledVector(fwd, 2);
-    const d = fwd.clone().add(new THREE.Vector3(rand(-1, 1), rand(-1, 1), rand(-1, 1)).multiplyScalar(accurate ? 0.012 : 0.035)).normalize();
-    const hit = rayHit(o, d, 320, pl.team, { player: pl.team !== player.team, ignorePlane: pl });
+    const aim = lock ? lock.lead.clone().sub(o).normalize() : fwd.clone();
+    const d = aim.add(new THREE.Vector3(rand(-1, 1), rand(-1, 1), rand(-1, 1)).multiplyScalar(lock ? 0.006 : accurate ? 0.012 : (DOGFIGHT ? 0.05 : 0.035))).normalize();
+    let hit = rayHit(o, d, 520, pl.team, { player: pl.team !== player.team, ignorePlane: pl });
+    if (lock && (!hit || !hit.plane) && Math.random() < 0.6) hit = { plane: lock.t, point: lock.t.pos.clone() };   // a near miss on the locked plane still counts most of the time
     const end = hit ? hit.point : o.clone().addScaledVector(d, 320);
-    shootTracer(o, end, 0xffd060, 380, 0.06, () => applyHit(hit, d, { dmg: 20, force: 8 }, shooter));
+    shootTracer(o, end, 0xffd060, 380, 0.06, () => applyHit(hit, d, { dmg: shooter === player ? 24 : DOGFIGHT ? 8 : 20, force: 8 }, shooter));   // computer pilots hit softer in a dogfight
     netShot(o, end, 2);
   }
   playAt('mg', pl.pos, 0.8);
@@ -347,7 +363,7 @@ function updatePlayerPlane(pl, dt) {
     pl.pos.y = heightAt(pl.pos.x, pl.pos.z) + 1.6;
     if (pl.speed > 24 && (pitchIn > 0 || (planeView === 'cockpit' && pl.aimPitch > 0.12))) { pl.onGround = false; pl.aimPitch = Math.max(pl.aimPitch || 0, 0.25); pl.quat.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(0.12, 0, 0))); pl.pos.y += 0.5; }
     for (const o of nearbyColliders(pl.pos.x, pl.pos.z)) if (o.kind === 'box' && pl.pos.x > o.minX - 1 && pl.pos.x < o.maxX + 1 && pl.pos.z > o.minZ - 1 && pl.pos.z < o.maxZ + 1 && pl.pos.y - 1.5 < o.maxY) { if (pl.speed > 15) { destroyPlane(pl, null); return; } pl.speed = 0; }
-  } else if (planeView === 'cockpit') {
+  } else if (planeView === 'cockpit' || DOGFIGHT) {   // dogfights use the easy mouse flying in every view
     easyFly(pl, dt);
     if (!planeGroundCheck(pl)) return;
   } else {

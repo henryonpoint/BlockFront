@@ -217,24 +217,51 @@ function jetModel(team, kind) {
 // World War 1 fighters: a red triplane (three stacked wings, like the famous Red Baron's) and a two-winged biplane
 function ww1Model(team, kind) {
   const tri = kind === 'triplane', g = new THREE.Group();
-  const col = tri ? 0xc0201a : 0x9a8a5a, wingCol = tri ? 0xc8261e : 0xd8ccb0, dark = 0x2a221c;
-  const geo = vcached(kind + team, () => {
+  const body = tri ? 0xb8221a : 0x8c7a4c, wingTop = tri ? 0xc42a20 : 0xd9ceb0, wingUnder = tri ? 0x9c1c16 : 0xc8bc98, metal = 0x7a7c80, wood = 0x6b4a2a, dark = 0x24201c;
+  const geo = vcached('ww1b_' + kind + team, () => {
     const p = new Part();
-    p.box(1.0, 1.0, 5.2, col, 0, 0, 0.4); p.cyl(0.55, 0.15, 1.8, col, 0, 0.05, 3.9, Math.PI / 2, 0, 0, 1, 8);   // boxy body, tapering tail
-    p.cyl(0.62, 0.62, 0.6, 0x5a5a5a, 0, 0, -2.4, Math.PI / 2, 0, 0, 1, 12);                                   // round engine at the front
-    const wings = tri ? [[-0.65, 7.2], [0.25, 7.4], [1.15, 7.6]] : [[-0.55, 8.6], [1.05, 8.6]];
-    for (const [y, span] of wings) p.box(span, 0.1, 1.5, wingCol, 0, y, -1.0);                               // stacked wings
-    for (const sd of [-1, 1]) { p.box(0.06, wings[wings.length - 1][0] - wings[0][0], 0.06, dark, sd * (tri ? 3.2 : 3.8), (wings[0][0] + wings[wings.length - 1][0]) / 2, -1.0); p.box(0.06, 1.0, 0.06, dark, sd * 0.6, 0.6, -1.2); }   // struts
-    p.box(2.6, 0.08, 0.9, wingCol, 0, 0.1, 4.2); p.add(new THREE.BoxGeometry(0.08, 0.9, 0.8), col, 0, 0.5, 4.4);   // tailplane, rudder
-    for (const sd of [-1, 1]) { p.box(0.06, 0.9, 0.06, dark, sd * 0.6, -0.9, -1.2); p.cyl(0.32, 0.32, 0.12, 0x222222, sd * 0.75, -1.35, -1.2, 0, 0, Math.PI / 2, 1, 10); }   // landing gear
-    p.box(0.08, 0.08, 0.9, 0x222222, -0.18, 0.62, -1.6); p.box(0.08, 0.08, 0.9, 0x222222, 0.18, 0.62, -1.6);   // twin machine guns
-    p.box(0.5, 0.12, 0.5, dark, 0, 0.5, 0.2);                                                                 // open cockpit
-    if (!tri) for (const sd of [-1, 1]) p.cyl(0.4, 0.4, 0.02, P_TEAM_RING(team), sd * 3, 1.11, -1.0, 0, 0, 0, 1, 12);   // round markings on the wing
+    // a round body that tapers to the tail, with a metal cowling around the engine at the front
+    p.cyl(0.62, 0.68, 1.6, body, 0, 0, -1.2, Math.PI / 2, 0, 0, 1, 14);
+    p.cyl(0.68, 0.42, 2.4, body, 0, 0.02, 0.8, Math.PI / 2, 0, 0, 1, 14);
+    p.cyl(0.42, 0.1, 2.2, body, 0, 0.08, 3.1, Math.PI / 2, 0, 0, 1, 12);
+    p.cyl(0.72, 0.72, 0.5, metal, 0, 0, -2.1, Math.PI / 2, 0, 0, 1, 16);                     // cowling
+    p.cyl(0.5, 0.5, 0.3, 0x3a3a3a, 0, 0, -2.4, Math.PI / 2, 0, 0, 1, 14);                     // engine face
+    for (let i = 0; i < 7; i++) { const a = i / 7 * Math.PI * 2; p.box(0.12, 0.12, 0.3, 0x555555, Math.sin(a) * 0.42, Math.cos(a) * 0.42, -2.45); }   // rotary engine cylinders
+    // wings with rounded tips: stacked one above another, the top one painted, the undersides a shade darker
+    const wing = (y, span, chord) => {
+      p.box(span - chord, 0.12, chord, wingTop, 0, y, -0.9);
+      for (const sd of [-1, 1]) p.add(new THREE.CylinderGeometry(chord / 2, chord / 2, 0.12, 14, 1, false, sd > 0 ? 0 : Math.PI, Math.PI), wingTop, sd * (span - chord) / 2, y, -0.9, 0, 0, 0);
+      p.box(span - chord, 0.02, chord - 0.1, wingUnder, 0, y - 0.07, -0.9);
+      for (let x = -span / 2 + 0.6; x < span / 2 - 0.4; x += 0.7) p.box(0.04, 0.13, chord - 0.05, wingUnder, x, y + 0.005, -0.9);   // ribs
+    };
+    const wings = tri ? [[-0.45, 6.4, 1.15], [0.45, 6.8, 1.15], [1.35, 7.4, 1.15]] : [[-0.45, 8.2, 1.4], [1.25, 8.6, 1.4]];
+    wings.forEach(([y, sp, ch]) => wing(y, sp, ch));
+    const lo = wings[0][0], hi = wings[wings.length - 1][0];
+    for (const sd of [-1, 1]) {
+      for (const dz of [-1.35, -0.45]) p.box(0.06, hi - lo, 0.06, wood, sd * (tri ? 2.6 : 3.2), (lo + hi) / 2, dz);     // outer struts
+      p.box(0.05, hi - 0.3, 0.05, dark, sd * 0.45, (0.3 + hi) / 2 - 0.15, -1.4);                                       // cabane struts
+      p.box(0.05, 0.05, Math.hypot(hi - lo, tri ? 2.6 : 3.2), 0x9a9a9a, sd * (tri ? 1.3 : 1.6), (lo + hi) / 2, -0.9, 0, 0, sd * Math.atan2(hi - lo, tri ? 2.6 : 3.2));   // bracing wire
+      p.box(0.06, 0.9, 0.06, dark, sd * 0.55, -0.85, -1.3, 0.25, 0, -sd * 0.25); p.cyl(0.36, 0.36, 0.14, 0x1a1a1a, sd * 0.75, -1.35, -1.25, 0, 0, Math.PI / 2, 1, 14); p.cyl(0.14, 0.14, 0.16, metal, sd * 0.75, -1.35, -1.25, 0, 0, Math.PI / 2, 1, 8);   // landing gear
+    }
+    p.box(1.4, 0.06, 0.12, wood, 0, -1.35, -1.25);                                                                     // axle
+    // tail: a flat tailplane with an elevator and a rounded rudder
+    p.box(2.6, 0.07, 0.8, wingTop, 0, 0.1, 4.0); p.box(2.6, 0.06, 0.35, wingUnder, 0, 0.1, 4.55);
+    p.add(new THREE.CylinderGeometry(0.55, 0.55, 0.07, 14, 1, false, 0, Math.PI), body, 0, 0.55, 4.0, 0, Math.PI / 2, Math.PI / 2);
+    p.box(0.06, 0.25, 0.25, dark, 0, -0.35, 4.1);                                                                      // tail skid
+    // the open cockpit, with the pilot's head and goggles, and twin guns on top of the nose
+    p.cyl(0.42, 0.42, 0.12, dark, 0, 0.62, 0.15, 0, 0, 0, 1, 12);
+    p.ball(0.24, 0x5a3a24, 0, 0.88, 0.2); p.box(0.36, 0.08, 0.1, 0x1a1a1a, 0, 0.92, 0.0);                              // helmet, goggles
+    for (const sd of [-0.16, 0.16]) p.cyl(0.05, 0.05, 1.1, 0x1a1a1a, sd, 0.68, -1.1, Math.PI / 2, 0, 0, 1, 6);
+    // markings: team colour bands on the body and roundels on the top wing (no flags or emblems)
+    const tc = (VPAINT[team] || VPAINT.blue).team;
+    p.cyl(0.7, 0.7, 0.25, tri ? 0xf2f2f2 : tc, 0, 0.0, 2.0, Math.PI / 2, 0, 0, 1, 14);
+    for (const sd of [-1, 1]) { p.cyl(0.45, 0.45, 0.02, 0xf2f2f2, sd * (wings[wings.length - 1][1] / 2 - 1.1), hi + 0.07, -0.9, 0, 0, 0, 1, 16); p.cyl(0.3, 0.3, 0.025, tc, sd * (wings[wings.length - 1][1] / 2 - 1.1), hi + 0.075, -0.9, 0, 0, 0, 1, 16); }
     return p;
   });
   const m = new THREE.Mesh(geo, VEH_MAT); m.castShadow = true; g.add(m);
-  const prop = new THREE.Group(); prop.position.set(0, 0, -2.75); g.add(prop);
-  const blade = new THREE.Mesh(new THREE.BoxGeometry(0.2, 2.6, 0.06), new THREE.MeshLambertMaterial({ color: 0x6b4a2a })); prop.add(blade);
+  const prop = new THREE.Group(); prop.position.set(0, 0, -2.62); g.add(prop);
+  const blade = new THREE.Mesh(new THREE.BoxGeometry(0.18, 2.5, 0.07), new THREE.MeshLambertMaterial({ color: wood })); prop.add(blade);
+  const hub = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), new THREE.MeshLambertMaterial({ color: metal })); prop.add(hub);
   const canopy = new THREE.Object3D(); g.add(canopy);
   const bomb = new THREE.Object3D(); g.add(bomb);
   const gunYaw = new THREE.Group(); g.add(gunYaw); const gunPitch = new THREE.Group(); gunYaw.add(gunPitch);

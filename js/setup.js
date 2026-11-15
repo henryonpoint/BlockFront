@@ -14,7 +14,7 @@ const DIFFS = {
   insane: { name: 'Insane', acc: 0.22, dmg: 1.6, react: 0.5 },
 };
 const DIFF = () => DIFFS[BATTLE.diff] || DIFFS.normal;
-try { const b = JSON.parse(localStorage.getItem('bf_battle') || '{}'); if (POINT_SETS[b.points]) BATTLE.points = b.points; if (SOLDIER_CHOICES.includes(b.soldiers)) BATTLE.soldiers = b.soldiers; if (DIFFS[b.diff]) BATTLE.diff = b.diff; BATTLE.clown = b.clown === true; BATTLE.god = b.god === true; } catch (e) { }
+try { const b = JSON.parse(localStorage.getItem('bf_battle') || '{}'); if (POINT_SETS[b.points]) BATTLE.points = b.points; if (SOLDIER_CHOICES.includes(b.soldiers)) BATTLE.soldiers = b.soldiers; if (DIFFS[b.diff]) BATTLE.diff = b.diff; BATTLE.clown = false; BATTLE.god = false;   /* the clown and god mode are switched on from the console now */ } catch (e) { }
 function saveBattle(extra) {
   try { const old = JSON.parse(localStorage.getItem('bf_battle') || '{}'); localStorage.setItem('bf_battle', JSON.stringify(Object.assign(old, { points: BATTLE.points, soldiers: BATTLE.soldiers, diff: BATTLE.diff, clown: BATTLE.clown, god: BATTLE.god }, extra || {}))); } catch (e) { }
 }
@@ -67,7 +67,11 @@ function applyBattle(cfg, fromHost) {
 
 // ---------- the setup card on the start screen ----------
 function syncBattleUI() {
-  document.querySelectorAll('#battleMap .chip').forEach(c => c.classList.toggle('on', c.dataset.v === WORLD.map));
+  const df = WORLD.map === 'dogfight' || WORLD.map === 'jetfight' || WORLD.map === 'wwifight';
+  document.querySelectorAll('#battleMap .chip').forEach(c => c.classList.toggle('on', c.dataset.v === WORLD.map || (df && c.dataset.v === 'dogfight')));
+  document.querySelectorAll('#battlePlanes .chip').forEach(c => c.classList.toggle('on', c.dataset.v === WORLD.map));
+  for (const id of ['battlePlanes', 'battlePlanesLabel']) { const e = $(id); if (e) e.style.display = df ? '' : 'none'; }
+  for (const id of ['battleMode', 'battleSol']) { const e = $(id); if (e) { e.style.display = df ? 'none' : ''; e.previousElementSibling.style.display = e.style.display; } }   // a dogfight is planes only
   document.querySelectorAll('#battleMode .chip').forEach(c => c.classList.toggle('on', c.dataset.v === WORLD.mode));
   document.querySelectorAll('#battlePts .chip').forEach(c => c.classList.toggle('on', +c.dataset.v === BATTLE.points));
   document.querySelectorAll('#battleSol .chip').forEach(c => c.classList.toggle('on', +c.dataset.v === BATTLE.soldiers));
@@ -82,7 +86,9 @@ function syncBattleUI() {
   const box = $('battleSetup'); if (!box) return;
   box.innerHTML = `
     <div class="fieldLabel">Map</div>
-    <div class="chips" id="battleMap">${Object.entries(MAPS).map(([k, v]) => `<div class="chip" data-v="${k}">${v}</div>`).join('')}</div>
+    <div class="chips" id="battleMap">${Object.entries(MAPS).filter(([k]) => k !== 'jetfight' && k !== 'wwifight').map(([k, v]) => `<div class="chip" data-v="${k}">${k === 'dogfight' ? 'Dogfight' : v}</div>`).join('')}</div>
+    <div class="fieldLabel" id="battlePlanesLabel">Planes</div>
+    <div class="chips" id="battlePlanes"><div class="chip" data-v="wwifight">WW1 triplanes</div><div class="chip" data-v="dogfight">WW2 fighters</div><div class="chip" data-v="jetfight">Modern jets</div></div>
     <div class="fieldLabel">Game mode</div>
     <div class="chips" id="battleMode">${Object.entries(MODES).map(([k, v]) => `<div class="chip" data-v="${k}">${v}</div>`).join('')}</div>
     <div class="fieldLabel">Control points</div>
@@ -91,17 +97,13 @@ function syncBattleUI() {
     <div class="chips" id="battleSol">${SOLDIER_CHOICES.map(n => `<div class="chip" data-v="${n}">${n}</div>`).join('')}</div>
     <div class="fieldLabel">Enemy difficulty</div>
     <div class="chips" id="battleDiff">${Object.entries(DIFFS).map(([k, v]) => `<div class="chip" data-v="${k}">${v.name}</div>`).join('')}</div>
-    <div class="fieldLabel">Crazy clown</div>
-    <div class="chips" id="battleClown"><div class="chip" data-v="off">Off</div><div class="chip" data-v="on">On</div></div>
-    <div class="fieldLabel">Cheats (solo only)</div>
-    <div class="chips" id="battleGod"><div class="chip" data-v="off">Off</div><div class="chip" data-v="on">God mode</div></div>
+    <p class="small" style="opacity:.75">Cheats, the clown and live settings are in the console: press \` in a battle (or tap CHEATS).</p>
     <p class="small" id="battleNote"></p>`;
   box.querySelectorAll('#battleMap .chip').forEach(c => c.addEventListener('click', () => chooseWorld('map', c.dataset.v)));
+  box.querySelectorAll('#battlePlanes .chip').forEach(c => c.addEventListener('click', () => chooseWorld('map', c.dataset.v)));
   box.querySelectorAll('#battleMode .chip').forEach(c => c.addEventListener('click', () => chooseWorld('mode', c.dataset.v)));
   box.querySelectorAll('#battlePts .chip').forEach(c => c.addEventListener('click', () => { BATTLE.points = +c.dataset.v; saveBattle(); syncBattleUI(); }));
   box.querySelectorAll('#battleSol .chip').forEach(c => c.addEventListener('click', () => { BATTLE.soldiers = +c.dataset.v; saveBattle(); syncBattleUI(); }));
   box.querySelectorAll('#battleDiff .chip').forEach(c => c.addEventListener('click', () => { BATTLE.diff = c.dataset.v; saveBattle(); syncBattleUI(); }));
-  box.querySelectorAll('#battleClown .chip').forEach(c => c.addEventListener('click', () => { BATTLE.clown = c.dataset.v === 'on'; saveBattle(); syncBattleUI(); }));
-  box.querySelectorAll('#battleGod .chip').forEach(c => c.addEventListener('click', () => { BATTLE.god = c.dataset.v === 'on'; saveBattle(); syncBattleUI(); }));
   syncBattleUI();
 })();

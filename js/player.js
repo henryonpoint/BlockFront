@@ -383,17 +383,28 @@ let _noseEl = null;
 // red diamonds around enemy aircraft while you fly, with how far away they are, so they are easy to find
 const _airTags = [];
 function updateAirTargets() {
-  const flying = player.vehicle && (player.vehicle.kind === 'f18' || player.vehicle.kind === 'f22');   // target diamonds come with the modern jets' radar
+  const me = player.vehicle, flying = me && (DOGFIGHT || me.kind === 'f18' || me.kind === 'f22');   // modern jets' radar, and every dogfight
   let n = 0;
   if (flying) {
     camera.updateMatrixWorld();
-    const list = planes.filter(p => p.alive && p.team !== player.team && !p.onGround).map(p => p.pos).concat(gvehicles.filter(v => v.alive && v.T.heli && v.team !== player.team && v.airborne).map(v => v.pos));
-    for (const pos of list) {
-      const d = pos.distanceTo(camera.position); if (d > 900 || d < 8) continue;
-      const p = pos.clone().project(camera); if (p.z > 1 || Math.abs(p.x) > 1 || Math.abs(p.y) > 1) continue;
+    const list = planes.filter(p => p.alive && p.team !== player.team && !p.onGround).map(p => ({ pos: p.pos, pl: p })).concat(gvehicles.filter(v => v.alive && v.T.heli && v.team !== player.team && v.airborne).map(v => ({ pos: v.pos })));
+    const lock = typeof planeLeadTarget === 'function' ? planeLeadTarget(me) : null;
+    for (const it of list) {
+      const d = it.pos.distanceTo(camera.position); if (d > 900 || d < 8) continue;
+      const p = it.pos.clone().project(camera); if (p.z > 1 || Math.abs(p.x) > 1 || Math.abs(p.y) > 1) continue;
       let el = _airTags[n]; if (!el) { el = document.createElement('div'); el.className = 'hud'; el.style.cssText = 'position:fixed;pointer-events:none;font:700 11px system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#ff5a4a;text-align:center;text-shadow:0 1px 2px #000;transform:translate(-50%,-50%)'; document.body.appendChild(el); _airTags.push(el); }
-      el.innerHTML = '<div style="width:22px;height:22px;margin:0 auto;border:2px solid #ff5a4a;transform:rotate(45deg)"></div>' + Math.round(d) + ' m';
+      const locked = lock && it.pl === lock.t;
+      el.innerHTML = `<div style="width:22px;height:22px;margin:0 auto;border:2px solid ${locked ? '#ffd54f' : '#ff5a4a'};transform:rotate(45deg)"></div>${locked ? 'LOCKED ' : ''}${Math.round(d)} m`;
+      el.style.color = locked ? '#ffd54f' : '#ff5a4a';
       el.style.left = ((p.x + 1) / 2 * innerWidth) + 'px'; el.style.top = ((1 - p.y) / 2 * innerHeight + 8) + 'px'; el.style.display = 'block'; n++;
+      if (it.pl && d < 600) {   // the lead circle: aim here and the bullets meet the plane
+        const lp = it.pos.clone().addScaledVector(planeFwd(it.pl), it.pl.speed * d / 380).project(camera);
+        if (lp.z < 1 && Math.abs(lp.x) < 1 && Math.abs(lp.y) < 1) {
+          let c = _airTags[n]; if (!c) { c = document.createElement('div'); c.className = 'hud'; document.body.appendChild(c); _airTags.push(c); }
+          c.style.cssText = 'position:fixed;pointer-events:none;width:14px;height:14px;border:2px solid #ffd54f;border-radius:50%;transform:translate(-50%,-50%);display:block';
+          c.innerHTML = ''; c.style.left = ((lp.x + 1) / 2 * innerWidth) + 'px'; c.style.top = ((1 - lp.y) / 2 * innerHeight) + 'px'; n++;
+        }
+      }
     }
   }
   for (let i = n; i < _airTags.length; i++) _airTags[i].style.display = 'none';
@@ -555,7 +566,7 @@ addEventListener('mousemove', e => {
 });
 function lookDelta(mx, my) {
   mx *= SET.sens; my *= SET.sens; if (SET.invert) my = -my;
-  if (player.vehicle && planeView === 'cockpit') { const pl = player.vehicle; if (pl.aimYaw === undefined) setPlaneView('cockpit'); pl.aimYaw -= mx * 0.0024; pl.aimPitch = clamp((pl.aimPitch || 0) + my * 0.0024, -0.9, 0.9); return; }   // like a flight stick: pull the mouse back (towards you) to climb
+  if (player.vehicle && (planeView === 'cockpit' || DOGFIGHT)) { const pl = player.vehicle; if (pl.aimYaw === undefined && planeView === 'cockpit') setPlaneView('cockpit'); if (pl.aimYaw === undefined) { const e = new THREE.Euler().setFromQuaternion(pl.quat, 'YXZ'); pl.aimYaw = e.y; pl.aimPitch = 0; } pl.aimYaw -= mx * 0.0024; pl.aimPitch = clamp((pl.aimPitch || 0) + my * 0.0024, -0.9, 0.9); return; }   // like a flight stick: pull the mouse back (towards you) to climb
   if (player.vehicle) { camOrbit.yaw = clamp(camOrbit.yaw - mx * 0.003, -2.5, 2.5); camOrbit.pitch = clamp(camOrbit.pitch - my * 0.003, -0.6, 0.8); camOrbit.t = 2; return; }
   if (player.turret) { const t = player.turret; t.yaw -= mx * 0.0022; t.pitch = clamp(t.pitch - my * 0.0022, -0.35, 1.2); return; }
   if (player.gv && player.gv.T.heli && player.seat === 0) {   // helicopter pilot: mouse left/right turns, up/down aims
@@ -906,7 +917,8 @@ function renderSpawnChoices() {
 function readyPlanes() { const air = RUNWAYS[player.team] && RUNWAYS[player.team].carrier; return planes.filter(pl => pl.team === player.team && pl.alive && !pl.pilot && !pl.remote && (air ? true : pl.onGround && pl.speed < 5)); }   // carrier planes are taken over in the air
 function boardPlane(pl) {
   if (!pl.homeTeam) pl.homeTeam = pl.team; pl.team = player.team;   // a stolen plane flies for your team
-  player.vehicle = pl; pl.pilot = player; pl.throttle = pl.onGround ? 0 : 1; pl.waitT = 999; zoom = false; ads = false; cancelPlace();
+  player.vehicle = pl; pl.pilot = player; pl.throttle = pl.onGround ? 0 : 1; pl.waitT = 999;
+  if (DOGFIGHT) pl.hp = pl.maxHp * 2.5;   // your plane takes a lot more hits in a dogfight zoom = false; ads = false; cancelPlace();
   player.pos.copy(pl.pos); player.pos.y -= 1.6;
   showMessage(IS_TOUCH ? 'Hold THR + to speed up, then pull the stick down to lift off' : 'Hold Shift to speed up, then press S to lift off', 4);
 }
