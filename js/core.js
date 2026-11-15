@@ -67,7 +67,8 @@ const FOG_COLOR = new THREE.Color(SNOW ? 0xdde4ec : DESERT ? 0xe8d6b0 : HOUSTON 
 if (SNOW) {
   // snowstorm haze: thickens quickly with distance (near and far are kept for the few custom shaders)
   scene.fog = new THREE.FogExp2(FOG_COLOR, LITE ? 0.013 : 0.0112); scene.fog.near = 8; scene.fog.far = 230;
-} else if (DESERT) scene.fog = new THREE.Fog(FOG_COLOR, LITE ? 60 : 90, LITE ? 340 : 470);   // a light dusty haze
+} else if (AFGHAN) scene.fog = new THREE.Fog(FOG_COLOR, LITE ? 110 : 160, LITE ? 520 : 760);   // clear mountain air with a little dust
+else if (DESERT) scene.fog = new THREE.Fog(FOG_COLOR, LITE ? 60 : 90, LITE ? 340 : 470);   // a light dusty haze
 else if (WAKE) scene.fog = new THREE.Fog(FOG_COLOR, LITE ? 90 : 140, LITE ? 480 : 720);   // clear tropical air over the ocean
 else if (HOUSTON) scene.fog = new THREE.Fog(FOG_COLOR, LITE ? 80 : 130, LITE ? 420 : 640);   // warm, humid city haze
 else if (GERMANY) scene.fog = new THREE.Fog(FOG_COLOR, LITE ? 60 : 90, LITE ? 360 : 520);   // grey wartime overcast and smoke
@@ -279,7 +280,7 @@ const teamSide = t => Math.sign(BASES[t].z) || 1;
 const RUNWAYS = NORMANDY ? { blue: { x: 410, z: 475, len: 160, wid: 18, dir: -1, carrier: true },   // Normandy: blue has no strip on the beach, its planes fly from the carrier
   red: { x: -170, z: -470, len: 160, wid: 18, dir: 1 } } : DAM ? { blue: { x: 175, z: 470, len: 160, wid: 18, dir: -1 }, red: { x: -175, z: -470, len: 160, wid: 18, dir: 1 } } : WAKE ? { blue: { x: -15, z: 470, len: 170, wid: 16, dir: -1 }, red: { x: 0, z: 262, len: 170, wid: 18, dir: 1 } } : SNOW ? { blue: { x: -20, z: 468, len: 160, wid: 18, dir: -1 }, red: { x: 20, z: -468, len: 160, wid: 18, dir: 1 } }
   : { blue: { x: 170, z: 470, len: 160, wid: 18, dir: -1 }, red: { x: -170, z: -470, len: 160, wid: 18, dir: 1 } };
-const LAKES = WAKE || NORMANDY || DAM ? [] : GERMANY ? [{ x: -250, z: -60, r: 38 }, { x: 260, z: 40, r: 30 }] : SNOW ? [{ x: -190, z: 130, r: 34 }, { x: 190, z: -130, r: 34 }] : HOUSTON ? [{ x: -205, z: 345, r: 28 }, { x: 225, z: 355, r: 24 }] : [{ x: -225, z: 20, r: 48 }, { x: 215, z: -30, r: 40 }, { x: -170, z: 440, r: 24 }];
+const LAKES = WAKE || NORMANDY || DAM || AFGHAN ? [] : GERMANY ? [{ x: -250, z: -60, r: 38 }, { x: 260, z: 40, r: 30 }] : SNOW ? [{ x: -190, z: 130, r: 34 }, { x: 190, z: -130, r: 34 }] : HOUSTON ? [{ x: -205, z: 345, r: 28 }, { x: 225, z: 355, r: 24 }] : [{ x: -225, z: 20, r: 48 }, { x: 215, z: -30, r: 40 }, { x: -170, z: 440, r: 24 }];
 const LAKE = LAKES[0];
 // Houston: downtown in the middle, the 610 Loop around it, I-45 and I-10 crossing, and Buffalo Bayou winding past the north side
 const BAYOU = [[-575, -120], [-470, -150], [-360, -130], [-260, -175], [-150, -200], [-50, -190], [50, -210], [160, -185], [260, -205], [360, -170], [470, -195], [575, -170]].map(([x, z]) => ({ x, z }));
@@ -424,8 +425,9 @@ function rawHeight(x, z) {
     const ridge = (f, ox, oz) => 1 - Math.abs(vnoise(x * f + ox, z * f + oz) * 2 - 1);
     const mtn = 45 + Math.pow(ridge(0.006, 5, 2), 1.8) * 115 + vnoise(x * 0.03, z * 0.03) * 8;
     let pd2 = Infinity; for (const P of POINTS_DEF) pd2 = Math.min(pd2, Math.hypot(x - P.x, z - P.z));
+    const bd = Math.min(Math.hypot(x - 0, z - 450), Math.hypot(x - 0, z + 450), Math.hypot(x - 170, z - 470) * 1.5, Math.hypot(x + 170, z + 470) * 1.5);   // bases and runways stay on open ground
     let floor = 4 + (vnoise(x * 0.008, z * 0.008) - 0.5) * 8 + ridge(0.015, 3, 8) * 3;
-    floor += Math.pow(ridge(0.0035, 11, 4), 3) * 42 * smooth(55, 130, pd2) * smooth(10, 40, pathDist(x, z));   // rocky hills between the points
+    floor += Math.pow(ridge(0.0035, 11, 4), 3) * 42 * smooth(55, 130, pd2) * smooth(110, 190, bd) * smooth(10, 40, pathDist(x, z));   // rocky hills between the points
     const wz = Math.sin(x * 0.006 + 1) * 80 + 60, wd = Math.abs(z - wz); floor -= smooth(26, 6, wd) * 3.5;  // the dry riverbed
     const e = Math.max(Math.abs(x) / 470, Math.abs(z) / 490);
     return lerp(floor, mtn, smooth(0.84, 1.03, e) * smooth(14, 50, pathDist(x, z)));

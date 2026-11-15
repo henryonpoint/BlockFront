@@ -86,7 +86,7 @@ function syncBattleUI() {
   const box = $('battleSetup'); if (!box) return;
   box.innerHTML = `
     <div class="fieldLabel">Map</div>
-    <div class="chips" id="battleMap">${Object.entries(MAPS).filter(([k]) => k !== 'jetfight' && k !== 'wwifight' && k !== 'afghan')   /* Desert Combat is hidden until it is finished */.map(([k, v]) => `<div class="chip" data-v="${k}">${k === 'dogfight' ? 'Dogfight' : v}</div>`).join('')}</div>
+    <div class="chips" id="battleMap">${Object.entries(MAPS).filter(([k]) => k !== 'jetfight' && k !== 'wwifight').map(([k, v]) => `<div class="chip" data-v="${k}">${k === 'dogfight' ? 'Dogfight' : v}</div>`).join('')}</div>
     <div class="fieldLabel" id="battlePlanesLabel">Planes</div>
     <div class="chips" id="battlePlanes"><div class="chip" data-v="wwifight">WW1 triplanes</div><div class="chip" data-v="dogfight">WW2 fighters</div><div class="chip" data-v="jetfight">Modern jets</div></div>
     <div class="fieldLabel">Game mode</div>

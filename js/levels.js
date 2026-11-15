@@ -13,6 +13,17 @@ function townStreetDist(x, z) {
 function terrainColorLevel(x, z, h, slope) {
   const n = vnoise(x * 0.05, z * 0.05), nf = vnoise(x * 0.21 + 9, z * 0.21 - 3), pd = pathDist(x, z);
   let c;
+  if (AFGHAN) {
+    // dusty tan valley, grey-brown rock on the slopes, snow on the high peaks, green irrigated fields by the riverbed
+    c = new THREE.Color().setRGB(0.66 + n * 0.08, 0.57 + n * 0.07, 0.43 + n * 0.05).multiplyScalar(0.9 + nf * 0.14);
+    const wz = Math.sin(x * 0.006 + 1) * 80 + 60, wd = Math.abs(z - wz);
+    if (wd < 9) c.lerp(new THREE.Color(0.72, 0.7, 0.64), smooth(9, 4, wd));                                           // pale stones of the dry riverbed
+    else if (wd < 40 && vnoise(x * 0.03 + 5, z * 0.03) > 0.52 && h < 9) c.lerp(new THREE.Color(0.36 + nf * 0.06, 0.5, 0.22), 0.75);   // fields
+    c.lerp(new THREE.Color(0.5 + nf * 0.05, 0.46 + nf * 0.05, 0.41), clamp((slope - 0.35) * 2.2 + (h - 30) / 40, 0, 0.85));   // rock
+    if (h > 105) c.lerp(new THREE.Color(0.93, 0.94, 0.96), clamp((h - 105) / 12, 0, 1) * (slope > 1.5 ? 0.5 : 1));             // snow caps
+    if (pd < 4.5) c.lerp(new THREE.Color(0.6, 0.52, 0.4), smooth(4.5, 1.5, pd));
+    return c;
+  }
   if (GERMANY) {
     c = new THREE.Color().setRGB(0.36 + n * 0.08, 0.41 + n * 0.08, 0.24 + n * 0.05).multiplyScalar(0.9 + nf * 0.14);   // tired late-war grass
     const fld = vnoise(x * 0.012 + 3, z * 0.012 - 6); if (fld > 0.6) c.lerp(new THREE.Color(0.52, 0.45, 0.3), 0.55);   // ploughed fields
@@ -101,6 +112,7 @@ function buildLevelExtras() {
   if (GERMANY) buildGermany();
   if (NORMANDY) buildNormandy();
   if (DAM) buildDam();
+  if (AFGHAN) buildAfghan();
   if (GERMANY || NORMANDY) buildIntensity();
 }
 function buildGermany() {
@@ -133,6 +145,59 @@ function buildGermany() {
   // war damage across the countryside: tank traps, sandbags, wrecked cars and more rubble
   for (let i = 0; i < 70; i++) { const a = rand(0, 6.28), r = rand(60, 520), x = Math.cos(a) * r, z = Math.sin(a) * r; if (Math.abs(x) > EDGE - 20 || Math.abs(z) > EDGE - 20) continue; if (lvFree(x, z, 3) && waterDepth(x, z) === 0) (Math.random() < 0.5 ? rubble : hedgehog)(x, z); }
   for (let i = 0; i < 14; i++) { const x = rand(-TOWN_R + 10, TOWN_R - 10), z = rand(-TOWN_R + 10, TOWN_R - 10); if (townStreetDist(x, z) < 2.5 && Math.hypot(x, z) < TOWN_R - 10) { let near = false; for (const p of POINTS_DEF) if (Math.hypot(x - p.x, z - p.z) < 14) near = true; if (!near && typeof addCar === 'function') addCar(x, z, Math.random() < 0.5, 0x2a2826); } }
+}
+// ===================== Desert Combat: Afghanistan =====================
+const AFG = { tan: new THREE.MeshLambertMaterial({ color: 0xa88c64 }), mud: new THREE.MeshLambertMaterial({ color: 0xb09670 }), hesco: new THREE.MeshLambertMaterial({ color: 0xb3a47e }) };
+// a walled family compound (a qalat): thick mud walls with round corner towers, a gate, and houses inside
+function qalat(cx, cz, S, rot) {
+  const h = 4.2, t = 1.1, gate = 5;
+  for (const [ax, az, len, alongX] of [[0, -S / 2, S, true], [0, S / 2, S, true], [-S / 2, 0, S, false], [S / 2, 0, S, false]]) {
+    const gateHere = (rot % 4 === 0 && az > 0 && alongX) || (rot % 4 === 1 && ax > 0 && !alongX) || (rot % 4 === 2 && az < 0 && alongX) || (rot % 4 === 3 && ax < 0 && !alongX);
+    const parts = gateHere ? [[-len / 2, -gate / 2], [gate / 2, len / 2]] : [[-len / 2, len / 2]];
+    for (const [a0, a1] of parts) { const mid = (a0 + a1) / 2, L = a1 - a0; if (alongX) addBlock(cx + mid, cz + az, L, h, t, AFG.mud); else addBlock(cx + ax, cz + mid, t, h, L, AFG.mud); }
+  }
+  for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { const x = cx + dx * S / 2, z = cz + dz * S / 2; addMesh(new THREE.CylinderGeometry(1.6, 1.9, h + 1.8, 10), AFG.mud, x, heightAt(x, z) + (h + 1.8) / 2 - 0.3, z); addCircle(x, z, 1.9, heightAt(x, z) + h + 1.5); }
+  house(cx - S * 0.18, cz - S * 0.15, S * 0.4, S * 0.32, 3.4, { flat: true }); if (S > 24) house(cx + S * 0.2, cz + S * 0.18, S * 0.3, S * 0.3, 3.0, { flat: true });
+}
+// a HESCO blast wall: wire baskets full of earth, in a long row
+function hesco(x0, z0, x1, z1) {
+  const len = Math.hypot(x1 - x0, z1 - z0), n = Math.max(1, Math.round(len / 2.2));
+  for (let i = 0; i < n; i++) {
+    const x = lerp(x0, x1, (i + 0.5) / n), z = lerp(z0, z1, (i + 0.5) / n);
+    if (pathDist(x, z) < 6 || inRunwayZone(x, z, 2)) continue;
+    addBlock(x, z, 2.1, 2.3, 2.1, AFG.hesco);
+  }
+}
+function buildAfghan() {
+  // the blue forward operating base: HESCO walls round the base, guard towers, tents, shipping containers, a helipad and a radio mast
+  const B = BASES.blue, R = 78;
+  hesco(B.x - R, B.z - R * 0.7, B.x + R, B.z - R * 0.7); hesco(B.x - R, B.z - R * 0.7, B.x - R, B.z); hesco(B.x + R, B.z - R * 0.7, B.x + R, B.z);
+  for (const [dx, dz] of [[-R, -R * 0.7], [R, -R * 0.7]]) {
+    const x = B.x + dx, z = B.z + dz, y = heightAt(x, z), P = new Part();
+    for (const sx of [-1.3, 1.3]) for (const sz of [-1.3, 1.3]) P.box(0.25, 6, 0.25, 0x6a5a40, sx, 3, sz);
+    P.box(3.4, 0.25, 3.4, 0x7a6a50, 0, 6, 0); for (const [a, b] of [[0, 1.6], [0, -1.6], [1.6, 0], [-1.6, 0]]) P.box(a ? 0.3 : 3.4, 1.1, a ? 3.4 : 0.3, 0xb3a47e, a, 6.7, b); P.box(3.8, 0.15, 3.8, 0x5a5040, 0, 8, 0);
+    const m = new THREE.Mesh(P.build(), VEH_MAT); m.position.set(x, y, z); m.castShadow = true; scene.add(m); addBlock(x, z, 3, 6, 3, LV.hidden);
+  }
+  for (let i = 0; i < 4; i++) { const x = B.x - 50 + i * 12, z = B.z + 10; if (!lvFree(x, z, 0) && pathDist(x, z) < 6) continue; const m = addMesh(new THREE.CylinderGeometry(3, 3, 9, 12, 1, false, 0, Math.PI), new THREE.MeshLambertMaterial({ color: 0xb8aa86, side: THREE.DoubleSide }), x, heightAt(x, z), z); m.rotation.set(0, 0, Math.PI / 2); m.rotation.order = 'ZXY'; m.rotation.set(Math.PI / 2, 0, Math.PI / 2); }   // long tents
+  for (const [dx, dz, c] of [[40, 8, 0x8a5a3a], [40, 12, 0x3a5a6a], [46, 8, 0x6a6a5a]]) { const x = B.x + dx, z = B.z + dz; if (pathDist(x, z) > 5) addBlock(x, z, 6, 2.6, 2.4, new THREE.MeshLambertMaterial({ color: c })); }   // shipping containers
+  { const x = B.x - 40, z = B.z - 30, y = heightAt(x, z); addMesh(new THREE.CylinderGeometry(9, 9, 0.2, 24), LV.concrete, x, y + 0.1, z, false);
+    const H = new Part(); H.box(1, 0.05, 6, 0xf2f2f2, -1.8, 0, 0); H.box(1, 0.05, 6, 0xf2f2f2, 1.8, 0, 0); H.box(2.6, 0.05, 1, 0xf2f2f2, 0, 0, 0); const hm = new THREE.Mesh(H.build(), VEH_MAT); hm.position.set(x, y + 0.23, z); scene.add(hm); }
+  { const x = B.x + 55, z = B.z - 20, y = heightAt(x, z); addMesh(new THREE.CylinderGeometry(0.15, 0.4, 26, 6), LV.rail, x, y + 13, z); addMesh(new THREE.BoxGeometry(2, 0.1, 0.1), LV.rail, x, y + 22, z); addCircle(x, z, 0.6, y + 26); }
+  // the red side: walled compounds round their base and across the valley, with lookout posts on the hills
+  const Rb = BASES.red;
+  for (const [dx, dz, S] of [[-60, 30, 30], [60, 30, 30], [-90, -10, 24], [90, -10, 24]]) { const x = Rb.x + dx, z = Rb.z + dz; if (lvFree(x, z, S / 2 - 30)) qalat(x, z, S, dz > 0 ? 0 : 2); }
+  let made = 0;
+  for (let i = 0; i < 400 && made < 14; i++) {
+    const x = rand(-420, 420), z = rand(-400, 380), S = rand(20, 30);
+    if (!lvFree(x, z, S * 0.7) || Math.hypot(x - B.x, z - B.z) < 140 || heightAt(x, z) > 14) continue;
+    const hs = [heightAt(x - S / 2, z - S / 2), heightAt(x + S / 2, z - S / 2), heightAt(x - S / 2, z + S / 2), heightAt(x + S / 2, z + S / 2)];
+    if (Math.max(...hs) - Math.min(...hs) > 3) continue;
+    let near = false; for (const o of nearbyColliders(x, z)) if (o.kind === 'box' && Math.abs(o.minX - x) < S && Math.abs(o.minZ - z) < S) near = true; if (near) continue;
+    qalat(x, z, S, Math.floor(rand(0, 4))); made++;
+  }
+  // wrecked vehicles and sandbag posts dotted around
+  for (let i = 0; i < 18; i++) { const x = rand(-420, 420), z = rand(-400, 400); if (!lvFree(x, z, 3)) continue; const y = heightAt(x, z), P = new Part(); P.box(2, 1, 4.2, 0x3a3430, 0, 0.7, 0); P.box(1.8, 0.8, 1.8, 0x2a2622, 0, 1.5, 0.5); for (const sx of [-1, 1]) for (const sz of [-1.4, 1.4]) P.cyl(0.45, 0.45, 0.3, 0x1a1a1a, sx * 1.05, 0.45, sz, 0, 0, Math.PI / 2, 1, 8); const m = new THREE.Mesh(P.build(), VEH_MAT); m.position.set(x, y, z); m.rotation.set(rand(-0.1, 0.1), rand(0, 6.28), rand(-0.3, 0.3)); scene.add(m); addBlock(x, z, 2.4, 1.8, 2.4, LV.hidden); }
+  for (let i = 0; i < 20; i++) { const x = rand(-430, 430), z = rand(-420, 420); if (!lvFree(x, z, 3)) continue; const y = heightAt(x, z), P = new Part(); for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 1.6; P.add(new THREE.SphereGeometry(0.5, 7, 5), 0xa8935f, Math.cos(a) * 2.2, 0.35, Math.sin(a) * 2.2, 0, 0, 0, 1.4, 0.6, 1); P.add(new THREE.SphereGeometry(0.5, 7, 5), 0x9a8552, Math.cos(a + 0.15) * 2.2, 0.9, Math.sin(a + 0.15) * 2.2, 0, 0, 0, 1.4, 0.6, 1); } const m = new THREE.Mesh(P.build(), VEH_MAT); m.position.set(x, y, z); m.rotation.y = rand(0, 6.28); scene.add(m); }
 }
 function buildNormandy() {
   // a low concrete sea wall at the top of the beach, open where the roads come up from the sand
@@ -309,6 +374,7 @@ function updateLevel(dt) {
   if (DAM) updateDam(dt);
   if (GERMANY) { installLeaderHooks(); installGuardHook(); updateBombers(dt); updateLeader(dt); }
   if ((GERMANY || NORMANDY) && started) updateBarrage(dt);
+  if (AFGHAN && started && !AFG.told && player.alive) { AFG.told = true; showMessage('Desert Combat: Afghanistan. Blue holds the base in the south of the valley, red holds the mountain villages. Humvees, jets and helicopters are at your base', 7); }
   if ((GERMANY || NORMANDY) && started && !BARRAGE.told && player.alive) { BARRAGE.told = true; showMessage(NORMANDY ? 'June 6, 1944: D-Day. Blue storms the beach, red holds the bunkers' : 'Berlin, April 1945: the last battle in Europe. Hitler hides in one of the bunkers. Blue: find the clues by the landmarks (red blinking lights) to track him down', 8); }
   if (NORMANDY) {
     updateLandingCraft();
