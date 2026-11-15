@@ -115,6 +115,7 @@ function buildWorld1() {
     o.P = points.map(q => Math.round(q.progress * 100)); o.O = points.map(q => q.owner ? q.owner[0] : '-').join(''); if (FOUR) o.CT = points.map(q => q.capTeam ? q.capTeam[0] : '-').join('');
     o.TK = TEAMS.map(t => teamKills[t] || 0); o.KF = net.kf.filter(e => simTime - e[e.length - 1] < 8).map(e => e.slice(0, -1));
     if (gameOver) o.GO = winner;
+    o.FPS = Math.round(typeof fpsNow === 'function' ? fpsNow() : 0);
     o.CF = [BATTLE.points, BATTLE.soldiers, BATTLE.diff]; o.HS = [Math.round(holdScore.blue), Math.round(holdScore.red)]; if (typeof clownNetState === 'function') o.CL = clownNetState();
   }
   return fitSize(o, ['KF']);
@@ -124,15 +125,30 @@ function buildWorld2() {
   {
     o.PL = planes.map(pl => pl.remote || pl.pilot === player ? 0 : [pl.alive ? 1 : 0, r10(pl.pos.x), r10(pl.pos.y), r10(pl.pos.z), Math.round(pl.quat.x * 1000), Math.round(pl.quat.y * 1000), Math.round(pl.quat.z * 1000), Math.round(pl.quat.w * 1000), Math.round(pl.speed), pl.bombs]);
     o.GV = gvehicles.map(v => v.remote ? 0 : !v.alive ? [0] : (Math.abs(v.speed) < 0.05 && !occupants(v).length) ? [1, r10(v.pos.x), r10(v.pos.y), r10(v.pos.z), Math.round(v.yaw * 100)] : [v.alive ? 1 : 0, r10(v.pos.x), r10(v.pos.y), r10(v.pos.z), Math.round(v.yaw * 100), Math.round(v.pitch * 100), Math.round(v.roll * 100), Math.round(v.turretYaw * 100), Math.round(v.gunPitch * 100), Math.round(v.mgYaw * 100), Math.round(v.mgPitch * 100), r10(v.speed)]);
+    // vehicles that haven't changed since the last update are left out (0 = nothing new), with a full
+    // refresh every few seconds so someone who just joined still learns where everything is
+    net.w2n = (net.w2n || 0) + 1; const full = net.w2n % 16 === 1;
+    net.w2last = net.w2last || [];
+    o.GV = o.GV.map((e, i) => { const k = e === 0 ? '0' : e.join(','); if (!full && net.w2last[i] === k) return 0; net.w2last[i] = k; return e; });
   }
   return o;
 }
 
 // ---------- connecting ----------
-const GAME_BUILD = 18;   // bump when vehicles or the world change, so mismatched versions never mix
+const GAME_BUILD = 19;   // bump when vehicles or the world change, so mismatched versions never mix
 // the version number on the start screen and pause menu, so everyone can check they are on the same one
 const GAME_DATE = 'Nov 15, 2026';
 setTimeout(() => { const v = document.getElementById('verTag'); if (v) v.textContent = `Version ${GAME_BUILD}  \u00b7  ${GAME_DATE}${window.STANDALONE ? '' : '  \u00b7  Claude'}`; const p = document.getElementById('verPause'); if (p) p.textContent = `Version ${GAME_BUILD}`; }, 0);
+// field diagnostics, shown in the pause menu so a player who froze can read out what happened
+const NETDIAG = { gaps: [], fails: 0 };
+function netDiagGap(ms) { const now = performance.now(); NETDIAG.gaps.push([now, ms]); while (NETDIAG.gaps.length && now - NETDIAG.gaps[0][0] > 60000) NETDIAG.gaps.shift(); }
+function netSendFail(e) { NETDIAG.fails++; if (typeof loopError === 'function' && NETDIAG.fails % 20 === 1) loopError('send', e); }
+function netDiagText() {
+  if (!net.active) return '';
+  const worst = NETDIAG.gaps.reduce((m, g) => Math.max(m, g[1]), 0);
+  const up = net.api && net.api.linksUp ? net.api.linksUp() + '/3 servers' : 'live room';
+  return net.isHost ? `You host · ${up} · ${Math.round(fpsNow())} fps` : `Host ${net.hostFps || '?'} fps · longest wait ${(worst / 1000).toFixed(1)}s · ${up}`;
+}
 function netNote(t) { net.status = t; const e = document.querySelector('#connecting p'); if (e) e.textContent = t; }
 // online needs either Claude's live rooms or (on the website) PeerJS
 async function onlineApi(scope, first) {
@@ -153,7 +169,7 @@ async function roomsOf(scope, first) {
   const o = await onlineApi(scope, first); if (!o) return null;
   let room = null;
   try { room = await Promise.race([o.api.use('room'), new Promise(r => setTimeout(() => r(null), 20000))]); } catch (e) { room = null; }
-  return room ? { room, close: o.close } : null;
+  return room ? { room, close: o.close, api: o.api } : null;
 }
 // the public game list
 const LOBBY = { room: null, list: null, close: null, opening: null };
@@ -181,7 +197,7 @@ async function netConnect(code, asHost) {
   let game = null;
   try { game = await r.room.join(base); net.w1 = await r.room.join(base + '-w1'); net.w2 = await r.room.join(base + '-w2'); } catch (e) { game = null; }
   if (!game) { netNote(asHost ? 'Could not set up the game. Try again.' : 'Could not find a game with that code. Check it and try again.'); return false; }
-  net.game = game; net.closeGame = r.close; net.active = true; net.jt = Date.now(); net.joinPerf = performance.now();
+  net.game = game; net.closeGame = r.close; net.api = r.api; net.active = true; net.jt = Date.now(); net.joinPerf = performance.now();
   if (!asHost) { net.isHost = false; net.hostId = null; net.noHostUntil = performance.now() + 8000; }   // a joiner never takes over the battle while it is still settling in
   if (asHost) { net.isHost = true; net.hostId = net.myId; return true; }
   // joining: wait until we can see the host, and read the game's map and mode
@@ -383,6 +399,8 @@ function netUpdate(dt) {
       net.lastSnap[k] = hp.presence;
       const now = performance.now();
       if (net.snapAt[k]) net.snapGap[k] = lerp(net.snapGap[k], clamp(now - net.snapAt[k], 40, 1500), 0.2);
+      if (net.snapAt[k] && started) netDiagGap(now - net.snapAt[k]);
+      if (k === 0 && hp.presence.FPS) net.hostFps = hp.presence.FPS;
       net.snapAt[k] = now;
       try { applySnapshot(hp.presence, dt); } catch (e) { if (typeof loopError === 'function') loopError('snapshot', e); }
     }
@@ -394,15 +412,16 @@ function netUpdate(dt) {
     if (nw) nw.style.display = quiet ? 'block' : 'none';
   }
   // publish: me about 12 times a second, the battle (host only) about 8 times a second
-  net.sendT -= dt;
-  if (net.sendT <= 0) {
-    net.sendT = 0.083; net.tick = (net.tick || 0) + 1;
-    net.game.presence(buildPresence()).catch(() => { });
+  // timed by the real clock: a slow computer's short (capped) frame times must not slow down what it sends
+  const nowSend = performance.now();
+  if (net.sendT <= 0 || nowSend - (net.lastSend || 0) >= 83) {
+    net.sendT = 1; net.lastSend = nowSend; net.tick = (net.tick || 0) + 1;
+    net.game.presence(buildPresence()).catch(netSendFail);
     if (net.isHost) {
       // website: soldiers and vehicles alternate every tick (each about 6 times a second); in Claude, two ticks out of three
       const fast = !!window.STANDALONE, which = fast ? net.tick % 2 : net.tick % 3;
-      if (which === 0) net.w1.presence(buildWorld1()).catch(() => { });
-      else if (which === 1) net.w2.presence(buildWorld2()).catch(() => { });
+      if (which === 0) net.w1.presence(buildWorld1()).catch(netSendFail);
+      else if (which === 1) net.w2.presence(buildWorld2()).catch(netSendFail);
     }
   }
   $('online').textContent = `Online: ${peers.length + 1} player${peers.length ? 's' : ''}${net.isHost ? ' (you host)' : ''}   Code ${net.code}${net.isHost && !net.pub ? ' (private)' : ''}`;
@@ -456,7 +475,7 @@ function applyHitEntry(e, src) {
 }
 let lastOwners = '';
 function applySnapshot(P, dt) {
-  if (Array.isArray(P.CF) && (P.CF[0] !== appliedPoints || P.CF[1] !== BATTLE.soldiers)) applyBattle({ points: P.CF[0], soldiers: P.CF[1] }, true);
+  if (Array.isArray(P.CF) && (P.CF[0] !== appliedPoints || P.CF[1] !== BATTLE.soldiers) && net.cfKey !== P.CF[0] + '/' + P.CF[1]) { net.cfKey = P.CF[0] + '/' + P.CF[1]; applyBattle({ points: P.CF[0], soldiers: P.CF[1] }, true); }   // once per change, not on every update
   if (Array.isArray(P.P) && P.P.length !== points.length) return;   // setup still switching over
   if (Array.isArray(P.N)) P.N.forEach((d, i) => { try { applyNpcSnap(d, i); } catch (e) { if (typeof loopError === 'function') loopError('npc snapshot', e); } });
   applyRestOfSnapshot(P);

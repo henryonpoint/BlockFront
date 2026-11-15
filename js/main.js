@@ -309,11 +309,24 @@ function endMenuCinema() {
 const LOOP_ERR = { n: 0, last: '' };
 function loopError(where, e) {
   LOOP_ERR.n++; const msg = where + ': ' + (e && e.message ? e.message : e);
-  const vp = document.getElementById('verPause'); if (vp) { vp.textContent = `Version ${GAME_BUILD}  \u00b7  ${LOOP_ERR.n} problem${LOOP_ERR.n === 1 ? '' : 's'} caught (${msg.slice(0, 60)})`; }
+  LOOP_ERR.msg = msg; updateVerPause();
   if (msg !== LOOP_ERR.last || LOOP_ERR.n % 100 === 1) { LOOP_ERR.last = msg; console.error('[Blockfront] ' + msg, e && e.stack ? e.stack : ''); }
 }
+// the pause menu's small print: version, problems caught, and (online) how the connection is doing
+function updateVerPause() {
+  const vp = document.getElementById('verPause'); if (!vp) return;
+  const parts = [`Version ${GAME_BUILD}`];
+  if (LOOP_ERR.n) parts.push(`${LOOP_ERR.n} problem${LOOP_ERR.n === 1 ? '' : 's'} caught (${(LOOP_ERR.msg || '').slice(0, 60)})`);
+  if (typeof netDiagText === 'function' && net.active) parts.push(netDiagText());
+  vp.textContent = parts.join('  \u00b7  ');
+}
+setInterval(() => { const p = document.getElementById('pause'); if (p && p.style.display !== 'none') updateVerPause(); }, 1000);
+// frames per second, measured on the real clock
+let _fps = 60;
+function fpsNow() { return _fps; }
 function loop(now) {
   requestAnimationFrame(loop);
+  if (now > last) _fps += (Math.min(240, 1000 / (now - last)) - _fps) * 0.03;
   const dt = Math.min((now - last) / 1000, 0.05);
   last = now;
   try {

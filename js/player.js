@@ -317,13 +317,13 @@ function cockpitCamera(pl) {
   if (cockpitModel().parent !== pl.model.g) setPlaneView('cockpit');
   cockpitModel().visible = true;
   pl.model.g.position.copy(pl.pos); pl.model.g.quaternion.copy(pl.quat);
-  camera.position.copy(new THREE.Vector3(0, 1.35, -0.3).applyQuaternion(pl.quat).add(pl.pos));
+  camera.position.copy(new THREE.Vector3(0, 1.6, -0.3).applyQuaternion(pl.quat).add(pl.pos));
   if (pl.model.canopy) pl.model.canopy.visible = false;
   if (pl.aimYaw === undefined) { const e = new THREE.Euler().setFromQuaternion(pl.quat, 'YXZ'); pl.aimYaw = e.y; pl.aimPitch = 0; }
   if (pl.onGround) pl.aimYaw = pl.groundYaw + clamp(wrapAngle(pl.aimYaw - pl.groundYaw), -1.2, 1.2);
   const roll = new THREE.Euler().setFromQuaternion(pl.quat, 'YXZ').z;
   camera.rotation.set(pl.aimPitch || 0, pl.aimYaw, roll * 0.3 + (Math.random() - 0.5) * camShake * 0.3, 'YXZ');
-  const fov = SET.fov || 75; if (Math.abs(camera.fov - fov) > 0.1) { camera.fov = fov; camera.updateProjectionMatrix(); }
+  const fov = (SET.fov || 75) + 12; if (Math.abs(camera.fov - fov) > 0.1) { camera.fov = fov; camera.updateProjectionMatrix(); }   // a wider view from the cockpit
 }
 // in the cockpit: a small ring showing where the guns point (the nose), which chases the crosshair as the plane turns
 let _noseEl = null;

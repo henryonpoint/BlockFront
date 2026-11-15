@@ -197,19 +197,15 @@ let planeView = 'chase';
 let _cockpit = null;
 function cockpitModel() {
   if (_cockpit) return _cockpit;
-  const P = new Part(), frame = 0x2a2d31, dash = 0x1d1f22;   // the pilot's eyes are at (0, 1.35, -0.3), just above the fuselage
-  P.box(1.3, 0.3, 0.5, dash, 0, 0.98, -1.25);                                     // dashboard, sitting on the fuselage
-  P.box(1.34, 0.05, 0.56, frame, 0, 1.15, -1.27);                                 // its top edge
-  for (const [x, y] of [[-0.4, 1.03], [-0.14, 1.05], [0.14, 1.05], [0.4, 1.03]]) {
-    P.cyl(0.075, 0.075, 0.03, 0xf2f2ee, x, y, -0.99, Math.PI / 2, 0, 0, 1, 14);   // dials
-    P.box(0.011, 0.055, 0.01, 0xd8262a, x, y + 0.018, -0.975);                    // needles
+  const P = new Part(), frame = 0x2a2d31, dash = 0x1d1f22;   // the pilot sits high, eyes at (0, 1.6, -0.3), so the view stays open
+  P.box(1.1, 0.16, 0.34, dash, 0, 1.0, -1.3);                                     // a low, slim dashboard
+  P.box(1.14, 0.04, 0.4, frame, 0, 1.09, -1.32);
+  for (const [x, y] of [[-0.33, 1.02], [-0.11, 1.03], [0.11, 1.03], [0.33, 1.02]]) {
+    P.cyl(0.055, 0.055, 0.025, 0xf2f2ee, x, y, -1.12, Math.PI / 2, 0, 0, 1, 14);  // dials
+    P.box(0.009, 0.04, 0.01, 0xd8262a, x, y + 0.014, -1.105);                     // needles
   }
-  P.box(0.035, 0.5, 0.035, frame, -0.55, 1.42, -1.5, 0, 0, -0.22); P.box(0.035, 0.5, 0.035, frame, 0.55, 1.42, -1.5, 0, 0, 0.22);   // windscreen posts
-  P.box(1.0, 0.035, 0.035, frame, 0, 1.66, -1.5);                                 // top of the windscreen
-  P.box(0.035, 0.035, 1.3, frame, -0.6, 1.66, -0.85); P.box(0.035, 0.035, 1.3, frame, 0.6, 1.66, -0.85);   // canopy rails
-  const glass = new THREE.Mesh(new THREE.PlaneGeometry(1.05, 0.48), new THREE.MeshBasicMaterial({ color: 0x9fc8e8, transparent: true, opacity: 0.07, depthWrite: false }));
-  glass.position.set(0, 1.42, -1.51);
-  const g = new THREE.Group(); g.add(new THREE.Mesh(P.build(), new THREE.MeshLambertMaterial({ vertexColors: true })), glass);
+  P.box(0.025, 0.36, 0.025, frame, -0.62, 1.22, -1.55, 0, 0, -0.35); P.box(0.025, 0.36, 0.025, frame, 0.62, 1.22, -1.55, 0, 0, 0.35);   // thin windscreen posts, low and wide
+  const g = new THREE.Group(); g.add(new THREE.Mesh(P.build(), new THREE.MeshLambertMaterial({ vertexColors: true })));
   g.visible = false; _cockpit = g; return g;
 }
 function setPlaneView(v) {

@@ -85,6 +85,7 @@ function makeRelayClaude(scope = 'main') {
   const KEEP = 1200, STALE = 5000, MAX_BUF = 96 * 1024;
   const note = t => { if (typeof netNote === 'function') netNote(t); };
   const roomOf = n => { if (!rooms.has(n)) rooms.set(n, { mine: {}, mineS: '{}', seq: 0, sentS: '', sentT: 0, others: new Map(), snap: [] }); return rooms.get(n); };
+  const stats = { msgs: 0, bytes: 0 };
   const safe = n => encodeURIComponent(n).replace(/[%+#/]/g, '_');
   const byTopic = new Map();        // safe room name -> room name
   let alive = true, readyRes = null;
@@ -103,12 +104,17 @@ function makeRelayClaude(scope = 'main') {
     if (rest[0] !== 'room' || rest[2] === me) return;
     const name = byTopic.get(rest[1]); if (!name) return;
     const r = roomOf(name);
-    if (!text) { r.others.delete(rest[2]); rebuild(r); return; }
-    let m; try { m = JSON.parse(text); } catch (e) { return; }
+    if (!text) { r.others.delete(rest[2]); r.dirty = true; return; }
+    // every message arrives once from each server: read its sequence number first and skip copies we already have
+    // without decoding the whole thing (the host's battle updates are the biggest messages)
     const o = r.others.get(rest[2]);
-    if (o && m.s <= o.seq && m.s > o.seq - 1e6) { o.t = Date.now(); return; }   // older copy from a slower server
+    const sm = /^\{"s":(\d+),/.exec(text), seq = sm ? +sm[1] : NaN;
+    if (o && seq <= o.seq && seq > o.seq - 1e6) { o.t = Date.now(); return; }   // older copy from a slower server
+    let m; try { m = JSON.parse(text); } catch (e) { return; }
+    if (o && m.s <= o.seq && m.s > o.seq - 1e6) { o.t = Date.now(); return; }
     r.others.set(rest[2], { p: m.p || {}, t: Date.now(), seq: m.s });
-    rebuild(r);
+    stats.msgs++; stats.bytes += text.length;
+    r.dirty = true;
   }
   const links = RELAY_SERVERS.map((url, i) => mqttLink(url, 'bf' + me + i, { topic: base + '/bye/' + me, text: '1' }, onMsg, (up, was) => {
     if (up) setTimeout(() => readyRes(true), 900);      // a moment for the other servers to join in
@@ -143,11 +149,11 @@ function makeRelayClaude(scope = 'main') {
       return {
         name,
         presence(patch) { r.mine = Object.assign({}, r.mine, patch); r.mineS = JSON.stringify(r.mine); rebuild(r); return Promise.resolve(); },
-        peers() { return r.snap; },
+        peers() { if (r.dirty) { r.dirty = false; rebuild(r); } return r.snap; },
         leave() { return Promise.resolve(); },
       };
     },
   };
   const close = () => { if (!alive) return; alive = false; try { bye(); } catch (e) { } clearInterval(iv); setTimeout(() => links.forEach(l => l.close()), 150); };
-  return { close, ready: () => readyP, use: async n => n === 'room' ? lobby : null, _debug: () => ({ me, up: links.map(l => l.isUp()), rooms: [...rooms.keys()] }) };
+  return { close, ready: () => readyP, use: async n => n === 'room' ? lobby : null, _debug: () => ({ me, up: links.map(l => l.isUp()), rooms: [...rooms.keys()], stats }), linksUp: () => links.filter(l => l.isUp()).length, stats };
 }
