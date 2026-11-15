@@ -120,7 +120,7 @@ function updatePolish(dt) {
   const html = `<div style="font-size:11px;letter-spacing:.14em;opacity:.8">KILL STREAK</div><div style="font-size:30px;font-weight:800;color:${streak >= 5 ? '#ff7a3a' : '#ffd54f'};line-height:1.1">${streak}</div><div style="font-size:11px;opacity:.75">${next[0] - streak} more: ${next[1]}</div>`;
   sk.style.display = started && player.alive && streak > 0 ? 'block' : 'none';
   if (sk.dataset.v !== String(streak)) { sk.dataset.v = String(streak); sk.innerHTML = html; sk.style.transform = 'translateY(-50%) scale(1.25)'; setTimeout(() => { sk.style.transform = 'translateY(-50%) scale(1)'; }, 150); }
-  const onFoot = player.alive && !player.vehicle && !player.gv && !player.turret;
+  const onFoot = player.alive && !player.vehicle && !player.gv && !player.turret && !player.planeGun;
   // health comes back slowly once you have been out of the fight for a while
   if (player.alive && started && player.hp < 100 && simTime - (player.lastHurt || 0) > 6) player.hp = Math.min(100, player.hp + 9 * dt);
   // landing dip and a little lean when strafing

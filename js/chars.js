@@ -228,6 +228,7 @@ function updateRagdolls(dt) {
 // ---------- explosions ----------
 function explosion(pos, radius, power, attacker, dmg = 130, ghost = false) {
   if (typeof cityBlast === 'function') cityBlast(pos, radius);
+  if (typeof towerBlast === 'function') towerBlast(pos, radius, dmg, attacker, ghost);
   if (typeof animals !== 'undefined' && animals.length) { scareAnimals(pos.x, pos.z, radius * 7); for (const a of animals) if (a.alive && a.pos.distanceTo(pos) < radius) animalHit(a, 999); }
   playAt('boom', pos, 1.2);
   fxExplosion(pos, radius);

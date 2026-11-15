@@ -215,6 +215,29 @@ function makeVehicleModel(type, team) {
     const mz = new THREE.Object3D(); mz.position.z = -1.95; mgPitch.add(mz);
     Object.assign(out, { turret, barrel, cannonMuzzle: cmz, mgYaw, mgPitch, mgMuzzle: mz });
 
+  } else if (type === 'cart') {
+    main = vcached('cart' + team, () => {
+      // an old riveted iron minecart: a tapered tub on a low frame with a brake lever and a lantern
+      const p = new Part(), iron = 0x5a4a3a, rust = 0x7a4a2a, rim = 0x3a3330;
+      p.box(1.0, 0.16, 1.9, VC.dark, 0, 0.32, 0);                                                            // frame
+      p.box(1.3, 0.08, 2.1, rim, 0, 1.12, 0);                                                                 // top rim
+      for (const s of [-1, 1]) {
+        p.box(0.07, 0.7, 2.0, iron, s * 0.6, 0.74, 0, 0, 0, s * -0.12);                                      // sloped sides
+        p.box(1.1, 0.7, 0.07, iron, 0, 0.74, s * 0.97, s * 0.1, 0, 0);                                        // sloped ends
+        for (let i = 0; i < 5; i++) p.ball(0.03, rim, s * 0.66, 1.0, -0.8 + i * 0.4);                         // rivets
+        p.box(0.05, 0.45, 0.06, rust, s * 0.64, 0.75, -0.5); p.box(0.05, 0.45, 0.06, rust, s * 0.64, 0.75, 0.5);   // straps
+        p.box(0.08, 0.08, 1.5, VC.steel, s * 0.48, 0.24, 0);                                                    // axle boxes
+      }
+      p.box(0.9, 0.06, 1.8, 0x2a2420, 0, 0.42, 0);                                                            // floor
+      p.box(0.5, 0.12, 0.35, VC.seat, 0, 0.55, 0.35); p.box(0.5, 0.12, 0.35, VC.seat, 0, 0.55, -0.45);       // plank seats
+      p.cyl(0.03, 0.03, 0.8, VC.dark, 0.5, 1.3, 0.75, 0.25); p.ball(0.06, 0xd8262a, 0.5, 1.7, 0.85);          // brake lever
+      p.cyl(0.02, 0.02, 0.5, VC.dark, -0.5, 1.4, -0.95); p.box(0.16, 0.22, 0.16, 0x2a2d31, -0.5, 1.6, -0.98); // lantern post
+      for (const s of [-1, 1]) p.cyl(0.07, 0.07, 0.16, VC.dark, 0, 0.32, s * 1.05, RX);                       // couplers
+      p.box(0.6, 0.04, 0.3, P.team, 0, 1.17, 0.95, 0.1);                                                       // team plate
+      return p;
+    });
+    glow.box(0.12, 0.14, 0.12, VC.amber, -0.5, 1.6, -0.98);
+    for (const [x, z] of [[-0.55, -0.7], [0.55, -0.7], [-0.55, 0.7], [0.55, 0.7]]) wheel(x, 0.24, z, 0.24, 0.14);
   } else if (type === 'quad') {
     main = vcached('quad' + team, () => {
       const p = new Part();
@@ -358,8 +381,14 @@ function makePlaneModel(team) {
     for (let i = 0; i < 4; i++) p.box(0.03, 0.5, 0.4, VC.dark, 0, 0, 0.7, 0, 0, i * Math.PI / 4);
     return p;
   }), VEH_MAT); bomb.position.set(0, -1.0, -1.2); bomb.castShadow = true; g.add(bomb);
+  // the rear gunner's seat: a ring mount behind the canopy with a twin machine gun
+  const ring = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.52, 0.2, 14), MATS.steel); ring.position.set(0, 0.9, 1.05); ring.castShadow = true; g.add(ring);
+  const gunYaw = new THREE.Group(); gunYaw.position.set(0, 1.05, 1.05); g.add(gunYaw);
+  const gunPitch = new THREE.Group(); gunYaw.add(gunPitch);
+  for (const sx of [-0.1, 0.1]) { const bb = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, 1.1, 6), MATS.black); bb.rotation.x = Math.PI / 2; bb.position.set(sx, 0.05, -0.55); gunPitch.add(bb); }
+  const gbox = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.18, 0.4), MATS.steel); gbox.position.set(0, 0.05, 0); gunPitch.add(gbox);
   scene.add(g);
-  return { g, prop, bomb };
+  return { g, prop, bomb, canopy, gunYaw, gunPitch };
 }
 
 // ===================== more vehicle types: dirt bike, buggy, armoured carrier =====================

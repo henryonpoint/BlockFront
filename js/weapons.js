@@ -268,7 +268,7 @@ function rayHit(origin, dir, maxD, shooterTeam, opts = {}) {
   if (typeof civRay === 'function' && civs.length) { const ch = civRay(origin, dir, best ? best.dist : maxD); if (ch) best = { dist: ch.dist, point: origin.clone().addScaledVector(dir, ch.dist), civ: ch.c }; }
   if (typeof animalRay === 'function') { const ah = animalRay(origin, dir, best ? best.dist : maxD); if (ah) best = { dist: ah.dist, point: origin.clone().addScaledVector(dir, ah.dist), animal: ah.a }; }
   // the player can be hit by NPC fire through rayHit only when requested
-  if (opts.player && player.alive && !player.vehicle) {
+  if (opts.player && player.alive && !player.vehicle && !player.planeGun) {
     const t = raySphere(origin, dir, player.chest(), 0.75);
     if (t !== null && t < (best ? best.dist : maxD)) best = { dist: t, point: origin.clone().addScaledVector(dir, t), char: player };
   }

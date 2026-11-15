@@ -219,7 +219,7 @@ function step(dt) {
   guard('projectiles', () => { suppressFx = true; try { updateProjectiles(dt); } finally { suppressFx = false; } });
   guard('builds', () => updateBuilds(dt));
   guard('bullets', () => updateBullets(dt));
-  for (const [n, f] of [['chutes', 'updateChutes'], ['clown', 'updateClown'], ['craters', 'updateCraters'], ['topview', 'updateTopView'], ['animals', 'updateAnimals'], ['loot', 'updateLoot'], ['stickies', 'updateStickies'], ['nukes', 'updateNukes'], ['city', 'updateCity']])
+  for (const [n, f] of [['chutes', 'updateChutes'], ['towers', 'updateTowers'], ['treasure', 'updateTreasure'], ['clown', 'updateClown'], ['craters', 'updateCraters'], ['topview', 'updateTopView'], ['animals', 'updateAnimals'], ['loot', 'updateLoot'], ['stickies', 'updateStickies'], ['nukes', 'updateNukes'], ['city', 'updateCity']])
     if (typeof window[f] === 'function') guard(n, () => window[f](dt));
   if (HOUSTON && typeof updateHouston === 'function') guard('houston', () => updateHouston(dt));
   if (WAKE && typeof updateWake === 'function') guard('wake', () => updateWake(dt));
@@ -256,7 +256,7 @@ function render(dt) {
   if (typeof TOPVIEW !== 'undefined' && TOPVIEW.on) { renderTopView(); return; }
   renderer.clear();
   renderer.render(scene, camera);
-  if (started && player.alive && !player.vehicle && !player.turret && !player.gv) { renderer.clearDepth(); renderer.render(vmScene, vmCam); }
+  if (started && player.alive && !player.vehicle && !player.turret && !player.gv && !player.planeGun) { renderer.clearDepth(); renderer.render(vmScene, vmCam); }
 }
 // ---------- title screen: a slow cinematic tour of the battlefield ----------
 let menuShots = null, menuHeli = null;

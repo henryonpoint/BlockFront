@@ -105,7 +105,7 @@ function airstrikeAt(at, yaw) {
 
 // ---------- interaction ----------
 function nearestInteract() {
-  if (player.vehicle || player.turret || player.gv) return null;
+  if (player.vehicle || player.turret || player.gv || player.planeGun) return null;
   let best = null, bd = Infinity;
   for (const t of turrets) {
     if (t.user) continue;
@@ -117,6 +117,8 @@ function nearestInteract() {
     const d = Math.hypot(b.cache.x - player.pos.x, b.cache.z - player.pos.z);
     if (d < 2.3 && d < bd && Math.abs(player.pos.y - b.F) < 2) { bd = d; best = { kind: 'cache', b, text: 'Press E to open the supply cache' }; }
   }
+  const ti = typeof towerInteract === 'function' ? towerInteract() : null;
+  if (ti && ti.d < bd) { bd = ti.d; best = ti; }
   const hi = hatchInteract();
   if (hi) { const d = Math.hypot(hi.h.x - player.pos.x, hi.h.z - player.pos.z); if (d < bd) { bd = d; best = hi; } }
   for (const v of gvehicles) {
@@ -136,14 +138,18 @@ function nearestInteract() {
     bd = d; best = { kind: 'gv', v, seat, text: `Press E to ${v.team !== player.team ? 'steal' : role === 'drive' ? 'drive' : role === 'gun' ? 'use the gun on' : 'ride in'} the ${v.team !== player.team ? teamName(v.team).toLowerCase() + ' ' : ''}${v.T.name}` };
   }
   for (const pl of planes) {
-    if (!pl.alive || pl.pilot || pl.remote || !pl.onGround || pl.speed > 5) continue;
+    if (!pl.alive || !pl.onGround || pl.speed > 5) continue;
     const d = pl.pos.distanceTo(player.pos.clone().add(new THREE.Vector3(0, 1.6, 0)));
-    if (d < 7 && d < bd) { bd = d; best = { kind: 'plane', pl, text: 'Press E to fly the plane' }; }
+    if (d >= 7 || d >= bd) continue;
+    const gunFree = !pl.gunner && !pl.gunnerRemote && pl.team === player.team;
+    if (pl.pilot || pl.remote) { if (gunFree) { bd = d; best = { kind: 'planeGun', pl, text: 'Press E to ride as the gunner and bomber' }; } continue; }
+    bd = d; best = { kind: 'plane', pl, text: gunFree ? 'Press E to fly the plane   F to ride as the gunner' : 'Press E to fly the plane' };
   }
   return best;
 }
 function interact() {
   if (!player.alive) return;
+  if (player.planeGun) { leavePlaneGun(); return; }
   if (player.gv) {
     // jumping out of a flying helicopter: drop clear of it and pop the parachute
     const v = player.gv, high = v.T.heli && v.pos.y - groundAt(v.pos.x, v.pos.z, v.pos.y) > 5;
@@ -172,6 +178,8 @@ function interact() {
   if (!it) return;
   if (it.kind === 'cache') { openCache(it.b); return; }
   if (it.kind === 'hatch') { useHatch(it); return; }
+  if (it.kind === 'planeGun') { boardPlaneGun(it.pl); return; }
+  if (it.kind === 'tower') { climbTower(it.t); return; }
   if (it.kind === 'gv') {
     if (it.hijack) hijackVehicle(it.v, player);
     enterSeat(player, it.v, it.seat); zoom = false; ads = false; cancelPlace();
@@ -196,6 +204,7 @@ function updatePlayer(dt) {
     if (player.respawnT <= 0 && player.wantDeploy && !gameOver) deployPlayer();
     return;
   }
+  if (player.planeGun) { updatePlaneGun(dt); return; }
   if (player.vehicle) {
     const pl = player.vehicle;
     player.pos.copy(pl.pos); player.pos.y -= 1.6; player.vel.copy(planeFwd(pl)).multiplyScalar(pl.speed);
@@ -229,7 +238,7 @@ function updatePlayer(dt) {
   // ----- on foot -----
   if (heliMark) heliMark.visible = false;
   const water = waterDepth(player.pos.x, player.pos.z) > 0.7;
-  if (player.crouch && (player.vehicle || player.gv || player.turret || !player.alive)) toggleCrouch(false);
+  if (player.crouch && (player.vehicle || player.gv || player.turret || player.planeGun || !player.alive)) toggleCrouch(false);
   crouchK += ((player.crouch ? 1 : 0) - crouchK) * Math.min(1, dt * 12);
   const speed = (player.crouch ? 2.8 : keys.ShiftLeft || keys.ShiftRight ? 8.5 : 5.6) * (water ? (waterDepth(player.pos.x, player.pos.z) > 1.35 ? 0.42 : 0.6) : 1) * (zoom ? 0.5 : ads ? 0.65 : 1) * (player.slowT > 0 ? 0.45 : 1);
   bloom *= Math.exp(-dt * 4);
@@ -244,6 +253,12 @@ function updatePlayer(dt) {
   if (!player.onGround && !moving) mv.copy(player.vel).setY(0).multiplyScalar(0.98);
   // under a parachute: W glides forward, A/D/S steer, and with no keys you drift slowly the way you face
   if (player.parachute) { if (moving) mv.normalize().multiplyScalar(keys.KeyW ? 9 : 5); else mv.copy(fwd).multiplyScalar(2.5); }
+  // gliding: always flying forward; W dives (faster, sinks quicker), S flares (slower, floats), A/D drift, the mouse steers
+  if (player.gliding) {
+    const want = keys.KeyW ? 23 : keys.KeyS ? 10 : 16;
+    player.glideSpd = lerp(player.glideSpd || 14, want, Math.min(1, dt * 1.2));
+    mv.copy(fwd).multiplyScalar(player.glideSpd).addScaledVector(right, ((keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0)) * 3);
+  }
   player.vel.set(mv.x, player.velY, mv.z);
   const prevX = player.pos.x, prevZ = player.pos.z, wasUnder = !!undergroundAt(prevX, prevZ, player.pos.y);
   player.pos.x += (mv.x + player.push.x) * dt; player.pos.z += (mv.z + player.push.z) * dt;
@@ -252,6 +267,7 @@ function updatePlayer(dt) {
   if (keys.Space && player.onGround) { if (player.crouch) { toggleCrouch(false); keys.Space = false; } else { player.velY = 7.5; player.onGround = false; } }
   player.velY -= 20 * dt;
   if (player.parachute) player.velY = Math.max(player.velY, -6);
+  if (player.gliding) player.velY = keys.KeyW ? -5.5 : keys.KeyS ? -1.2 : -2.4;
   player.pos.y += player.velY * dt;
   let floor = pushOut(player.pos, 0.4, player.pos.y);
   // deep water: swim at the surface with your head out, instead of walking along the bottom
@@ -265,14 +281,16 @@ function updatePlayer(dt) {
   // never pop up through the earth: underground, a floor far above you is a wall
   if (wasUnder && floor - player.pos.y > 1.3) { player.pos.x = prevX; player.pos.z = prevZ; floor = pushOut(player.pos, 0.4, player.pos.y); }
   if (player.pos.y <= floor || (player.onGround && player.pos.y - floor < 0.7 && player.velY <= 0)) {
-    if (player.velY < -24 && !player.parachute) damage(player, (-player.velY - 24) * 4, null);
-    player.pos.y = floor; player.velY = 0; player.onGround = true; player.parachute = false;
+    if (player.velY < -24 && !player.parachute && !player.gliding) damage(player, (-player.velY - 24) * 4, null);
+    player.pos.y = floor; player.velY = 0; player.onGround = true; player.parachute = false; if (player.gliding) { player.gliding = false; showMessage('Landed. Space in the air to glide again', 1.5); }
   } else player.onGround = false;
   const und = undergroundAt(player.pos.x, player.pos.z, player.pos.y);
   if (und) { const ce = underCeil(und, player.pos.x, player.pos.z); if (player.pos.y + 1.85 > ce) { player.pos.y = ce - 1.85; player.velY = Math.min(player.velY, 0); } }
   bunkerEffects(dt);
   player.pos.x = clamp(player.pos.x, -EDGE, EDGE); player.pos.z = clamp(player.pos.z, -EDGE, EDGE);
   if (moving) pushProps(player.pos, mv.x, mv.z, 0.4);
+  gliderMesh.visible = !!player.gliding;
+  if (player.gliding) poseGlider(gliderMesh, player.pos, player.yaw, (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0), keys.KeyW ? 1 : keys.KeyS ? -1 : 0);
   parachuteMesh.visible = player.parachute;
   if (player.parachute) {
     player.chuteT = Math.min(1, (player.chuteT || 0) + dt * 1.8);
@@ -365,6 +383,34 @@ function openChute() {
   if (typeof SFX !== 'undefined' && SFX.thump) SFX.thump(0.5);
 }
 const parachuteMesh = makeChute(0x2f6fe0);
+// a hang glider: a swept wing in team colour over a triangle frame, held from below
+function makeGlider(color) {
+  const g = new THREE.Group(), P = new Part(), F = new Part();
+  const wing = new THREE.Shape(); wing.moveTo(0, -1.6); wing.lineTo(4.6, 1.3); wing.lineTo(3.9, 1.6); wing.lineTo(0, 0.5); wing.lineTo(-3.9, 1.6); wing.lineTo(-4.6, 1.3); wing.lineTo(0, -1.6);
+  const wg = new THREE.ShapeGeometry(wing); wg.rotateX(-Math.PI / 2);
+  const wm = new THREE.Mesh(wg, new THREE.MeshLambertMaterial({ color, side: THREE.DoubleSide })); wm.castShadow = true;
+  const stripe = new THREE.Shape(); stripe.moveTo(0, -1.6); stripe.lineTo(0.5, -0.8); stripe.lineTo(0.5, 0.75); stripe.lineTo(0, 0.5); stripe.lineTo(-0.5, 0.75); stripe.lineTo(-0.5, -0.8); stripe.lineTo(0, -1.6);
+  const sg = new THREE.ShapeGeometry(stripe); sg.rotateX(-Math.PI / 2); sg.translate(0, 0.01, 0);
+  const sm = new THREE.Mesh(sg, new THREE.MeshLambertMaterial({ color: 0xf2f2ee, side: THREE.DoubleSide }));
+  F.box(0.05, 0.05, 3.0, 0x2a2d31, 0, 0, 0.0);                                    // keel
+  F.box(8.6, 0.05, 0.05, 0x2a2d31, 0, 0, 1.1);                                    // cross bar
+  for (const s of [-1, 1]) F.box(0.04, 1.6, 0.04, 0x2a2d31, s * 0.45, -0.75, -0.1, 0.25, 0, s * -0.28);   // A-frame down to the bar you hold
+  F.box(1.0, 0.04, 0.04, 0x9aa0a6, 0, -1.5, -0.3);                                // control bar
+  g.add(wm, sm, new THREE.Mesh(F.build(), new THREE.MeshLambertMaterial({ vertexColors: true })));
+  g.visible = false; scene.add(g); return g;
+}
+function poseGlider(g, pos, yaw, side, pitch) {
+  g.position.set(pos.x, pos.y + 3.3, pos.z);
+  g.rotation.set(-pitch * 0.18 + 0.06, yaw, -side * 0.3, 'YXZ');
+}
+const gliderMesh = makeGlider(0x2f6fe0);
+function toggleGlide() {
+  if (player.gliding) { player.gliding = false; showMessage('Glider folded', 1); return; }
+  if (player.pos.y - heightAt(player.pos.x, player.pos.z) < 3) { showMessage('Too low to glide: jump off something higher', 1.5); return; }
+  player.gliding = true; player.parachute = false; player.glideSpd = Math.max(12, Math.hypot(player.vel.x, player.vel.z));
+  gliderMesh.children[0].material.color.setHex(TEAM_COLOR[player.team]);
+  showMessage('Gliding! Mouse steers, W dives faster, S floats slower. Space to fold it', 3);
+}
 function pushPlayerFrom(pos, radius, d) {
   const fall = 1 - d / radius;
   const dir = player.pos.clone().sub(pos).setY(0).normalize();
@@ -412,16 +458,20 @@ addEventListener('keydown', e => {
   const n = parseInt(e.key, 10);
   if (n >= 1 && n <= 9 && !player.vehicle && !player.turret) selectWeapon(n - 1);
   if (n === 0 && e.code === 'Digit0' && !player.vehicle && !player.turret) selectWeapon(9);
+  if (e.code === 'Space' && !e.repeat && player.glider && player.alive && !player.onGround && !player.vehicle && !player.gv && !player.planeGun && !player.turret) toggleGlide();
   if (e.code === 'KeyR') startReload();
   if (e.code === 'KeyE' && !player.vehicle) interact();
   if (e.code === 'KeyF' && player.vehicle) interact();
+  if (e.code === 'KeyF' && player.planeGun) leavePlaneGun();
+  else if (e.code === 'KeyF' && !player.vehicle && !player.gv && player.alive) { const it = nearestInteract(); if (it && it.kind === 'plane' && !it.pl.gunner && !it.pl.gunnerRemote && it.pl.team === player.team) boardPlaneGun(it.pl); }
   if (e.code === 'KeyV' && player.vehicle && !e.repeat) togglePlaneView();
   if (e.code === 'KeyF' && player.gv) switchSeat();
   if (e.code === 'KeyC' && player.alive && !player.vehicle && !player.gv && !player.turret) toggleCrouch();
   if (e.code === 'KeyG' && player.alive && !player.vehicle) throwGrenade();
   if (e.code === 'KeyT' && player.alive && !player.vehicle) callAirstrike();
   if (e.code === 'KeyB') openShop();
-  if (e.code === 'KeyV' && player.alive && !player.vehicle && !player.turret) { const n = nextInventory(null); if (n) startPlacing(n); else showMessage('Nothing to build. Buy things in the shop (B)', 1.5); }
+  if (e.code === 'KeyV' && player.gv && player.gv.T.heli && player.seat === 0 && !e.repeat) { toggleHeliView(); return; }
+  if (e.code === 'KeyV' && player.alive && !player.vehicle && !player.turret && !player.gv) { const n = nextInventory(null); if (n) startPlacing(n); else showMessage('Nothing to build. Buy things in the shop (B)', 1.5); }
 });
 addEventListener('keyup', e => { keys[e.code] = false; if (e.code === 'Tab') showScoreboard(false); });
 addEventListener('wheel', e => {
@@ -508,6 +558,7 @@ const GEAR = [
   { id: 'squad', name: 'Recruit Soldier', desc: 'A new soldier joins your team', price: 400, buy: () => { if (net.active && !net.isHost) netRequest(['rec', player.team]); else recruitNPC(player.team); } },
   { id: 'sticky', name: 'Sticky Bombs x2', desc: 'Throw with X. They stick to tanks and blow up hard', price: 300, buy: () => { player.stickies = (player.stickies || 0) + 2; } },
   { id: 'nuke', name: 'Mini Nuke', desc: 'Press Y, pick a spot from above. Huge blast with a mushroom cloud', price: 3000, buy: () => { player.nukes = (player.nukes || 0) + 1; } },
+  { id: 'glider', name: 'Glider', desc: 'Jump off a tower, roof or cliff, then press Space in the air to glide. Yours until you go down', price: 700, buy: () => { player.glider = true; showMessage('Glider ready! Jump off something high, then press Space in the air', 3); } },
   { id: 'air', name: 'Airstrike', desc: 'Press T, then pick the exact spot on the map', price: 1500, buy: () => { player.airstrikes++; } },
 ];
 function shopZone() {
@@ -712,7 +763,7 @@ function updateHUD(dt) {
   $('hpFill').style.width = Math.max(0, player.hp) + '%'; $('hpNum').textContent = Math.max(0, Math.ceil(player.hp));
   $('arFill').style.width = player.armor + '%'; $('arNum').textContent = Math.ceil(player.armor);
   $('money').textContent = `$${player.money}`;
-  const onFoot = !player.vehicle && !player.turret && !player.gv;
+  const onFoot = !player.vehicle && !player.turret && !player.gv && !player.planeGun;
   $('ammo').style.display = onFoot && player.alive ? 'block' : 'none';
   $('slots').style.display = onFoot && player.alive ? 'flex' : 'none';
   $('wname').textContent = w.name + (reloadLeft > 0 ? '  (reloading)' : '');
@@ -747,7 +798,7 @@ function updateHUD(dt) {
   if (FOUR) $('teamstat').innerHTML = TEAMS.map(t => `<span style="color:${TEAM_CSS[t]}">${teamName(t).toUpperCase()} ${points.filter(p => p.owner === t).length}</span>`).join(' &nbsp; ') + `<br><small>Points held. Takedowns ${TEAMS.map(t => teamKills[t] || 0).join(' : ')}</small>`;
   else $('teamstat').innerHTML = `<span style="color:${TEAM_CSS.blue}">BLUE ${_ts[0]}</span> &nbsp; ${_ts[1]} &nbsp; <span style="color:${TEAM_CSS.red}">${_ts[2]} RED</span><br><small>Takedowns ${teamKills.blue} : ${teamKills.red}</small>`;
   const gvAim = player.gv && (player.gv.T.seats[player.seat].role === 'gun' || (player.gv.type === 'tank' && player.seat === 0) || (player.gv.T.heli && player.seat === 0));
-  $('crosshair').style.display = (onFoot || player.turret || gvAim) && !zoom && player.alive ? 'block' : 'none';
+  $('crosshair').style.display = (onFoot || player.turret || gvAim || player.planeGun) && !zoom && player.alive ? 'block' : 'none';
   const vh = $('vehHud');
   if (player.gv) {
     const v = player.gv, role = v.T.seats[player.seat].role;
@@ -796,6 +847,8 @@ function boardPlane(pl) {
   showMessage(IS_TOUCH ? 'Hold THR + to speed up, then pull the stick down to lift off' : 'Hold Shift to speed up, then press S to lift off', 4);
 }
 function deployPlayer() {
+  player.glider = false; player.gliding = false;
+  if (player.planeGun) { player.planeGun.gunner = null; player.planeGun = null; }
   const wantPlane = player.spawnPref === 'plane';
   spawnChar(player, wantPlane ? 'base' : player.spawnPref); refillAmmo();
   if (wantPlane) {
@@ -897,15 +950,25 @@ function updatePlayerInVehicle(dt) {
     }
   }
   camOrbit.t -= dt;
-  if (S.role === 'gun') {
+  if (S.role === 'gun') withGun(v, S.gun, () => {
     v.mgT -= dt;
-    v.mgYaw = player.yaw; v.mgPitch = clamp(player.pitch - v.pitch, -0.4, 0.9);
+    if (v.T.heli) {
+      // door gunner: the gun swings through the open doorway on its own side (front, out to the side, round to the back)
+      const side = S.gun ? -1 : 1, centre = v.yaw + side * Math.PI / 2;
+      player.yaw = centre + clamp(wrapAngle(player.yaw - centre), -1.65, 1.65);
+      player.pitch = clamp(player.pitch, -1.25, 0.5);
+    }
+    v.mgYaw = player.yaw; v.mgPitch = clamp(player.pitch - v.pitch, v.T.heli ? -1.25 : -0.4, 0.9);
     placeVehicleModel(v);
     v.model.mgYaw.getWorldPosition(_tv);
-    camera.position.set(_tv.x + Math.sin(player.yaw) * 1.7, _tv.y + 0.75, _tv.z + Math.cos(player.yaw) * 1.7);
-    camera.rotation.set(player.pitch + (Math.random() - 0.5) * camShake, player.yaw, 0);
+    if (v.T.heli) {
+      // sit right behind the gun, out in the doorway, so nothing of the helicopter is in the way
+      const fx = -Math.sin(player.yaw), fz = -Math.cos(player.yaw);
+      camera.position.set(_tv.x - fx * 0.3, _tv.y + 0.68, _tv.z - fz * 0.3);
+    } else camera.position.set(_tv.x + Math.sin(player.yaw) * 1.7, _tv.y + 0.75, _tv.z + Math.cos(player.yaw) * 1.7);
+    camera.rotation.set(player.pitch + (Math.random() - 0.5) * camShake, player.yaw, 0, 'YXZ');
     if (mouse.left && v.mgT <= 0) vehicleMG(v, new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion), player);
-  } else {
+  }); else {
     const tank = v.type === 'tank' && S.role === 'drive';
     if (!tank && camOrbit.t <= 0) camOrbit.yaw *= Math.exp(-dt * 2.5);
     const cy = tank ? camOrbit.wyaw : v.yaw + camOrbit.yaw, cp = camOrbit.pitch, dist = v.T.camDist;
@@ -921,17 +984,85 @@ function updatePlayerInVehicle(dt) {
       }
     } else want.y = Math.max(want.y, heightAt(want.x, want.z) + 1.2);
     camera.position.lerp(want, 1 - Math.exp(-dt * 12));
+    if (v.T.heli && S.role === 'drive' && heliView === 'cockpit') {
+      // in the pilot's seat: looking out through the big nose window, mouse up and down aims the guns
+      camera.position.copy(new THREE.Vector3(0, 1.95, -2.0).applyQuaternion(vehicleQuat(v)).add(v.pos));
+      camera.rotation.set(-cp * 0.9 + v.pitch * 0.5, v.yaw, -v.roll * 0.4, 'YXZ');
+      const fov = (SET.fov || 75) + 10; if (Math.abs(camera.fov - fov) > 0.1) { camera.fov = fov; camera.updateProjectionMatrix(); }
+      if (player.body3p) player.body3p.root.visible = false;
+      camShake *= Math.exp(-dt * 6);
+      return;
+    }
     if (v.T.heli && S.role === 'drive') { const ahead = 22 + 34 * Math.max(0, Math.sin(cp)); camera.lookAt(v.pos.x - Math.sin(cy) * ahead, v.pos.y + 2.2 - Math.max(0, Math.sin(cp)) * 30 + Math.min(0, cp) * 10, v.pos.z - Math.cos(cy) * ahead); }   // aim well ahead so the helicopter sits low on screen, out of the way
     else camera.lookAt(v.pos.x - Math.sin(cy) * 6, v.pos.y + (v.T.heli ? 2.2 : 2.4) + (v.T.heli ? -Math.sin(cp) * 4 : 0), v.pos.z - Math.cos(cy) * 6);
   }
   camShake *= Math.exp(-dt * 6);
   if (camera.fov !== (SET.fov || 75)) { camera.fov = SET.fov || 75; camera.updateProjectionMatrix(); }
 }
+// ---------- the plane's rear gunner and bomber ----------
+// Ride along behind the pilot (a player or a computer pilot): the mouse swings the twin gun all round, left click
+// fires, right click (or X) drops a bomb. E or F gets out (with a parachute if you are in the air).
+function boardPlaneGun(pl) {
+  player.planeGun = pl; pl.gunner = player; zoom = false; ads = false; cancelPlace(); player.gunT = 0; player.gunBombT = 0;
+  if (!pl.pilot && !pl.remote) pl.waitT = Math.min(pl.waitT || 0, 3);   // a computer pilot takes off soon
+  const e = new THREE.Euler().setFromQuaternion(pl.quat, 'YXZ'); player.yaw = e.y + Math.PI; player.pitch = 0.15;
+  showMessage('Gunner and bomber: mouse aims the rear gun, click fires, right click drops a bomb. E to get out', 4);
+}
+function leavePlaneGun() {
+  const pl = player.planeGun; if (!pl) return;
+  pl.gunner = null; player.planeGun = null;
+  if (pl.onGround && pl.speed < 12) { const right = new THREE.Vector3(1, 0, 0).applyQuaternion(pl.quat); player.pos.copy(pl.pos).addScaledVector(right, -4); player.pos.y = heightAt(player.pos.x, player.pos.z); player.velY = 0; }
+  else { player.pos.copy(pl.pos).add(new THREE.Vector3(0, 2.5, 0)); openChute(); player.velY = 4; }
+}
+function updatePlaneGun(dt) {
+  const pl = player.planeGun;
+  if (!pl.alive) { player.planeGun = null; return; }
+  zoom = false; ads = false;
+  player.pos.copy(pl.pos); player.pos.y -= 1.6; player.vel.copy(planeFwd(pl)).multiplyScalar(pl.speed);
+  player.pitch = clamp(player.pitch, -0.8, 1.25);
+  pl.model.g.position.copy(pl.pos); pl.model.g.quaternion.copy(pl.quat); pl.model.g.updateMatrixWorld(true);
+  const seat = new THREE.Vector3(0, 1.75, 1.35).applyMatrix4(pl.model.g.matrixWorld);
+  camera.position.copy(seat);
+  camera.rotation.set(player.pitch + (Math.random() - 0.5) * camShake * 0.3, player.yaw, 0, 'YXZ');
+  const fov = (SET.fov || 75) + 5; if (Math.abs(camera.fov - fov) > 0.1) { camera.fov = fov; camera.updateProjectionMatrix(); }
+  aimPlaneGun(pl, player.yaw, player.pitch);
+  const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+  player.gunT -= dt; player.gunBombT -= dt;
+  if (mouse.left && player.gunT <= 0) {
+    player.gunT = 0.085;
+    for (const sx of [-0.1, 0.1]) {
+      const o = seat.clone().add(new THREE.Vector3(sx, -0.6, 0).applyQuaternion(pl.quat)).addScaledVector(dir, 1.4);
+      const d = dir.clone().add(new THREE.Vector3(rand(-1, 1), rand(-1, 1), rand(-1, 1)).multiplyScalar(0.014)).normalize();
+      const hit = rayHit(o, d, 320, player.team, { ignorePlane: pl });
+      const end = hit ? hit.point : o.clone().addScaledVector(d, 320);
+      shootTracer(o, end, 0xffd060, 380, 0.05, () => applyHit(hit, d, { dmg: 18, force: 6 }, player));
+      netShot(o, end, 2);
+    }
+    playAt('mg', camera.position, 0.7); camShake = Math.max(camShake, 0.01);
+  }
+  if ((mouse.right || keys.KeyX) && !pl.onGround && player.gunBombT <= 0) {
+    player.gunBombT = 10;
+    const v = planeFwd(pl).multiplyScalar(pl.speed * 0.9);
+    spawnBall(pl.pos.clone().add(new THREE.Vector3(0, -1.6, 0)), v, player, { type: 'bomb', bomb: true, r: 0.32, mass: 25, fuse: 14, color: 0x30343a, radius: 20, dmg: 260, power: 95, impact: true });
+    sfxBombDrop(); playAt('thump', pl.pos, 0.7);
+    showMessage('Bomb away! Next bomb in 10 seconds', 2);
+  }
+  mouse.fresh = false;
+}
+// helicopter pilot: V switches between the outside camera and the cockpit (remembered)
+let heliView = 'chase';
+try { if (localStorage.getItem('bf_heliView') === 'cockpit') heliView = 'cockpit'; } catch (e) { }
+function toggleHeliView() {
+  heliView = heliView === 'chase' ? 'cockpit' : 'chase';
+  try { localStorage.setItem('bf_heliView', heliView); } catch (e) { }
+  showMessage(heliView === 'cockpit' ? 'Cockpit view: mouse turns and aims, the crosshair shows where your guns and rockets go. V for the outside view' : 'Outside view. V for the cockpit', 3);
+}
 // other players floating down under their parachutes (online games)
-const _chutePool = [];
+const _chutePool = [], _gliderPool = [];
 function updateChutes(dt) {
-  let n = 0;
+  let n = 0, ng = 0;
   for (const c of chars) {
+    if (c.gliding && c.alive && !c.vehicle && !c.gv && c.model) { let gg = _gliderPool[ng]; if (!gg) gg = _gliderPool[ng] = makeGlider(TEAM_COLOR[c.team] || 0x888888); gg.children[0].material.color.setHex(TEAM_COLOR[c.team] || 0x888888); gg.visible = true; poseGlider(gg, c.pos, c.heading + Math.PI, 0, 0); ng++; continue; }
     if (!c.parachute || !c.alive || c.vehicle || c.gv || c === player || !c.model) continue;
     let g = _chutePool[n]; if (!g) { g = _chutePool[n] = makeChute(TEAM_COLOR[c.team] || 0x888888); }
     g.children[0].material.color.setHex(TEAM_COLOR[c.team] || 0x888888);
@@ -939,5 +1070,6 @@ function updateChutes(dt) {
     g.visible = true; poseChute(g, c.pos, c.heading + Math.PI, c.chuteT, 0, 0); n++;
   }
   for (let i = n; i < _chutePool.length; i++) _chutePool[i].visible = false;
+  for (let i = ng; i < _gliderPool.length; i++) _gliderPool[i].visible = false;
   for (const c of chars) if (!c.parachute) c.chuteT = 0;
 }

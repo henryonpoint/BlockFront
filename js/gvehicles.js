@@ -9,6 +9,10 @@ const VTYPES = {
     name: 'Tank', hp: 1400, maxSpeed: 13, accel: 8, turn: 0.9, radius: 3.3, len: 6.4, wid: 3.4, bulletMult: 0.06, expMult: 0.55, camDist: 13,
     seats: [{ p: [0, 1.2, 0], role: 'drive', pose: 'hide', exposed: false }, { p: [0.55, 2.35, 0.9], role: 'gun', pose: 'stand', exposed: true }],
   },
+  cart: {
+    name: 'Minecart', hp: 320, maxSpeed: 34, accel: 24, turn: 2.6, radius: 0.9, len: 2.3, wid: 1.4, bulletMult: 0.6, expMult: 1, camDist: 5.5,
+    seats: [{ p: [0, 0.62, 0.35], role: 'drive', pose: 'sit', exposed: true }, { p: [0, 0.62, -0.45], role: 'ride', pose: 'sit', exposed: true }],
+  },
   quad: {
     name: 'Tunnel quad', hp: 280, maxSpeed: 17, accel: 11, turn: 2.3, radius: 0.9, len: 2.4, wid: 1.3, bulletMult: 0.8, expMult: 1, camDist: 5.5,
     seats: [{ p: [0, 1.0, 0.05], role: 'drive', pose: 'sit', exposed: true }, { p: [0, 1.12, 0.8], role: 'ride', pose: 'sit', exposed: true }],
@@ -114,7 +118,7 @@ function makeVehicleModelOld(type, team) {
 function makeGV(type, team, x, z, yaw, y) {
   const T = VTYPES[type], m = makeVehicleModel(type, team);
   const v = { idx: gvehicles.length, type, T, team, model: m, pos: new THREE.Vector3(x, y !== undefined ? y : heightAt(x, z), z), yaw, speed: 0, vy: 0, pitch: 0, roll: 0,
-    hp: T.hp, alive: true, seats: T.seats.map(() => null), turretYaw: 0, gunPitch: 0, mgYaw: yaw, mgPitch: 0, fireT: 0, mgT: 0,
+    hp: T.hp, alive: true, seats: T.seats.map(() => null), turretYaw: 0, gunPitch: 0, mgYaw: yaw, mgPitch: 0, mg2Yaw: yaw, mg2Pitch: 0, mg2T: 0, fireT: 0, mgT: 0,
     spawn: { x, z, yaw, y }, respawnT: 0, remote: null, departT: 0, aiGoal: null, stuckT: 0, revT: 0, idleT: 0, steer: 0, lastGround: 0 };
   v.lastGround = v.pos.y;
   m.g.traverse(o => { if (o.isMesh) o.userData.gv = v; });
@@ -147,9 +151,9 @@ function buildTunnelQuads() {
     if (a) { const d = Math.hypot(a.x - n.x, a.z - n.z) || 1, ux = (n.x - a.x) / d, uz = (n.z - a.z) / d; return { x: n.x + uz * 1.0, z: n.z - ux * 1.0, yaw: Math.atan2(ux, uz) }; }
     return null;
   };
-  makeGV('quad', 'blue', HUB.x - 12, HUB.z - 6, 0, TUN_Y); makeGV('quad', 'red', HUB.x + 12, HUB.z + 6, Math.PI, TUN_Y);
-  for (const b of bunkers) { const p = along('b2' + b.name, 'b' + b.name); if (p) makeGV('quad', b.z > 0 ? 'blue' : 'red', p.x, p.z, p.yaw, TUN_Y); }
-  for (const h of HATCHES) if (/base/.test(h.name)) { const p = along('h' + h.name, null); if (p) makeGV('quad', /Blue/.test(h.name) ? 'blue' : 'red', p.x, p.z, p.yaw, TUN_Y); }
+  makeGV('cart', 'blue', HUB.x - 12, HUB.z - 6, 0, TUN_Y); makeGV('cart', 'red', HUB.x + 12, HUB.z + 6, Math.PI, TUN_Y);
+  for (const b of bunkers) { const p = along('b2' + b.name, 'b' + b.name); if (p) makeGV('cart', b.z > 0 ? 'blue' : 'red', p.x, p.z, p.yaw, TUN_Y); }
+  for (const h of HATCHES) if (/base/.test(h.name)) { const p = along('h' + h.name, null); if (p) makeGV('cart', /Blue/.test(h.name) ? 'blue' : 'red', p.x, p.z, p.yaw, TUN_Y); }
 }
 const _q = new THREE.Quaternion(), _e = new THREE.Euler(0, 0, 0, 'YXZ');
 function vehicleQuat(v) { _e.set(v.pitch, v.yaw, v.roll, 'YXZ'); return _q.setFromEuler(_e); }
@@ -159,7 +163,18 @@ function placeVehicleModel(v) {
   if (v.model.mgYaw) {
     const parentYaw = v.yaw + (v.model.turret ? v.turretYaw : 0);
     v.model.mgYaw.rotation.y = wrapAngle(v.mgYaw - parentYaw); v.model.mgPitch.rotation.x = v.mgPitch;
+    if (v.model.mg2Yaw) { v.model.mg2Yaw.rotation.y = wrapAngle(v.mg2Yaw - parentYaw); v.model.mg2Pitch.rotation.x = v.mg2Pitch; }
   }
+}
+// some vehicles have a second gun (a seat with gun: 1). While that seat's code runs, its gun's aim, timer and
+// model are swapped into the main gun's fields, so all the gun code works on whichever gun the seat uses.
+function withGun(v, k, fn) {
+  if (!k || !v.model.mg2Yaw) return fn();
+  const m = v.model, sw = () => {
+    let t = v.mgYaw; v.mgYaw = v.mg2Yaw; v.mg2Yaw = t; t = v.mgPitch; v.mgPitch = v.mg2Pitch; v.mg2Pitch = t; t = v.mgT; v.mgT = v.mg2T; v.mg2T = t;
+    t = m.mgYaw; m.mgYaw = m.mg2Yaw; m.mg2Yaw = t; t = m.mgPitch; m.mgPitch = m.mg2Pitch; m.mg2Pitch = t; t = m.mgMuzzle; m.mgMuzzle = m.mg2Muzzle; m.mg2Muzzle = t;
+  };
+  sw(); try { return fn(); } finally { sw(); }
 }
 function seatWorld(v, i) {
   const p = v.T.seats[i].p;
@@ -197,6 +212,24 @@ function occupants(v) { return v.seats.filter(Boolean); }
 function driverOf(v) { return v.seats[0]; }
 
 // ---------- driving physics (simple, arcade) ----------
+// minecarts in the tunnels ride as if on rails: with no steering they keep to the middle of the tunnel and
+// follow its bends by themselves; steer at a junction to pick the branch you want
+let _tsegs = null;
+function cartRail(v, dt, inp) {
+  if (!_tsegs) { _tsegs = []; if (typeof TNODES !== 'undefined') for (const [k, n] of TNODES) for (const [k2] of n.edges) if (k < k2 && TNODES.get(k2)) _tsegs.push([n, TNODES.get(k2)]); }
+  let best = null, bd = 9;
+  for (const [a, b] of _tsegs) { const d = distToSeg(v.pos.x, v.pos.z, a.x, a.z, b.x, b.z); if (d < bd) { bd = d; best = [a, b]; } }
+  if (v.swingT > 0) { v.swingT -= dt; return; }
+  if (!best || Math.abs(inp.steer) > 0.1) return;
+  const u = undergroundAt(v.pos.x, v.pos.z, v.pos.y + 0.5);
+  if (u && u.maxX - u.minX > 7 && u.maxZ - u.minZ > 7) return;   // a big room (the HQ): free driving
+  const [a, b] = best, L = Math.hypot(b.x - a.x, b.z - a.z) || 1, ux = (b.x - a.x) / L, uz = (b.z - a.z) / L;
+  const fx = -Math.sin(v.yaw), fz = -Math.cos(v.yaw), dir = (fx * ux + fz * uz) >= 0 ? 1 : -1, mv = Math.sign(v.speed || 1);
+  const t = clamp((v.pos.x - a.x) * ux + (v.pos.z - a.z) * uz, 0, L), cx = a.x + ux * t, cz = a.z + uz * t;
+  const tx = cx + ux * dir * 5, tz = cz + uz * dir * 5;                 // a point on the middle line a little way ahead
+  const want = Math.atan2(-(tx - v.pos.x), -(tz - v.pos.z));
+  v.yaw += wrapAngle(want - v.yaw) * Math.min(1, dt * 6) * (mv > 0 ? 1 : 0.5);
+}
 function simVehicle(v, dt, inp) {
   const T = v.T, vy0 = v.pos.y + 0.5, GH = (x, z) => groundAt(x, z, vy0), under = !!undergroundAt(v.pos.x, v.pos.z, vy0);
   const target = inp.thr > 0 ? T.maxSpeed * inp.thr : inp.thr < 0 ? -T.maxSpeed * 0.4 * -inp.thr : 0;
@@ -211,6 +244,7 @@ function simVehicle(v, dt, inp) {
   if (!v.airborne && !(inp.brake && v.speed === 0) && inp.thr === 0) v.speed -= clamp((hF - hB) / T.len, -0.5, 0.5) * 3 * dt;
   v.steer = lerp(v.steer, inp.steer, Math.min(1, dt * 6));
   if (!v.airborne) v.yaw += v.steer * T.turn * dt * clamp(Math.abs(v.speed) / 6, 0, 1) * Math.sign(v.speed || 1);
+  if (v.type === 'cart' && under) cartRail(v, dt, inp);
   const px = v.pos.x, pz = v.pos.z;
   v.pos.x += fx * v.speed * dt; v.pos.z += fz * v.speed * dt;
   // hitting buildings, trees and rocks
@@ -224,8 +258,21 @@ function simVehicle(v, dt, inp) {
     }
     return null;
   };
-  let hit = probe(v.pos.x, v.pos.z);
-  if (hit && probe(px, pz)) {
+  // minecarts in the tunnels don't crash into the walls: they slide along them and line up again
+  const cartUnder = v.type === 'cart' && (under || (typeof TUN_Y !== 'undefined' && v.pos.y < TUN_Y + 6));
+  if (cartUnder) {
+    // how many of the cart's four corners are over the tunnel floor: a move may not make that worse
+    const fitsN = (x, z) => { let n = 0; for (const [a, b] of [[0.75, 1.15], [-0.75, 1.15], [0.75, -1.15], [-0.75, -1.15]]) { const cx = x + fx * b - fz * a, cz = z + fz * b + fx * a; if (undergroundAt(cx, cz, vy0)) n++; } return n; };
+    const was = fitsN(px, pz), now = fitsN(v.pos.x, v.pos.z);
+    if (now < 4 && now <= was && !(now === was && was < 4 && fitsN(px + (v.pos.x - px) * 3, pz + (v.pos.z - pz) * 3) > was)) {
+      const mdx = Math.abs(v.pos.x - px), mdz = Math.abs(v.pos.z - pz);
+      if (mdx > 0.02 && mdx >= mdz * 0.25 && fitsN(v.pos.x, pz) >= Math.max(was, 1)) { v.pos.z = pz; cartRail(v, dt * 2, { steer: 0 }); }
+      else if (mdz > 0.02 && mdz >= mdx * 0.25 && fitsN(px, v.pos.z) >= Math.max(was, 1)) { v.pos.x = px; cartRail(v, dt * 2, { steer: 0 }); }
+      else { v.pos.x = px; v.pos.z = pz; v.yaw += 3 * dt * (v.slideSide || (v.slideSide = Math.random() < 0.5 ? 1 : -1)); v.speed *= 0.9; v.swingT = 0.6; }   // nose into a wall: swing round
+    }
+  }
+  let hit = cartUnder ? null : probe(v.pos.x, v.pos.z);
+  if (hit && !cartUnder && probe(px, pz)) {
     // already touching before this move (usually from turning next to a wall): ease away from it instead of sticking
     const o = hit.o, nx = o.kind === 'box' ? clamp(hit.cx, o.minX, o.maxX) : o.x, nz = o.kind === 'box' ? clamp(hit.cz, o.minZ, o.maxZ) : o.z;
     let dx = hit.cx - nx, dz = hit.cz - nz; const d = Math.hypot(dx, dz);
@@ -243,7 +290,7 @@ function simVehicle(v, dt, inp) {
   // other vehicles
   for (const o of gvehicles) {
     if (o === v || !o.alive || Math.abs(o.pos.y - v.pos.y) > 4) continue;
-    if (o.type === 'quad' && o.spawn.y !== undefined && !o.seats.some(q => q)) continue;   // a parked quad never blocks a tunnel
+    if ((o.type === 'quad' || o.type === 'cart') && o.spawn.y !== undefined && !o.seats.some(q => q)) continue;   // a parked cart never blocks a tunnel
     const dx = v.pos.x - o.pos.x, dz = v.pos.z - o.pos.z, d = Math.hypot(dx, dz), min = T.radius + o.T.radius - 0.6;
     if (d < min && d > 0.01) { v.pos.x += dx / d * (min - d) * 0.6; v.pos.z += dz / d * (min - d) * 0.6; v.speed *= 0.7; }
   }
@@ -502,7 +549,7 @@ function npcInVehicle(n, dt) {
       if (aim) { if (aimTurretAt(v, aim, dt) && v.fireT <= 0) { v.gunPitch += rand(-0.02, 0.02); tankFire(v, n); } }
       else v.turretYaw *= Math.exp(-dt);
     }
-  } else if (role === 'gun') {
+  } else if (role === 'gun') withGun(v, v.T.seats[n.seat].gun, () => {
     v.mgT -= dt;
     const tc = n.target && n.tgtVisible ? n.target : null;
     const aim = n.gvTarget && v.type === 'jeep' ? n.gvTarget.pos.clone().add(new THREE.Vector3(0, 1.2, 0)) : tc ? tc.chest() : n.planeTarget ? n.planeTarget.pos.clone() : null;
@@ -510,7 +557,7 @@ function npcInVehicle(n, dt) {
       n.burstT = (n.burstT || 0) - dt;
       if (aimMGAt(v, aim, dt) && v.mgT <= 0 && n.burstT < 0.9) { vehicleMG(v, mgDir(v), n); if (n.burstT < 0) n.burstT = rand(1.2, 2.2); }
     } else v.mgYaw += wrapAngle(v.yaw - v.mgYaw) * dt;
-  } else {
+  }); else {
     const drv = driverOf(v);
     if (!drv && Math.abs(v.speed) < 1) { n.alone = (n.alone || 0) + dt; if (n.alone > 2) { n.alone = 0; leaveSeat(n); } }
   }
@@ -528,7 +575,7 @@ function npcConsiderVehicle(n) {
   for (const v of gvehicles) {
     if (!v.alive || v.team !== n.team || v.remote || Math.abs(v.speed) > 1) continue;
     const d = v.pos.distanceTo(n.pos);
-    if (v.type === 'quad' && v.spawn.y !== undefined && !(driverOf(v) && driverOf(v).isPlayer)) continue;
+    if ((v.type === 'quad' || v.type === 'cart') && v.spawn.y !== undefined && !(driverOf(v) && driverOf(v).isPlayer)) continue;
     if ((v.T.heli || (v.T.boat && !WAKE)) && !(driverOf(v) && (driverOf(v).isPlayer || driverOf(v).isRemote))) continue;   // on Wake Island soldiers take the boats
     if (d > 45) continue;
     const drv = driverOf(v);
@@ -559,10 +606,10 @@ function updateOccupants() {
     const p = seatWorld(v, c.seat);
     if (S.pose === 'stand') c.pos.set(p.x, p.y - 1.0, p.z); else c.pos.set(p.x, p.y - 0.95, p.z);
     const m = c.isPlayer ? player.body3p : c.model; if (!m) continue;
-    m.root.visible = c.alive && S.pose !== 'hide' && !(c.isPlayer && S.role === 'gun');
+    m.root.visible = c.alive && S.pose !== 'hide' && !(c.isPlayer && S.role === 'gun') && !(c.isPlayer && v.T.heli && S.role === 'drive' && typeof heliView !== 'undefined' && heliView === 'cockpit');
     m.root.position.copy(c.pos);
     limbsStraight(m); m.body.rotation.x = 0;
-    if (S.role === 'gun') { m.root.rotation.set(0, v.mgYaw + Math.PI, 0); m.armR.rotation.set(-Math.PI / 2 - v.mgPitch, 0, 0); m.armL.rotation.set(-Math.PI / 2 - v.mgPitch, 0.3, 0); m.legL.rotation.x = 0; m.legR.rotation.x = 0; m.gun.visible = false; }
+    if (S.role === 'gun') { const gy = S.gun ? v.mg2Yaw : v.mgYaw, gp = S.gun ? v.mg2Pitch : v.mgPitch; m.root.rotation.set(0, gy + Math.PI, 0); m.armR.rotation.set(-Math.PI / 2 - gp, 0, 0); m.armL.rotation.set(-Math.PI / 2 - gp, 0.3, 0); m.legL.rotation.x = 0; m.legR.rotation.x = 0; m.gun.visible = false; }
     else if (S.pose === 'bike') {
       m.root.rotation.set(v.pitch, v.yaw + Math.PI, -v.roll, 'YXZ');
       m.legL.rotation.set(-1.0, 0, -0.3); m.legR.rotation.set(-1.0, 0, 0.3); m.shinL.rotation.x = m.shinR.rotation.x = 1.5;

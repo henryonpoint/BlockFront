@@ -6,7 +6,7 @@ Object.assign(VTYPES, {
     seats: [{ p: [-0.42, 1.12, -1.75], role: 'drive', pose: 'sit', exposed: false },
       { p: [-0.75, 1.15, 0.05], role: 'gun', pose: 'sit', exposed: true },
       { p: [0.42, 1.12, -1.75], role: 'ride', pose: 'sit', exposed: false },
-      { p: [0.8, 1.1, -0.15], role: 'ride', pose: 'sit', exposed: true, side: 1 },
+      { p: [0.75, 1.15, 0.05], role: 'gun', gun: 1, pose: 'sit', exposed: true },   // the right door gun
       { p: [0.8, 1.1, 0.75], role: 'ride', pose: 'sit', exposed: true, side: 1 },
       { p: [-0.8, 1.1, 0.95], role: 'ride', pose: 'sit', exposed: true, side: -1 }],
   },
@@ -90,7 +90,11 @@ makeVehicleModel = function (type, team) {
     const mz = new THREE.Object3D(); mz.position.z = -1.95; mgPitch.add(mz);
     const podL = new THREE.Object3D(); podL.position.set(-1.95, 1.1, -0.7); body.add(podL);
     const podR = new THREE.Object3D(); podR.position.set(1.95, 1.1, -0.7); body.add(podR);
-    Object.assign(out, { mgYaw, mgPitch, mgMuzzle: mz, mgBase: 1.75, rotor, tail, pods: [podL, podR] });
+    // and a second door gun on the right
+    const mg2Yaw = new THREE.Group(); mg2Yaw.position.set(1.25, 1.75, 0.0); body.add(mg2Yaw);
+    const mg2Pitch = new THREE.Group(); mg2Yaw.add(mg2Pitch); mesh(hmgGeo(false, P), VEH_MAT, mg2Pitch);
+    const mz2 = new THREE.Object3D(); mz2.position.z = -1.95; mg2Pitch.add(mz2);
+    Object.assign(out, { mgYaw, mgPitch, mgMuzzle: mz, mgBase: 1.75, mg2Yaw, mg2Pitch, mg2Muzzle: mz2, rotor, tail, pods: [podL, podR] });
   } else {
     main = vcached('boat' + team, () => {
       const p = new Part();

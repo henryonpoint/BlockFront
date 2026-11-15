@@ -163,7 +163,7 @@ function updateEngines() {
     else if (c.kind === 'boat') { f = 58 + c.s * 4; cut = 600 + c.s * 40; nf = 700; vol *= 0.9; }
     else if (c.kind === 'bike') { f = 85 + c.s * 7; cut = 900 + c.s * 70; nf = 1100; vol *= 0.75; }
     else if (c.kind === 'apc') { f = 36 + c.s * 2.4; cut = 280 + c.s * 26; nf = 220; vol *= 1.1; }
-    else if (c.kind === 'quad') { f = 70 + c.s * 6; cut = 700 + c.s * 60; nf = 900; vol *= 0.8; }
+    else if (c.kind === 'quad' || c.kind === 'cart') { f = 70 + c.s * 6; cut = 700 + c.s * 60; nf = 900; vol *= 0.8; }
     else if (c.kind === 'truck') { f = 40 + c.s * 2.6; cut = 320 + c.s * 30; nf = 260; }
     else { f = 50 + c.s * 4; cut = 420 + c.s * 40; nf = 400; }
     if (undergroundAt(cam.x, cam.z, cam.y - 1.7)) { vol *= 0.25; cut = Math.min(cut, 300); }

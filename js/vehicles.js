@@ -97,9 +97,15 @@ function makePlaneModel(team) {
   add(new THREE.BoxGeometry(0.16, 1.7, 1.4), paint, 0, 1.0, 4.7, 0.25);
   add(new THREE.SphereGeometry(0.18, 8, 6), MATS.black, 0, -0.55, 4.9);
   const bomb = add(new THREE.SphereGeometry(0.3, 10, 8), MATS.black, 0, -1.0, -1.2); bomb.scale.z = 2.4;
+  // the rear gunner's seat: a ring mount behind the canopy with a twin machine gun
+  add(new THREE.CylinderGeometry(0.5, 0.55, 0.22, 14), MATS.steel, 0, 0.9, 1.05);
+  const gunYaw = new THREE.Group(); gunYaw.position.set(0, 1.05, 1.05); g.add(gunYaw);
+  const gunPitch = new THREE.Group(); gunYaw.add(gunPitch);
+  for (const sx of [-0.1, 0.1]) { const b = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, 1.1, 6), MATS.black); b.rotation.x = Math.PI / 2; b.position.set(sx, 0.05, -0.55); gunPitch.add(b); }
+  const gb = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.18, 0.4), MATS.steel); gb.position.set(0, 0.05, 0); gunPitch.add(gb);
   scene.add(g);
   g.traverse(o => { if (o.isMesh) o.receiveShadow = true; });
-  return { g, prop, bomb, canopy };
+  return { g, prop, bomb, canopy, gunYaw, gunPitch };
 }
 function makePlane(team, x, z, yaw, wait) {
   const m = makePlaneModel(team);
@@ -123,6 +129,11 @@ function buildPlanes() {
   [[30, 6], [52, 30], [70, 55]].forEach(([off, wait]) => makePlane('blue', RUNWAYS.blue.x + off, RUNWAYS.blue.z, Math.PI / 2, wait));
   [[-30, 6], [-52, 30], [-70, 55]].forEach(([off, wait]) => makePlane('red', RUNWAYS.red.x + off, RUNWAYS.red.z, -Math.PI / 2, wait));
 }
+function aimPlaneGun(pl, yaw, pitch) {
+  if (!pl.model.gunYaw) return;
+  const d = new THREE.Vector3(-Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), -Math.cos(yaw) * Math.cos(pitch)).applyQuaternion(pl.quat.clone().invert());
+  pl.model.gunYaw.rotation.y = Math.atan2(-d.x, -d.z); pl.model.gunPitch.rotation.x = Math.asin(clamp(d.y, -1, 1));
+}
 function planeFwd(pl) { return new THREE.Vector3(0, 0, -1).applyQuaternion(pl.quat); }
 function planeShooter(pl) { return pl.aiPilot || (pl.aiPilot = { team: pl.team, name: teamName(pl.team) + ' pilot', isPlayer: false, kills: 0, pos: pl.pos }); }
 function damagePlane(pl, amt, attacker) {
@@ -143,6 +154,7 @@ function destroyPlane(pl, attacker) {
   netPlaneDown(pl, attacker);
   if (!net.active || net.isHost) addKillfeed(attacker && attacker !== pl.pilot ? attacker : null, { name: teamName(pl.team) + ' plane', team: pl.team }, false);
   if (pl.pilot) { const p = pl.pilot; pl.pilot = null; p.vehicle = null; if (p.alive) kill(p, attacker && attacker !== p ? attacker : null, new THREE.Vector3(0, 1, 0), 10); }
+  if (pl.gunner) { const g = pl.gunner; pl.gunner = null; g.planeGun = null; if (g.alive) kill(g, attacker && attacker !== g ? attacker : null, new THREE.Vector3(0, 1, 0), 10); }
 }
 function planeGroundCheck(pl) {
   const gh = heightAt(pl.pos.x, pl.pos.z);

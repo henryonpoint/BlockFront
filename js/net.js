@@ -73,14 +73,15 @@ function buildPresence() {
   const p = player, o = {
     v: 2, id: net.myId, jt: net.jt, ig: 1, n: (p.name || 'Soldier').slice(0, 16), t: teamIdx(p.team),
     s: [r10(p.pos.x), r10(p.pos.y), r10(p.pos.z), Math.round(p.yaw * 100), Math.round(p.pitch * 100)],
-    a: p.alive ? 1 : 0, w: p.cur, k: p.kills, d: p.deaths, m: 0, c: p.crouch ? 1 : 0, pc: p.parachute && !p.gv && !p.vehicle ? 1 : 0, cf: [WORLD.map, WORLD.mode],
+    a: p.alive ? 1 : 0, w: p.cur, k: p.kills, d: p.deaths, m: 0, c: p.crouch ? 1 : 0, pc: p.gv || p.vehicle ? 0 : p.gliding ? 2 : p.parachute ? 1 : 0, cf: [WORLD.map, WORLD.mode],
   };
   if (p.turret) { o.m = 1; o.ti = turrets.indexOf(p.turret); o.s[3] = Math.round(p.turret.yaw * 100); o.s[4] = Math.round(p.turret.pitch * 100); }
   if (p.gv) {
     const v = p.gv; o.m = 3; o.gi = v.idx; o.gs = p.seat;
     if (p.seat === 0) o.gv = [r10(v.pos.x), r10(v.pos.y), r10(v.pos.z), Math.round(v.yaw * 100), Math.round(v.pitch * 100), Math.round(v.roll * 100), Math.round(v.turretYaw * 100), Math.round(v.gunPitch * 100), r10(v.speed)];
-    if (v.T.seats[p.seat].role === 'gun') o.mg = [Math.round(v.mgYaw * 100), Math.round(v.mgPitch * 100)];
+    if (v.T.seats[p.seat].role === 'gun') o.mg = v.T.seats[p.seat].gun ? [Math.round(v.mg2Yaw * 100), Math.round(v.mg2Pitch * 100)] : [Math.round(v.mgYaw * 100), Math.round(v.mgPitch * 100)];
   }
+  if (p.planeGun) { o.m = 5; o.pg = p.planeGun.idx; }
   if (p.vehicle) { const pl = p.vehicle; o.m = 2; o.pi = pl.idx; o.pl = [r10(pl.pos.x), r10(pl.pos.y), r10(pl.pos.z), Math.round(pl.quat.x * 1000), Math.round(pl.quat.y * 1000), Math.round(pl.quat.z * 1000), Math.round(pl.quat.w * 1000), Math.round(pl.speed), pl.onGround ? 1 : 0, pl.bombs]; }
   const recent = (list, age) => list.filter(e => simTime - e[e.length - 1] < age).map(e => e.slice(0, -1));
   o.fx = recent(net.fx, 1.2); o.h = recent(net.hits, 2); o.dd = recent(net.dd, 3); o.rq = recent(net.req, 3); o.ch = recent(net.chat, 6);
@@ -116,6 +117,8 @@ function buildWorld1() {
     o.TK = TEAMS.map(t => teamKills[t] || 0); o.KF = net.kf.filter(e => simTime - e[e.length - 1] < 8).map(e => e.slice(0, -1));
     if (gameOver) o.GO = winner;
     o.FPS = Math.round(typeof fpsNow === 'function' ? fpsNow() : 0);
+    if (typeof towerMask === 'function' && TOWERS.length) o.TW = towerMask();
+    if (typeof treasureState === 'function') o.TR = treasureState();
     o.CF = [BATTLE.points, BATTLE.soldiers, BATTLE.diff]; o.HS = [Math.round(holdScore.blue), Math.round(holdScore.red)]; if (typeof clownNetState === 'function') o.CL = clownNetState();
   }
   return fitSize(o, ['KF']);
@@ -124,7 +127,7 @@ function buildWorld2() {
   const o = { v: 2, id: net.myId };
   {
     o.PL = planes.map(pl => pl.remote || pl.pilot === player ? 0 : [pl.alive ? 1 : 0, r10(pl.pos.x), r10(pl.pos.y), r10(pl.pos.z), Math.round(pl.quat.x * 1000), Math.round(pl.quat.y * 1000), Math.round(pl.quat.z * 1000), Math.round(pl.quat.w * 1000), Math.round(pl.speed), pl.bombs]);
-    o.GV = gvehicles.map(v => v.remote ? 0 : !v.alive ? [0] : (Math.abs(v.speed) < 0.05 && !occupants(v).length) ? [1, r10(v.pos.x), r10(v.pos.y), r10(v.pos.z), Math.round(v.yaw * 100)] : [v.alive ? 1 : 0, r10(v.pos.x), r10(v.pos.y), r10(v.pos.z), Math.round(v.yaw * 100), Math.round(v.pitch * 100), Math.round(v.roll * 100), Math.round(v.turretYaw * 100), Math.round(v.gunPitch * 100), Math.round(v.mgYaw * 100), Math.round(v.mgPitch * 100), r10(v.speed)]);
+    o.GV = gvehicles.map(v => v.remote ? 0 : !v.alive ? [0] : (Math.abs(v.speed) < 0.05 && !occupants(v).length) ? [1, r10(v.pos.x), r10(v.pos.y), r10(v.pos.z), Math.round(v.yaw * 100)] : [v.alive ? 1 : 0, r10(v.pos.x), r10(v.pos.y), r10(v.pos.z), Math.round(v.yaw * 100), Math.round(v.pitch * 100), Math.round(v.roll * 100), Math.round(v.turretYaw * 100), Math.round(v.gunPitch * 100), Math.round(v.mgYaw * 100), Math.round(v.mgPitch * 100), r10(v.speed), ...(v.model.mg2Yaw ? [Math.round(v.mg2Yaw * 100), Math.round(v.mg2Pitch * 100)] : [])]);
     // vehicles that haven't changed since the last update are left out (0 = nothing new), with a full
     // refresh every few seconds so someone who just joined still learns where everything is
     net.w2n = (net.w2n || 0) + 1; const full = net.w2n % 16 === 1;
@@ -135,7 +138,7 @@ function buildWorld2() {
 }
 
 // ---------- connecting ----------
-const GAME_BUILD = 19;   // bump when vehicles or the world change, so mismatched versions never mix
+const GAME_BUILD = 20;   // bump when vehicles or the world change, so mismatched versions never mix
 // the version number on the start screen and pause menu, so everyone can check they are on the same one
 const GAME_DATE = 'Nov 15, 2026';
 setTimeout(() => { const v = document.getElementById('verTag'); if (v) v.textContent = `Version ${GAME_BUILD}  \u00b7  ${GAME_DATE}${window.STANDALONE ? '' : '  \u00b7  Claude'}`; const p = document.getElementById('verPause'); if (p) p.textContent = `Version ${GAME_BUILD}`; }, 0);
@@ -198,16 +201,16 @@ async function netConnect(code, asHost) {
   try { game = await r.room.join(base); net.w1 = await r.room.join(base + '-w1'); net.w2 = await r.room.join(base + '-w2'); } catch (e) { game = null; }
   if (!game) { netNote(asHost ? 'Could not set up the game. Try again.' : 'Could not find a game with that code. Check it and try again.'); return false; }
   net.game = game; net.closeGame = r.close; net.api = r.api; net.active = true; net.jt = Date.now(); net.joinPerf = performance.now();
-  if (!asHost) { net.isHost = false; net.hostId = null; net.noHostUntil = performance.now() + 8000; }   // a joiner never takes over the battle while it is still settling in
+  if (!asHost) { net.isHost = false; net.hostId = null; net.noHostUntil = performance.now() + 8000; net.joining = true; }   // a joiner never takes over the battle while it is still settling in
   if (asHost) { net.isHost = true; net.hostId = net.myId; return true; }
   // joining: wait until we can see the host, and read the game's map and mode
   for (let i = 0; i < 40; i++) {
     const hp = humanPeers();
-    if (hp.length) { net.hostCf = (hp.find(pe => pe.presence.hc) || hp[0]).presence.cf || null; await new Promise(r2 => setTimeout(r2, 600)); return true; }
+    if (hp.length) { net.hostCf = (hp.find(pe => pe.presence.hc) || hp[0]).presence.cf || null; await new Promise(r2 => setTimeout(r2, 600)); net.joining = false; return true; }
     await new Promise(r2 => setTimeout(r2, 250));
   }
   netNote('Could not find a game with that code. Check it and try again.');
-  net.active = false; try { r.close && r.close(); } catch (e) { }
+  net.joining = false; net.active = false; try { r.close && r.close(); } catch (e) { }
   return false;
 }
 // the host keeps its public listing up to date
@@ -243,6 +246,7 @@ function peerAwake(pr) {
   return now - s.t < 3000;
 }
 function electHost() {
+  if (net.joining) return;   // still connecting: never take the battle before we have even seen the host
   // the current host keeps the job; otherwise whoever has been here longest (measured by each computer's own timer, so clocks don't matter)
   const yielding = performance.now() < (net.noHostUntil || 0) && humanPeers().length > 0;
   const all = [...(document.hidden || yielding ? [] : [{ id: net.myId, age: (performance.now() - net.joinPerf) / 100, hc: net.isHost && net.hostId === net.myId }]),
@@ -340,6 +344,9 @@ function netUpdate(dt) {
       pl.speed = a[7]; pl.onGround = !!a[8]; pl.alive = true; pl.model.g.visible = true; pl.model.bomb.visible = a[9] > 0;
       c.model.root.visible = false;
     } else { c.vehicle = null; if (c.alive) c.model.root.visible = true; }
+    // riding as a plane's gunner
+    if (P.m === 5 && planes[P.pg] && c.alive) { const pl = planes[P.pg]; c.planeGun = pl; pl.gunnerRemote = c; c.model.root.visible = false; c.pos.copy(pl.pos); aimPlaneGun(pl, s[3] / 100, s[4] / 100); }
+    else if (c.planeGun) { if (c.planeGun.gunnerRemote === c) c.planeGun.gunnerRemote = null; c.planeGun = null; }
     const ti = P.m === 1 ? P.ti : -1;
     if (r.turretIdx !== ti) { if (r.turretIdx >= 0 && turrets[r.turretIdx] && turrets[r.turretIdx].user === c) turrets[r.turretIdx].user = null; r.turretIdx = ti; }
     if (ti >= 0 && turrets[ti]) { const t = turrets[ti]; if (t.user && t.user !== c && t.user.turret === t && !t.user.isPlayer) { t.user.turret = null; } t.user = c; c.turret = t; t.yaw = s[3] / 100; t.pitch = s[4] / 100; updateTurretVisual(t); } else c.turret = null;
@@ -358,15 +365,15 @@ function netUpdate(dt) {
         v.yaw += wrapAngle(a[3] / 100 - v.yaw) * 0.5; v.pitch = a[4] / 100; v.roll = a[5] / 100; v.turretYaw = a[6] / 100; v.gunPitch = a[7] / 100; v.speed = a[8] / 10;
         for (const w of v.model.wheels) w.rotation.x -= v.speed * dt / 0.45;
       } else if (v.remote === c) v.remote = null;
-      if (Array.isArray(P.mg)) { v.mgYaw = P.mg[0] / 100; v.mgPitch = P.mg[1] / 100; }
+      if (Array.isArray(P.mg)) { if (v.T.seats[gs] && v.T.seats[gs].gun) { v.mg2Yaw = P.mg[0] / 100; v.mg2Pitch = P.mg[1] / 100; } else { v.mgYaw = P.mg[0] / 100; v.mgPitch = P.mg[1] / 100; } }
     } else if (c.gv) { const v = c.gv; if (v.remote === c) v.remote = null; leaveSeat(c, true); }
     // smooth movement + animation
-    if (c.alive && !c.vehicle && !c.gv) {
+    if (c.alive && !c.vehicle && !c.gv && !c.planeGun) {
       const before = c.pos.clone();
       if (c.pos.distanceTo(c.netPos) > 8) c.pos.copy(c.netPos); else c.pos.lerp(c.netPos, Math.min(1, dt * 12));
       const sp = before.distanceTo(c.pos) / Math.max(dt, 0.001);
       c.vel.copy(c.pos).sub(before).divideScalar(Math.max(dt, 0.001));
-      c.heading = (c.turret ? s[3] / 100 : s[3] / 100) + Math.PI; c.aimPitch = -s[4] / 100 * -1; c.crouch = !!P.c; c.parachute = !!P.pc;
+      c.heading = (c.turret ? s[3] / 100 : s[3] / 100) + Math.PI; c.aimPitch = -s[4] / 100 * -1; c.crouch = !!P.c; c.parachute = P.pc === 1; c.gliding = P.pc === 2;
       animateNPC(c, dt, sp > 0.5 ? Math.min(sp, 8) : 0, true);
       if (c.turret) { c.model.gun.visible = false; }
     }
@@ -381,7 +388,7 @@ function netUpdate(dt) {
         if (killer) { teamKills[killer.team]++; if (killer === player) { player.kills++; addMoney(e[2] ? 150 : 100, e[2] ? 'Headshot' : 'Elimination'); SFX.kill(); } }
         hostKillfeed(killer, c, e[2]); addKillfeed(killer, c, e[2]);
       }
-      for (const e of newEntries(P.id, 'rq', P.rq)) if (e[1] === 'hj') { const v = gvehicles[e[2]]; if (v && v.alive) for (const o of occupants(v)) if (o.team !== c.team && !o.isPlayer && !o.isRemote) { leaveSeat(o); o.noVehT = simTime + 30; } } else if (e[1] === 'rec') recruitNPC(e[2]); else if (e[1] === 'wh' && typeof whistleForVehicle === 'function') { const v = gvehicles[e[2]]; if (v && v.alive) whistleForVehicle(v, teamOf(e[3]), v.pos); }
+      for (const e of newEntries(P.id, 'rq', P.rq)) if (e[1] === 'tw') { if (typeof towerRequest === 'function') towerRequest(e); } else if (e[1] === 'tc') { if (typeof treasureRequest === 'function') treasureRequest(e, c); } else if (e[1] === 'hj') { const v = gvehicles[e[2]]; if (v && v.alive) for (const o of occupants(v)) if (o.team !== c.team && !o.isPlayer && !o.isRemote) { leaveSeat(o); o.noVehT = simTime + 30; } } else if (e[1] === 'rec') recruitNPC(e[2]); else if (e[1] === 'wh' && typeof whistleForVehicle === 'function') { const v = gvehicles[e[2]]; if (v && v.alive) whistleForVehicle(v, teamOf(e[3]), v.pos); }
     }
     // their buildings
     const want = new Set();
@@ -479,6 +486,8 @@ function applySnapshot(P, dt) {
   if (Array.isArray(P.P) && P.P.length !== points.length) return;   // setup still switching over
   if (Array.isArray(P.N)) P.N.forEach((d, i) => { try { applyNpcSnap(d, i); } catch (e) { if (typeof loopError === 'function') loopError('npc snapshot', e); } });
   applyRestOfSnapshot(P);
+  if (P.TW && typeof applyTowerMask === 'function') applyTowerMask(P.TW);
+  if (P.TR && typeof applyTreasure === 'function') applyTreasure(P.TR);
 }
 function applyNpcSnap(d, i) {
   {
@@ -534,7 +543,9 @@ function applyRestOfSnapshot(P) {
     if (a.length < 12) { v.pos.set(a[1] / 10, a[2] / 10, a[3] / 10); v.yaw = a[4] / 100; v.speed = 0; v.snaps = []; return; }   // parked: short form
     pushSnap(v, a[1] / 10, a[2] / 10, a[3] / 10, a[4] / 100);
     v.netPitch = a[5] / 100; v.netRoll = a[6] / 100; v.turretYaw = a[7] / 100; v.gunPitch = a[8] / 100;
-    if (!(player.gv === v && v.T.seats[player.seat].role === 'gun')) { v.mgYaw = a[9] / 100; v.mgPitch = a[10] / 100; }
+    const mine = player.gv === v && v.T.seats[player.seat].role === 'gun', myGun = mine ? (v.T.seats[player.seat].gun || 0) : -1;
+    if (myGun !== 0) { v.mgYaw = a[9] / 100; v.mgPitch = a[10] / 100; }
+    if (a.length >= 14 && myGun !== 1) { v.mg2Yaw = a[12] / 100; v.mg2Pitch = a[13] / 100; }
     v.speed = a[11] / 10;
   });
   if (Array.isArray(P.TK)) TEAMS.forEach((t, i) => { teamKills[t] = P.TK[i] || 0; });

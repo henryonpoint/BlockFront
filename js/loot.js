@@ -94,7 +94,7 @@ addEventListener('keydown', e => { if (e.code === 'KeyH' && playing && !e.repeat
 // ---------- every frame ----------
 function updateLoot(dt) {
   const t = simTime;
-  const canTake = player.alive && !player.vehicle && !player.gv && !player.turret;
+  const canTake = player.alive && !player.vehicle && !player.gv && !player.turret && !player.planeGun;
   for (let i = ammoDrops.length - 1; i >= 0; i--) {
     const d = ammoDrops[i]; d.t += dt;
     d.m.rotation.y += dt * 0.8;
