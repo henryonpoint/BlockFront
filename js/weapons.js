@@ -266,7 +266,7 @@ const WEAPONS = [
   { id: 'mortar', name: 'Mortar', build: 'mortar', type: 'mortar', rate: 1.1, recoil: 0, sfx: 'thump', mag: 4, reserve: 16, reloadT: 2.6, price: 1100 },
   { id: 'm16', name: 'M16', build: 'm16', type: 'hit', burst: 3, rate: 0.36, spread: 0.009, dmg: 30, force: 6, pellets: 1, recoil: 0.035, sfx: 'rifle', mag: 30, reserve: 180, reloadT: 1.9, price: 800, tracer: 0xffe9a0 },
   { id: 'fifty', name: '.50 Cal Rifle', build: 'fifty', type: 'hit', rate: 1.7, spread: 0.03, dmg: 300, force: 45, pellets: 1, recoil: 0.32, sfx: 'sniper', mag: 5, reserve: 25, reloadT: 3.0, price: 2000, zoom: true, tracer: 0xffffff },
-  { id: 'golden', name: 'Golden Gun', build: 'golden', type: 'hit', rate: 0.6, spread: 0.004, dmg: 99999, force: 30, pellets: 1, recoil: 0.12, sfx: 'pistol', mag: 1, reserve: Infinity, reloadT: 1.5, price: 5000, tracer: 0xffd040 },
+  { id: 'golden', name: 'Golden Gun', build: 'golden', type: 'hit', autoAim: true, rate: 0.6, spread: 0.004, dmg: 99999, force: 30, pellets: 1, recoil: 0.12, sfx: 'pistol', mag: 1, reserve: Infinity, reloadT: 1.5, price: 5000, tracer: 0xffd040 },
   { id: 'blaster', name: 'Laser Blaster', build: 'blaster', type: 'hit', laser: true, rate: 0.16, spread: 0.004, dmg: 32, force: 3, pellets: 1, recoil: 0.02, sfx: 'laser', mag: 24, reserve: 240, reloadT: 1.4, price: 900, tracer: 0xff3a30 },
   { id: 'saber', name: 'Lightsaber', build: 'saber', type: 'melee', rate: 0.45, dmg: 160, force: 14, range: 3.6, recoil: 0, sfx: 'click', mag: 1, reserve: Infinity, reloadT: 0.1, price: 1500 },
 ];

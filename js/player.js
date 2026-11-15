@@ -53,8 +53,9 @@ function fireWeapon(burstShot) {
   if (w.type === 'hit') {
     const spread = zoom ? 0 : w.spread * (ads ? 0.3 : 1) * (player.onGround ? 1 : 1.8) * (player.crouch ? 0.6 : 1) * (1 + bloom);
     const speed = w.laser ? 900 : w.id === 'sniper' ? 750 : 430;
+    const lock = w.autoAim ? autoAimTarget() : null;   // the Golden Gun finds its own target
     for (let i = 0; i < w.pellets; i++) {
-      const dir = aimDir(spread);
+      const dir = lock ? lock.clone().sub(camera.position).normalize() : aimDir(spread);
       const hit = rayHit(camera.position, dir, 400, player.team);
       const end = hit ? hit.point : camera.position.clone().addScaledVector(dir, 400);
       shootTracer(origin, end, w.tracer, speed, w.laser ? 0.035 : w.pellets > 1 ? 0.018 : 0.026, () => { if (applyHit(hit, dir, w, player)) { showHitmarker(false); SFX.hit(); } });
@@ -74,6 +75,20 @@ function fireWeapon(burstShot) {
     spawnBall(origin, aimDir(0).multiplyScalar(26).add(new THREE.Vector3(0, 3, 0)), player, { type: 'grenade', r: 0.12, mass: 0.8, fuse: 2.0, color: 0x2e7d32, radius: 6.5, dmg: 120, power: 30 });
   }
   if (a.mag === 0 && a.reserve > 0) setTimeout(() => { if (curW() === w) startReload(); }, 200);
+}
+// the Golden Gun's auto aim: the closest enemy (or zombie) near the crosshair that you can see
+function autoAimTarget() {
+  const fwd = aimDir(0), best = { s: Infinity, p: null };
+  for (const c of chars) {
+    if (!c.alive || c === player || c.inactive || c.vehicle || (c.team === player.team && !c.zombie)) continue;
+    const p = new THREE.Vector3(); (c.model && c.model.headMesh ? c.model.headMesh : c.model ? c.model.root : null) ? (c.model.headMesh || c.model.root).getWorldPosition(p) : p.copy(c.pos).y += 1.6;
+    p.y += 0.05;   // straight for the head
+    const v = p.clone().sub(camera.position), d = v.length(); if (d > 300 || d < 0.5) continue;
+    const ang = Math.acos(clamp(v.dot(fwd) / d, -1, 1)); if (ang > 0.45) continue;   // within about 25 degrees of the crosshair
+    const h = rayHit(camera.position, v.clone().normalize(), d + 2, player.team); if (!h || h.char !== c) continue;   // only if the shot would really reach them
+    const score = ang * 60 + d * 0.05; if (score < best.s) { best.s = score; best.p = p; }
+  }
+  return best.p;
 }
 // lightsaber: a swing that hits everything in a short arc in front of you
 function saberSwing(w) {
