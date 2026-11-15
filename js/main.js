@@ -127,12 +127,18 @@ function updatePointsLogic(dt) {
   }
   if (!gameOver) for (const t of TEAMS) if (points.every(p => p.owner === t)) endGame(t);
 }
+// standing on the point: on the ground there (a crater floor counts), not in a tunnel underneath or flying over it
+function onPointGround(c, p) {
+  if (typeof undergroundAt === 'function' && undergroundAt(c.pos.x, c.pos.z, c.pos.y + 0.5)) return false;
+  const g = heightAt(c.pos.x, c.pos.z);
+  return c.pos.y - g < 6 && c.pos.y > p.y - 14;
+}
 // counts soldiers of each team on a point and marks it contested when more than one team is there
 function countOnPoint(p, checkY) {
   const cnt = {}; for (const t of TEAMS) cnt[t] = 0;
   for (const c of chars) {
     if (!c.alive || c.vehicle || c.inactive) continue;
-    if (Math.hypot(c.pos.x - p.x, c.pos.z - p.z) < p.r && (!checkY || Math.abs(c.pos.y - p.y) < 6)) cnt[c.team] = (cnt[c.team] || 0) + 1;
+    if (Math.hypot(c.pos.x - p.x, c.pos.z - p.z) < p.r && (!checkY || onPointGround(c, p))) cnt[c.team] = (cnt[c.team] || 0) + 1;
   }
   p.cnt = cnt; p.blueIn = cnt.blue; p.redIn = cnt.red;
   let teams = 0; for (const t of TEAMS) if (cnt[t] > 0) teams++;

@@ -120,9 +120,16 @@ function nearestInteract() {
   const hi = hatchInteract();
   if (hi) { const d = Math.hypot(hi.h.x - player.pos.x, hi.h.z - player.pos.z); if (d < bd) { bd = d; best = hi; } }
   for (const v of gvehicles) {
-    if (!v.alive || occupants(v).some(c => c.team !== player.team)) continue;   // any empty vehicle, even the other team's
+    if (!v.alive) continue;
     const d = Math.hypot(v.pos.x - player.pos.x, v.pos.z - player.pos.z);
     if (d > v.T.radius + 2.4 || d >= bd) continue;
+    // enemies inside: if it is slow enough to grab and no other player is in it, you can haul them out and take it
+    const foes = occupants(v).filter(c => c.team !== player.team);
+    if (foes.length) {
+      if (Math.abs(v.speed) > 4 || v.remote || foes.some(c => c.isRemote) || (v.T.heli && v.pos.y - heightAt(v.pos.x, v.pos.z) > 3)) continue;
+      bd = d; best = { kind: 'gv', v, seat: 0, hijack: true, text: `Press E to hijack the ${teamName(v.team).toLowerCase()} ${v.T.name}` };
+      continue;
+    }
     const seat = !v.seats[0] && !v.remote ? 0 : freeSeat(v);
     if (seat < 0) continue;
     const role = v.T.seats[seat].role;
@@ -166,6 +173,7 @@ function interact() {
   if (it.kind === 'cache') { openCache(it.b); return; }
   if (it.kind === 'hatch') { useHatch(it); return; }
   if (it.kind === 'gv') {
+    if (it.hijack) hijackVehicle(it.v, player);
     enterSeat(player, it.v, it.seat); zoom = false; ads = false; cancelPlace();
     camOrbit.yaw = 0; camOrbit.pitch = 0.15; camOrbit.wyaw = it.v.yaw; player.yaw = it.v.yaw; player.pitch = 0;
     const role = it.v.T.seats[it.seat].role;
@@ -285,6 +293,17 @@ function updatePlayer(dt) {
   camera.rotation.set(player.pitch + kick * 0.15 + (Math.random() - 0.5) * camShake, player.yaw + (Math.random() - 0.5) * camShake, camRoll + (Math.random() - 0.5) * camShake * 0.5);
   const baseFov = SET.fov || 75, targetFov = zoom ? 20 : ads ? baseFov * 0.69 : sprinting ? baseFov + 7 : baseFov;
   if (Math.abs(camera.fov - targetFov) > 0.1) { camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 15); camera.updateProjectionMatrix(); }
+}
+// throw the enemy crew out of a vehicle so it can be stolen
+function hijackVehicle(v, by) {
+  for (const c of occupants(v)) {
+    if (c.team === by.team || c.isPlayer || c.isRemote) continue;
+    leaveSeat(c);
+    c.noVehT = simTime + 30;   // and they don't jump straight back in
+  }
+  if (!v.homeTeam) v.homeTeam = v.team;
+  showMessage(`Hijacked the ${v.T.name}! It's yours now`, 2);
+  if (typeof netRequest === 'function' && net.active && !net.isHost) netRequest(['hj', v.idx]);
 }
 // a round parachute: canopy panels in team colour and white, with lines down to the harness
 function makeChute(color) {

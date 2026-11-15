@@ -264,8 +264,8 @@ function helipadMesh(x, y, z) {
   const m = new THREE.Mesh(p.build(), VEH_MAT); m.position.set(x, y + 0.02, z); m.receiveShadow = true; scene.add(m);
 }
 function buildHelisAndBoats() {
-  for (const t of ['blue', 'red']) {
-    const B = BASES[t], s = t === 'blue' ? 1 : -1, yaw = t === 'blue' ? 0 : Math.PI;
+  for (const t of TEAMS) {   // every team gets helicopters, the 4-team corner bases too
+    const B = BASES[t], s = teamSide(t), yaw = s > 0 ? 0 : Math.PI;
     for (const dx of [-62, 62]) {
       let spot = null;
       for (let d = 0; d <= 60 && !spot; d += 4) for (let k = 0; k < (d ? 12 : 1) && !spot; k++) {
@@ -277,9 +277,13 @@ function buildHelisAndBoats() {
       helipadMesh(spot[0], v.pos.y, spot[1]);
     }
     // a gun boat on each of the two big lakes, on each team's side
-    for (const L of SNOW ? [] : [LAKES[0], LAKES[1]]) {
+    if (t === 'blue' || t === 'red') for (const L of SNOW ? [] : [LAKES[0], LAKES[1]]) {
       const z = L.z + s * L.r * 0.45, x = L.x;
       makeGV('boat', t, x, z, t === 'blue' ? Math.PI * 0.5 : -Math.PI * 0.5, WATER_Y);
+    } else if (!SNOW && LAKES.length) {   // green and yellow: a boat on the lake nearest their base, on the side facing it
+      const L = LAKES.slice().sort((a, b) => Math.hypot(a.x - B.x, a.z - B.z) - Math.hypot(b.x - B.x, b.z - B.z))[0];
+      const x = L.x + Math.sign(B.x - L.x) * L.r * 0.45;
+      if (waterDepth(x, L.z) > 1.2) makeGV('boat', t, x, L.z, 0, WATER_Y);
     }
   }
 }

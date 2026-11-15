@@ -129,7 +129,7 @@ function buildWorld2() {
 }
 
 // ---------- connecting ----------
-const GAME_BUILD = 16;   // bump when vehicles or the world change, so mismatched versions never mix
+const GAME_BUILD = 17;   // bump when vehicles or the world change, so mismatched versions never mix
 // the version number on the start screen and pause menu, so everyone can check they are on the same one
 const GAME_DATE = 'Nov 15, 2026';
 setTimeout(() => { const v = document.getElementById('verTag'); if (v) v.textContent = `Version ${GAME_BUILD}  \u00b7  ${GAME_DATE}${window.STANDALONE ? '' : '  \u00b7  Claude'}`; const p = document.getElementById('verPause'); if (p) p.textContent = `Version ${GAME_BUILD}`; }, 0);
@@ -333,6 +333,7 @@ function netUpdate(dt) {
       if (c.gv !== v || c.seat !== gs) {
         const occ = v.seats[gs];
         if (occ && occ !== c && !occ.isPlayer && !occ.isRemote) leaveSeat(occ);
+        for (const o of occupants(v)) if (o !== c && o.team !== c.team && !o.isPlayer && !o.isRemote) { leaveSeat(o); o.noVehT = simTime + 30; }   // hijacked: the enemy crew is thrown out
         if (!v.seats[gs] || v.seats[gs] === c) enterSeat(c, v, gs);
       }
       if (gs === 0 && Array.isArray(P.gv)) {
@@ -362,7 +363,7 @@ function netUpdate(dt) {
         if (killer) { teamKills[killer.team]++; if (killer === player) { player.kills++; addMoney(e[2] ? 150 : 100, e[2] ? 'Headshot' : 'Elimination'); SFX.kill(); } }
         hostKillfeed(killer, c, e[2]); addKillfeed(killer, c, e[2]);
       }
-      for (const e of newEntries(P.id, 'rq', P.rq)) if (e[1] === 'rec') recruitNPC(e[2]); else if (e[1] === 'wh' && typeof whistleForVehicle === 'function') { const v = gvehicles[e[2]]; if (v && v.alive) whistleForVehicle(v, teamOf(e[3]), v.pos); }
+      for (const e of newEntries(P.id, 'rq', P.rq)) if (e[1] === 'hj') { const v = gvehicles[e[2]]; if (v && v.alive) for (const o of occupants(v)) if (o.team !== c.team && !o.isPlayer && !o.isRemote) { leaveSeat(o); o.noVehT = simTime + 30; } } else if (e[1] === 'rec') recruitNPC(e[2]); else if (e[1] === 'wh' && typeof whistleForVehicle === 'function') { const v = gvehicles[e[2]]; if (v && v.alive) whistleForVehicle(v, teamOf(e[3]), v.pos); }
     }
     // their buildings
     const want = new Set();

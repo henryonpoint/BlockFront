@@ -29,6 +29,7 @@ function makeCrater(at, blast, huge) {
     let dh = 0;
     if (d < 1) dh = -depth * (1 - d * d);                          // the bowl
     else dh = depth * 0.22 * Math.sin((d - 1) / 0.5 * Math.PI);     // a raised rim of thrown-up earth
+    for (const P of POINTS_DEF) { const pd = Math.hypot(x - P.x, z - P.z); if (pd < 6) dh *= smooth(2.5, 6, pd); }   // the flag keeps a little mound to stand on
     const k = iz * W1 + ix;
     HGRID[k] += dh; pos.setY(k, HGRID[k]);
     const s = d < 1.1 ? 0.55 + 0.35 * d * d : 1;                   // scorched earth
