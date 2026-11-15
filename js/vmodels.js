@@ -537,12 +537,11 @@ function carWheelGeo(r, w, sport) {
   });
 }
 let carCount = 0;
-function addCar(x, z, alongX, color) {
-  const h = carCount++ % 4;                                            // same order on every computer, so everyone builds the same cars
-  const kind = ['sedan', 'pickup', 'muscle', 'suv'][h];
-  const g = new THREE.Group(), car = new THREE.Group(); car.position.y = -0.95; g.add(car);
+// the body of a civilian vehicle, front towards -z, wheels resting on y = 0. Kinds: sedan, muscle, pickup, suv,
+// taxi, police, van, bus. Returns the parts so a parked car and a car driving in traffic can share the same look.
+function carParts(kind, C) {
   const p = new Part(), glass = new Part(), glow = new Part();
-  const C = color, chrome = 0xc9cdd2, trim = 0x1e2024, dark = 0x2a2d31;
+  const chrome = 0xc9cdd2, trim = 0x1e2024, dark = 0x2a2d31;
   const lower = new THREE.Color(C).multiplyScalar(0.72).getHex();
   let wheelR = 0.38, wheelW = 0.26, wz = 1.35, wx = 0.86, sport = false;
   const lamps = (y, zf, zr, wide) => {
@@ -557,7 +556,7 @@ function addCar(x, z, alongX, color) {
       for (const zz of [z0 + 0.25, (z0 + z1) / 2 + 0.25]) p.box(0.03, 0.04, 0.16, chrome, (xo + 0.01) * s, y1 - 0.12, zz);
     }
   };
-  if (kind === 'sedan' || kind === 'muscle') {
+  if (kind === 'sedan' || kind === 'muscle' || kind === 'taxi' || kind === 'police') {
     const L = kind === 'muscle' ? 4.6 : 4.4, low = kind === 'muscle' ? -0.06 : 0;
     sport = kind === 'muscle'; if (sport) { wheelR = 0.4; wheelW = 0.32; }
     p.box(1.86, 0.5, L, C, 0, 0.66 + low, 0);                                                  // main body
@@ -587,6 +586,17 @@ function addCar(x, z, alongX, color) {
       for (const s of [-0.45, 0.45]) p.cyl(0.06, 0.06, 0.2, chrome, s, 0.36, L / 2 + 0.1, RX);   // twin exhausts
       for (const s of [-1, 1]) p.box(0.06, 0.32, 1.1, lower, 0.97 * s, 0.6, 1.3);                // wide rear haunches
     }
+    if (kind === 'taxi') {
+      p.box(0.8, 0.26, 0.32, VC.white, 0, 1.68, 0.25); glow.box(0.7, 0.16, 0.335, VC.amber, 0, 1.7, 0.25);   // roof sign
+      for (const s of [-1, 1]) for (let i = 0; i < 10; i++) p.box(0.012, 0.09, 0.18, i % 2 ? VC.white : 0x1d1d22, 0.94 * s, 0.7, -1.6 + i * 0.36);   // checker band
+    }
+    if (kind === 'police') {
+      for (const s of [-1, 1]) { p.box(0.015, 0.5, 2.0, 0x1d1d22, 0.935 * s, 0.66, 0.2); p.box(0.016, 0.12, 1.2, 0xd4af37, 0.94 * s, 0.75, 0.2); }   // black doors with a gold star stripe
+      p.box(1.86, 0.02, 1.36, 0x1d1d22, 0, 1.0, -1.45, -0.05); p.box(1.86, 0.02, 0.96, 0x1d1d22, 0, 1.0, 1.7, 0.06);   // black hood and trunk
+      p.box(1.2, 0.1, 0.3, 0x2a2d31, 0, 1.59, 0.15); glow.box(0.5, 0.12, 0.28, 0xff2a2a, -0.33, 1.68, 0.15); glow.box(0.5, 0.12, 0.28, 0x2a6aff, 0.33, 1.68, 0.15);   // light bar
+      p.box(1.0, 0.4, 0.1, 0x1d1d22, 0, 0.42, -2.35);                                                       // push bumper
+      p.cyl(0.03, 0.03, 0.6, trim, 0.7, 1.85, 1.0);                                                         // radio aerial
+    }
   } else if (kind === 'pickup') {
     wheelR = 0.44; wheelW = 0.3; wz = 1.5;
     p.box(1.94, 0.6, 4.8, C, 0, 0.82, 0); p.box(1.86, 0.18, 4.7, lower, 0, 0.47, 0);            // body
@@ -609,6 +619,51 @@ function addCar(x, z, alongX, color) {
     lamps(0.98, -2.4, 2.44, 0.7);
     doors(0.62, 1.14, -1.1, 0.4, 0.975);
     p.box(0.5, 0.3, 0.4, 0x7a4a24, 0.4, 1.3, 1.0); p.box(0.5, 0.3, 0.4, 0x7a4a24, -0.3, 1.3, 1.8);   // crates in the bed
+  } else if (kind === 'van') {
+    // a delivery van: tall boxy body, sloped windscreen, sliding side door, ladder rack
+    wheelR = 0.4; wheelW = 0.28; wz = 1.6; const L = 5.2;
+    p.box(1.98, 1.55, L - 1.0, C, 0, 1.38, 0.5); p.box(1.9, 0.18, 4.6, lower, 0, 0.45, 0.25);        // cargo box, sills
+    p.box(1.96, 0.62, 1.0, C, 0, 0.92, -2.1); p.box(1.94, 0.14, 0.9, C, 0, 1.25, -2.15, -0.12);        // nose and short hood
+    glass.box(1.8, 0.7, 0.03, 0, 0, 1.68, -1.86, 0.42, 0, 0);                                           // windscreen
+    p.box(1.9, 0.06, L - 0.9, C, 0, 2.17, 0.45);                                                         // roof
+    for (const s of [-1, 1]) {
+      glass.box(0.02, 0.5, 0.75, 0, 0.995 * s, 1.68, -1.2);                                             // cab windows
+      p.box(0.025, 1.3, 0.03, trim, 0.995 * s, 1.35, -0.75); p.box(0.025, 1.3, 0.03, trim, 0.995 * s, 1.35, 0.85);   // sliding door seams
+      p.box(0.03, 0.03, 1.6, trim, 0.995 * s, 2.0, 0.05);                                                 // door track
+      p.box(0.18, 0.1, 0.24, trim, 1.06 * s, 1.55, -1.55); p.box(0.04, 0.22, 0.2, chrome, 1.14 * s, 1.55, -1.55);   // mirrors
+      for (const zz of [-wz, wz]) p.box(0.1, 0.12, 1.1, trim, 0.99 * s, 0.9, zz);
+      p.box(0.03, 0.04, 0.16, chrome, 1.0 * s, 1.35, -0.95);
+      p.box(0.06, 0.06, L - 1.4, chrome, 0.7 * s, 2.32, 0.6);                                              // ladder rack rails
+    }
+    for (let i = 0; i < 5; i++) p.box(1.4, 0.04, 0.06, chrome, 0, 2.32, -0.6 + i * 0.6);
+    glass.box(0.7, 0.5, 0.03, 0, -0.45, 1.75, 2.615); glass.box(0.7, 0.5, 0.03, 0, 0.45, 1.75, 2.615);   // back door windows
+    p.box(0.02, 1.4, 0.04, trim, 0, 1.38, 2.62);
+    p.box(2.0, 0.22, 0.18, trim, 0, 0.55, -L / 2 - 0.05); p.box(2.0, 0.22, 0.18, trim, 0, 0.55, 2.68);
+    p.box(1.2, 0.3, 0.05, trim, 0, 0.88, -L / 2 - 0.02); for (let i = 0; i < 3; i++) p.box(1.1, 0.03, 0.06, chrome, 0, 0.8 + i * 0.08, -L / 2 - 0.03);
+    p.box(0.5, 0.16, 0.03, VC.white, 0, 0.8, 2.62);
+    for (const s of [-1, 1]) { glow.box(0.32, 0.16, 0.03, VC.lamp, 0.7 * s, 1.0, -L / 2 - 0.035); glow.box(0.16, 0.5, 0.03, VC.tail, 0.86 * s, 1.1, 2.615); }
+  } else if (kind === 'bus') {
+    // a city bus: long body, a row of windows, front and middle doors, a lit route sign
+    wheelR = 0.5; wheelW = 0.34; wz = 3.6; wx = 1.08; const L = 11;
+    const W = 0xf2f2ee, stripe = C;
+    p.box(2.5, 2.3, L, W, 0, 1.75, 0); p.box(2.46, 0.06, L - 0.2, W, 0, 2.93, 0);                     // body, roof
+    p.box(2.52, 0.35, L + 0.02, stripe, 0, 0.82, 0); p.box(2.52, 0.12, L + 0.02, stripe, 0, 2.62, 0);  // colour bands
+    p.box(1.6, 0.35, 2.2, 0xcfd2d6, 0, 3.1, 1.6);                                                       // air conditioning pod
+    for (const s of [-1, 1]) {
+      for (let i = 0; i < 6; i++) glass.box(0.02, 0.95, 1.3, 0, 1.255 * s, 2.0, -3.4 + i * 1.6);        // side windows
+      for (let i = 0; i < 7; i++) p.box(0.03, 1.0, 0.1, 0x2a2d31, 1.26 * s, 2.0, -4.2 + i * 1.6);        // window posts
+      p.box(0.2, 0.12, 0.3, trim, 1.36 * s, 2.5, -5.4);                                                   // mirrors
+      p.cyl(0.03, 0.03, 0.4, trim, 1.3 * s, 2.35, -5.45);
+      for (const zz of [-wz, wz]) p.add(new THREE.CylinderGeometry(wheelR + 0.1, wheelR + 0.1, 0.1, 14, 1, false, 0, Math.PI), trim, 1.22 * s, wheelR + 0.02, zz, 0, 0, RX, 1, 1, 1);
+    }
+    // doors on the right (curb) side
+    for (const zz of [-4.6, 0.4]) { glass.box(0.02, 2.0, 1.1, 0, 1.26, 1.55, zz); p.box(0.03, 2.05, 0.04, trim, 1.265, 1.55, zz); }
+    glass.box(2.3, 1.3, 0.03, 0, 0, 1.95, -L / 2 - 0.02); p.box(0.05, 1.3, 0.04, trim, 0, 1.95, -L / 2 - 0.03);   // big windscreen
+    glow.box(1.6, 0.26, 0.03, VC.amber, 0, 2.75, -L / 2 - 0.03);                                         // route sign
+    glass.box(2.2, 0.7, 0.03, 0, 0, 2.2, L / 2 + 0.02);
+    p.box(2.52, 0.3, 0.2, 0x2a2d31, 0, 0.55, -L / 2 - 0.06); p.box(2.52, 0.3, 0.2, 0x2a2d31, 0, 0.55, L / 2 + 0.06);
+    p.box(1.6, 0.15, 0.3, 0x55595e, 0, 0.75, -L / 2 - 0.25);                                             // bike rack
+    for (const s of [-1, 1]) { glow.box(0.3, 0.2, 0.03, VC.lamp, 0.9 * s, 0.95, -L / 2 - 0.03); glow.box(0.25, 0.3, 0.03, VC.tail, 1.0 * s, 1.0, L / 2 + 0.03); }
   } else {
     wheelR = 0.42; wheelW = 0.3; wz = 1.4;
     p.box(1.96, 0.75, 4.5, C, 0, 0.88, 0); p.box(1.9, 0.18, 4.4, lower, 0, 0.45, 0);
@@ -630,6 +685,13 @@ function addCar(x, z, alongX, color) {
     lamps(1.02, -2.26, 2.27, 0.68);
     doors(0.62, 1.24, -1.0, 1.1, 0.985);
   }
+  return { p, glass, glow, wheelR, wheelW, wz, wx, sport };
+}
+function addCar(x, z, alongX, color) {
+  const h = carCount++ % 4;                                            // same order on every computer, so everyone builds the same cars
+  const kind = ['sedan', 'pickup', 'muscle', 'suv'][h];
+  const g = new THREE.Group(), car = new THREE.Group(); car.position.y = -0.95; g.add(car);
+  const { p, glass, glow, wheelR, wheelW, wz, wx, sport } = carParts(kind, color);
   car.add(new THREE.Mesh(p.build(), VEH_MAT));
   car.add(new THREE.Mesh(glass.build(), CAR_GLASS));
   car.add(new THREE.Mesh(glow.build(), VEH_GLOW));

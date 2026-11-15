@@ -59,27 +59,36 @@ function civHit(c, byPlayer) {
 }
 
 // ---------- traffic ----------
-function buildTrafficCar(kind) {
-  const p = new Part(), col = kind === 'taxi' ? 0xf2c230 : kind === 'bus' ? 0x2a6ab8 : kind === 'police' ? 0xf2f2f2 : pick([0xffffff, 0x1d1d22, 0xd8262a, 0x2a5aa8, 0x8a8a8a, 0xc8c8c8, 0x2e6b3a, 0x7a2a2a, 0xd8a020]);
-  const glass = 0x6a90b0;
-  if (kind === 'bus') {
-    p.box(2.5, 2.6, 11, col, 0, 1.75, 0); p.box(2.52, 0.9, 10.4, glass, 0, 2.3, 0); p.box(2.52, 0.4, 11, 0xf2f2f2, 0, 0.75, 0);
-    p.box(2.2, 1, 0.05, glass, 0, 2.2, 5.51);
-  } else if (kind === 'pickup') {
-    p.box(2, 0.8, 5.2, col, 0, 0.85, 0); p.box(1.9, 0.75, 2, col, 0, 1.6, 0.8); p.box(1.92, 0.5, 1.8, glass, 0, 1.65, 0.8);
-    p.box(1.9, 0.5, 0.1, col, 0, 1.4, -2.5); p.box(0.1, 0.5, 2.3, col, 0.95, 1.4, -1.3); p.box(0.1, 0.5, 2.3, col, -0.95, 1.4, -1.3);
-  } else if (kind === 'van') {
-    p.box(2, 2, 5, col, 0, 1.45, 0); p.box(2.02, 0.7, 1.4, glass, 0, 1.85, 1.9);
-  } else {
-    p.box(1.9, 0.7, 4.4, col, 0, 0.8, 0); p.box(1.72, 0.62, 2.3, col, 0, 1.42, -0.1); p.box(1.74, 0.46, 2.1, glass, 0, 1.45, -0.1);
-    if (kind === 'taxi') p.box(0.7, 0.25, 0.3, 0xffffff, 0, 1.86, -0.1);
-    if (kind === 'police') { p.box(1.92, 0.3, 1.6, 0x1d1d22, 0, 0.85, 0.3); p.box(0.4, 0.15, 0.25, 0xd8262a, -0.3, 1.8, -0.1); p.box(0.4, 0.15, 0.25, 0x2a6ab8, 0.3, 1.8, -0.1); }
+// the same detailed bodies as the parked cars (see carParts), with the wheels merged in so each car costs few draw calls
+const _trafficMat = { body: null, glass: null, glow: null };
+function mergeColoredGeos(list) {
+  let n = 0; for (const [g] of list) n += g.attributes.position.count;
+  const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), col = new Float32Array(n * 3); let o = 0;
+  for (const [g, m] of list) {
+    const c = g.clone(); if (m) c.applyMatrix4(m);
+    const k = c.attributes.position.count;
+    pos.set(c.attributes.position.array, o * 3); nor.set(c.attributes.normal.array, o * 3);
+    if (c.attributes.color) col.set(c.attributes.color.array, o * 3); else col.fill(1, o * 3, (o + k) * 3);
+    o += k; c.dispose();
   }
-  const len = kind === 'bus' ? 11 : kind === 'pickup' ? 5.2 : kind === 'van' ? 5 : 4.4, wid = kind === 'bus' ? 2.5 : 2;
-  for (const s of [-1, 1]) for (const z of kind === 'bus' ? [-3.8, 3.8] : [-len * 0.32, len * 0.32]) p.cyl(0.38, 0.38, 0.3, 0x1a1a1a, s * (wid / 2), 0.38, z, 0, 0, Math.PI / 2);
-  for (const s of [-1, 1]) { p.box(0.32, 0.16, 0.05, 0xfff4c8, s * wid * 0.32, 0.85, len / 2 + 0.01); p.box(0.32, 0.16, 0.05, 0xd8262a, s * wid * 0.32, 0.85, -len / 2 - 0.01); }
-  const m = new THREE.Mesh(p.build(), VEH_MAT); m.castShadow = true; scene.add(m);
-  return { m, len, wid };
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  g.computeBoundingSphere(); return g;
+}
+function buildTrafficCar(kind) {
+  const body = kind === 'car' ? pick(['sedan', 'sedan', 'suv', 'muscle']) : kind;
+  const col = kind === 'taxi' ? 0xf2c230 : kind === 'bus' ? 0x2a6ab8 : kind === 'police' ? 0xf2f2f2 : kind === 'van' ? pick([0xffffff, 0xe8e6e0, 0x2a5aa8, 0x8a8a8a]) : pick([0xffffff, 0x1d1d22, 0xd8262a, 0x2a5aa8, 0x8a8a8a, 0xc8c8c8, 0x2e6b3a, 0x7a2a2a, 0xd8a020, 0x3a3f46]);
+  const P = carParts(body, col), turn = new THREE.Matrix4().makeRotationY(Math.PI);   // the models face -z, traffic drives along +z
+  const parts = [[P.p.build(), turn]], wg = carWheelGeo(P.wheelR, P.wheelW, P.sport);
+  for (const s of [-1, 1]) for (const zz of [-P.wz, P.wz]) parts.push([wg, new THREE.Matrix4().makeTranslation((P.wx + (P.wheelW - 0.26) / 2 + 0.05) * s, P.wheelR, zz).premultiply(turn)]);
+  if (body === 'bus') for (const s of [-1, 1]) parts.push([wg, new THREE.Matrix4().makeTranslation((P.wx + 0.09) * s, P.wheelR, P.wz - 1.1).premultiply(turn)]);   // a second rear axle
+  const g = new THREE.Group();
+  const bm = new THREE.Mesh(mergeColoredGeos(parts), VEH_MAT); bm.castShadow = true; g.add(bm);
+  const gm = new THREE.Mesh(P.glass.build().applyMatrix4(turn), CAR_GLASS); g.add(gm);
+  const lm = new THREE.Mesh(P.glow.build().applyMatrix4(turn), VEH_GLOW); g.add(lm);
+  g.userData.body = bm; scene.add(g);
+  const len = { sedan: 4.4, muscle: 4.6, suv: 4.6, pickup: 5.0, taxi: 4.4, police: 4.6, van: 5.8, bus: 11.2 }[body] || 4.6, wid = body === 'bus' ? 2.5 : 2;
+  return { m: g, len, wid };
 }
 // the road network as lanes: each road gives a lane each way
 let LANES = null;
@@ -115,7 +124,8 @@ function carPos(c) { return { x: c.lane.s.x + c.lane.ux * c.d, z: c.lane.s.z + c
 function wreckCar(c) {
   if (!c.alive) return;
   c.alive = false; c.wreckT = 0; c.v = 0;
-  c.m.material = new THREE.MeshLambertMaterial({ color: 0x2a2624 });
+  if (!_trafficMat.burnt) _trafficMat.burnt = new THREE.MeshLambertMaterial({ color: 0x2a2624 });
+  if (c.m.userData && c.m.userData.body) { c.m.userData.body.material = _trafficMat.burnt; for (const ch of c.m.children) if (ch !== c.m.userData.body) ch.visible = false; } else c.m.material = _trafficMat.burnt;
   const p = carPos(c); burst(new THREE.Vector3(p.x, heightAt(p.x, p.z) + 1, p.z), 14, 0xffa040, 8, 0.8, 0.15);
 }
 
