@@ -3,7 +3,7 @@
 // player who joined first (the host) also runs the soldiers, planes and points.
 const net = {
   active: false, isHost: true, joinPerf: 0, w1: null, w2: null, myId: Math.random().toString(36).slice(2, 10), jt: 0, game: null,
-  seq: 0, fx: [], hits: [], dd: [], req: [], kf: [], seen: {}, remotes: new Map(), sendT: 0, hostId: null, status: '',
+  seq: 0, fx: [], hits: [], dd: [], req: [], kf: [], lastSnap: [null, null], snapAt: [0, 0], snapGap: [250, 250], seen: {}, remotes: new Map(), sendT: 0, hostId: null, status: '',
 };
 const NPC_POOL = 40;
 const TEAM_POOL = (typeof FOUR !== 'undefined' && FOUR) ? 24 : NPC_POOL;   // 4 teams share the work, so each gets fewer   // most computer soldiers a team can have (see the battle setup)
@@ -128,7 +128,7 @@ function buildWorld2() {
 }
 
 // ---------- connecting ----------
-const GAME_BUILD = 12;   // bump when vehicles or the world change, so mismatched versions never mix
+const GAME_BUILD = 13;   // bump when vehicles or the world change, so mismatched versions never mix
 function netNote(t) { net.status = t; const e = document.querySelector('#connecting p'); if (e) e.textContent = t; }
 // online needs either Claude's live rooms or (on the website) PeerJS
 async function onlineApi(scope, first) {
@@ -368,16 +368,29 @@ function netUpdate(dt) {
     for (const [id, b] of [...r.builds]) if (!want.has(id)) { removeBuild(b); r.builds.delete(id); }
   }
   // the host's view of the battle
-  if (!net.isHost) for (const w of [net.w1, net.w2]) {
-    const hp = w.peers().find(pe => !pe.sameTab && pe.presence && pe.presence.id === net.hostId);
-    if (hp) applySnapshot(hp.presence, dt);
+  if (!net.isHost) {
+    for (const [k, w] of [[0, net.w1], [1, net.w2]]) {
+      const hp = w.peers().find(pe => !pe.sameTab && pe.presence && pe.presence.id === net.hostId);
+      if (!hp || hp.presence === net.lastSnap[k]) continue;   // nothing new from the host
+      net.lastSnap[k] = hp.presence;
+      const now = performance.now();
+      if (net.snapAt[k]) net.snapGap[k] = lerp(net.snapGap[k], clamp(now - net.snapAt[k], 40, 1500), 0.2);
+      net.snapAt[k] = now;
+      applySnapshot(hp.presence, dt);
+    }
+    smoothProxies(dt);
   }
   // publish: me about 12 times a second, the battle (host only) about 8 times a second
   net.sendT -= dt;
   if (net.sendT <= 0) {
     net.sendT = 0.083; net.tick = (net.tick || 0) + 1;
     net.game.presence(buildPresence()).catch(() => { });
-    if (net.isHost && net.tick % 3 !== 2) { const w = net.tick % 3 === 0 ? net.w1 : net.w2; w.presence(net.tick % 3 === 0 ? buildWorld1() : buildWorld2()).catch(() => { }); }
+    if (net.isHost) {
+      // website: soldiers and vehicles alternate every tick (each about 6 times a second); in Claude, two ticks out of three
+      const fast = !!window.STANDALONE, which = fast ? net.tick % 2 : net.tick % 3;
+      if (which === 0) net.w1.presence(buildWorld1()).catch(() => { });
+      else if (which === 1) net.w2.presence(buildWorld2()).catch(() => { });
+    }
   }
   $('online').textContent = `Online: ${peers.length + 1} player${peers.length ? 's' : ''}${net.isHost ? ' (you host)' : ''}   Code ${net.code}${net.isHost && !net.pub ? ' (private)' : ''}`;
   updateListing(dt);
@@ -438,7 +451,8 @@ function applySnapshot(P, dt) {
     n.inactive = false;
     const [x, z, y, h, f] = d, alive = !!(f & 1);
     n.netPos = n.netPos || new THREE.Vector3(); n.netPos.set(x / 5, y / 5, z / 5);
-    if (alive && !n.alive) { n.alive = true; n.pos.copy(n.netPos); n.model.root.visible = true; n.model.body.position.y = 0; n.model.root.quaternion.identity(); }
+    pushSnap(n, x / 5, y / 5, z / 5, h / 20);
+    if (alive && !n.alive) { n.alive = true; n.pos.copy(n.netPos); n.snaps = []; n.model.root.visible = true; n.model.body.position.y = 0; n.model.root.quaternion.identity(); }
     if (!alive && n.alive) { n.alive = false; startRagdoll(n, new THREE.Vector3(rand(-1, 1), 0.3, rand(-1, 1)).normalize(), 6); }
     n.netHeading = h / 20; n.netAim = !!(f & 2); n.moving = !!(f & 4);
     const shots = (f >> 4) & 7;
@@ -468,9 +482,9 @@ function applySnapshot(P, dt) {
     const alive = !!a[0];
     if (!alive && pl.alive) { pl.alive = false; pl.model.g.visible = false; }
     if (alive) {
-      const np = new THREE.Vector3(a[1] / 10, a[2] / 10, a[3] / 10);
-      if (!pl.alive || pl.pos.distanceTo(np) > 30) pl.pos.copy(np); else pl.pos.lerp(np, 0.4);
-      pl.quat.slerp(new THREE.Quaternion(a[4] / 1000, a[5] / 1000, a[6] / 1000, a[7] / 1000).normalize(), 0.4);
+      const q = new THREE.Quaternion(a[4] / 1000, a[5] / 1000, a[6] / 1000, a[7] / 1000).normalize();
+      if (!pl.alive) { pl.pos.set(a[1] / 10, a[2] / 10, a[3] / 10); pl.quat.copy(q); pl.snaps = []; }
+      pushSnap(pl, a[1] / 10, a[2] / 10, a[3] / 10, 0, q);
       pl.speed = a[8]; pl.alive = true; pl.model.g.visible = true; pl.model.bomb.visible = a[9] > 0; pl.bombs = a[9];
       pl.onGround = pl.pos.y - heightAt(pl.pos.x, pl.pos.z) < 2;
     }
@@ -479,12 +493,11 @@ function applySnapshot(P, dt) {
     const v = gvehicles[i]; if (!v || !a || v.remote || driverOf(v) === player) return;
     if (!a[0]) { if (v.alive) { v.alive = false; v.model.g.visible = false; if (player.gv === v && player.alive) kill(player, v.lastAttacker || null, new THREE.Vector3(0, 1, 0), 10); for (const c of occupants(v)) leaveSeat(c, true); } return; }
     if (!v.alive) { v.alive = true; v.hp = v.T.hp; v.model.g.visible = true; }
-    const np = new THREE.Vector3(a[1] / 10, a[2] / 10, a[3] / 10);
-    if (v.pos.distanceTo(np) > 15) v.pos.copy(np); else v.pos.lerp(np, 0.4);
-    if (a.length < 12) { v.pos.copy(np); v.yaw = a[4] / 100; v.speed = 0; return; }   // parked: short form
-    v.yaw += wrapAngle(a[4] / 100 - v.yaw) * 0.4; v.pitch = a[5] / 100; v.roll = a[6] / 100; v.turretYaw = a[7] / 100; v.gunPitch = a[8] / 100;
+    if (a.length < 12) { v.pos.set(a[1] / 10, a[2] / 10, a[3] / 10); v.yaw = a[4] / 100; v.speed = 0; v.snaps = []; return; }   // parked: short form
+    pushSnap(v, a[1] / 10, a[2] / 10, a[3] / 10, a[4] / 100);
+    v.netPitch = a[5] / 100; v.netRoll = a[6] / 100; v.turretYaw = a[7] / 100; v.gunPitch = a[8] / 100;
     if (!(player.gv === v && v.T.seats[player.seat].role === 'gun')) { v.mgYaw = a[9] / 100; v.mgPitch = a[10] / 100; }
-    v.speed = a[11] / 10; for (const w of v.model.wheels) w.rotation.x -= v.speed * dt / 0.45;
+    v.speed = a[11] / 10;
   });
   if (Array.isArray(P.TK)) TEAMS.forEach((t, i) => { teamKills[t] = P.TK[i] || 0; });
   if (Array.isArray(P.HS)) { holdScore.blue = P.HS[0]; holdScore.red = P.HS[1]; }
@@ -496,12 +509,58 @@ function applySnapshot(P, dt) {
   }
   if (P.GO && !gameOver) endGame(P.GO);
 }
+// ---------- smooth movement on non-host computers ----------
+// The host's updates arrive a few times a second. Instead of jumping to each one, everything is drawn a
+// moment in the past, sliding smoothly between the two updates on either side of that moment (and guessing a
+// little ahead if an update is late). That removes the stop-start jerking of soldiers, vehicles and planes.
+function pushSnap(o, x, y, z, a, q) {
+  const s = o.snaps || (o.snaps = []), t = performance.now(), last = s[s.length - 1];
+  if (last && Math.abs(last.x - x) + Math.abs(last.y - y) + Math.abs(last.z - z) > 40) s.length = 0;   // a teleport or respawn: start over
+  s.push({ t, x, y, z, a, q: q ? q.clone() : null }); if (s.length > 6) s.shift();
+}
+const _sq = new THREE.Quaternion();
+function sampleSnap(o, rt, out) {
+  const s = o.snaps; if (!s || !s.length) return false;
+  if (s.length === 1 || rt <= s[0].t) { const f = s[0]; out.x = f.x; out.y = f.y; out.z = f.z; out.a = f.a; out.q = f.q; return true; }
+  for (let i = s.length - 2; i >= 0; i--) {
+    const A = s[i], B = s[i + 1];
+    if (rt >= A.t) {
+      let k = (rt - A.t) / Math.max(1, B.t - A.t);
+      k = Math.min(k, 1 + Math.min(0.3, 250 / Math.max(1, B.t - A.t)));   // late update: carry on a little, then wait
+      out.x = A.x + (B.x - A.x) * k; out.y = A.y + (B.y - A.y) * k; out.z = A.z + (B.z - A.z) * k;
+      out.a = A.a + wrapAngle(B.a - A.a) * Math.min(k, 1);
+      if (A.q && B.q) { _sq.copy(A.q).slerp(B.q, Math.min(k, 1)); out.q = _sq; } else out.q = B.q;
+      return true;
+    }
+  }
+  return false;
+}
+const _smp = {};
+function smoothProxies(dt) {
+  const now = performance.now();
+  const d1 = clamp(net.snapGap[0] * 1.35 + 35, 90, 700), d2 = clamp(net.snapGap[1] * 1.35 + 35, 90, 700);
+  for (const n of npcs) if (!n.inactive && n.alive && !n.gv && n.snaps && sampleSnap(n, now - d1, _smp)) { n.smPos = n.smPos || new THREE.Vector3(); n.smPos.set(_smp.x, _smp.y, _smp.z); n.smHead = _smp.a; }
+  for (const v of gvehicles) {
+    if (!v.alive || v.remote || driverOf(v) === player || !v.snaps || !v.snaps.length) continue;
+    if (!sampleSnap(v, now - d2, _smp)) continue;
+    const ox = v.pos.x, oz = v.pos.z;
+    v.pos.set(_smp.x, _smp.y, _smp.z); v.yaw = _smp.a;
+    v.pitch += ((v.netPitch || 0) - v.pitch) * Math.min(1, dt * 8); v.roll += ((v.netRoll || 0) - v.roll) * Math.min(1, dt * 8);
+    const moved = Math.hypot(v.pos.x - ox, v.pos.z - oz); for (const w of v.model.wheels) w.rotation.x -= moved * Math.sign(v.speed || 1) / 0.45;
+  }
+  for (const pl of planes) {
+    if (!pl.alive || pl.pilot === player || pl.remote || !pl.snaps || !pl.snaps.length) continue;
+    if (!sampleSnap(pl, now - d2, _smp)) continue;
+    pl.pos.set(_smp.x, _smp.y, _smp.z); if (_smp.q) pl.quat.copy(_smp.q);
+    pl.onGround = pl.pos.y - heightAt(pl.pos.x, pl.pos.z) < 2;
+  }
+}
 // soldiers on a non-host computer just copy what the host says
 function updateNPCProxy(n, dt) {
   if (n.inactive || !n.alive || !n.netPos || n.gv) return;
   const before = n.pos.clone();
-  if (n.pos.distanceTo(n.netPos) > 10) n.pos.copy(n.netPos); else n.pos.lerp(n.netPos, Math.min(1, dt * 8));
-  n.heading += wrapAngle((n.netHeading || 0) - n.heading) * Math.min(1, dt * 10);
+  if (n.smPos) { n.pos.copy(n.smPos); n.heading = n.smHead; }   // smoothed path between the host's updates
+  else { if (n.pos.distanceTo(n.netPos) > 10) n.pos.copy(n.netPos); else n.pos.lerp(n.netPos, Math.min(1, dt * 8)); n.heading += wrapAngle((n.netHeading || 0) - n.heading) * Math.min(1, dt * 10); }
   const sp = before.distanceTo(n.pos) / Math.max(dt, 0.001);
   if (n.turret) { const seat = turretSeat(n.turret); n.pos.set(seat.x, n.turret.y, seat.z); n.model.root.position.copy(n.pos); n.model.root.rotation.y = n.heading; n.model.gun.visible = false; return; }
   animateNPC(n, dt, sp > 0.4 ? Math.min(sp, 6) : 0, n.netAim);
