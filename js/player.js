@@ -364,19 +364,62 @@ function hijackVehicle(v, by) {
   if (typeof netRequest === 'function' && net.active && !net.isHost) netRequest(['hj', v.idx]);
 }
 // sitting in the pilot's seat, looking where you are steering (also called right after the plane moves, so it never lags)
+// the cockpit's head-up display: horizon and pitch ladder, heading tape, speed and height boxes, throttle and boost
+let _fhud = null;
+function drawFlightHud(pl) {
+  if (!pl) { if (_fhud) _fhud.style.display = 'none'; return; }
+  if (!_fhud) { _fhud = document.createElement('canvas'); _fhud.className = 'hud'; _fhud.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:4'; document.body.appendChild(_fhud); }
+  const dpr = Math.min(2, devicePixelRatio || 1), W = innerWidth, H = innerHeight;
+  if (_fhud.width !== Math.round(W * dpr) || _fhud.height !== Math.round(H * dpr)) { _fhud.width = Math.round(W * dpr); _fhud.height = Math.round(H * dpr); }
+  _fhud.style.display = 'block';
+  const c = _fhud.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H);
+  const green = pl.pullUp ? '#ff6b5a' : 'rgba(120,255,150,0.9)', cx = W / 2, cy = H / 2;
+  c.strokeStyle = green; c.fillStyle = green; c.lineWidth = 1.6; c.font = '600 13px system-ui,-apple-system,Segoe UI,Roboto,sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+  const e = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ'), pxr = H / (camera.fov * Math.PI / 180);
+  // horizon and pitch ladder (every 10 degrees), turning with the camera's roll
+  c.save(); c.beginPath(); c.rect(cx - 220, cy - 190, 440, 380); c.clip(); c.translate(cx, cy); c.rotate(e.z);
+  for (let d = -80; d <= 80; d += 10) {
+    const y = (e.x - d * Math.PI / 180) * pxr; if (Math.abs(y) > 170 || (d && Math.abs(y) < 40)) continue;   /* only a few rungs, none right over the crosshair */
+    const w = d === 0 ? 150 : 40; c.setLineDash(d < 0 ? [6, 5] : []); c.beginPath();
+    c.moveTo(-w - 30, y); c.lineTo(-30, y); c.moveTo(30, y); c.lineTo(w + 30, y); c.stroke();
+    if (d) { c.fillText(Math.abs(d), -w - 46, y); c.fillText(Math.abs(d), w + 46, y); }
+  }
+  c.setLineDash([]); c.restore();
+  // where the plane's nose is pointing (the guns), shown as a small marker
+  const nose = pl.pos.clone().addScaledVector(planeFwd(pl), 400).project(camera);
+  if (nose.z < 1) { const nx = (nose.x + 1) / 2 * W, ny = (1 - nose.y) / 2 * H; c.beginPath(); c.arc(nx, ny, 8, 0, Math.PI * 2); c.moveTo(nx - 20, ny); c.lineTo(nx - 8, ny); c.moveTo(nx + 8, ny); c.lineTo(nx + 20, ny); c.moveTo(nx, ny - 8); c.lineTo(nx, ny - 15); c.stroke(); }
+  // heading tape across the top
+  const hdg = ((-e.y * 180 / Math.PI) % 360 + 360) % 360, ty = 46;
+  c.beginPath(); c.moveTo(cx - 160, ty + 12); c.lineTo(cx + 160, ty + 12); c.stroke();
+  for (let d = Math.ceil((hdg - 40) / 5) * 5; d <= hdg + 40; d += 5) {
+    const x = cx + (d - hdg) * 4; c.beginPath(); c.moveTo(x, ty + 12); c.lineTo(x, ty + (d % 10 ? 7 : 3)); c.stroke();
+    if (d % 30 === 0) { const n = ((d % 360) + 360) % 360; c.fillText({ 0: 'N', 90: 'E', 180: 'S', 270: 'W' }[n] || String(n / 10).padStart(2, '0'), x, ty - 6); }
+  }
+  c.beginPath(); c.moveTo(cx, ty + 14); c.lineTo(cx - 5, ty + 22); c.lineTo(cx + 5, ty + 22); c.closePath(); c.fill();
+  // speed (left) and height (right) boxes, throttle and boost under them
+  const box = (x, label, val) => { c.strokeRect(x - 42, cy - 15, 84, 30); c.font = '700 16px system-ui,-apple-system,Segoe UI,Roboto,sans-serif'; c.fillText(val, x, cy); c.font = '600 11px system-ui,-apple-system,Segoe UI,Roboto,sans-serif'; c.fillText(label, x, cy - 26); };
+  const alt = Math.round(pl.pos.y - heightAt(pl.pos.x, pl.pos.z));
+  box(cx - 270, 'SPEED km/h', Math.round(pl.speed * 3.6)); box(cx + 270, 'HEIGHT m', alt);
+  c.font = '600 12px system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
+  c.fillText('THR ' + Math.round(pl.throttle * 100) + '%' + (pl.ab ? '  AB' : ''), cx - 270, cy + 32);
+  if (pl.abFuel !== undefined && (pl.kind === 'f18' || pl.kind === 'f22')) { c.strokeRect(cx - 300, cy + 44, 60, 6); c.fillRect(cx - 300, cy + 44, 60 * pl.abFuel, 6); }
+  c.fillText(Math.round(pl.hp / pl.maxHp * 100) + '% hull', cx + 270, cy + 32);
+  if (pl.pullUp) { c.font = '800 22px system-ui,-apple-system,Segoe UI,Roboto,sans-serif'; c.fillText('PULL UP', cx, cy + 120); }
+  else if (pl.locked) { c.font = '800 20px system-ui,-apple-system,Segoe UI,Roboto,sans-serif'; c.fillStyle = '#ffd54f'; c.fillText('MISSILE LOCK', cx, cy + 120); }
+}
 function cockpitCamera(pl) {
   if (cockpitModel().parent !== pl.model.g) setPlaneView('cockpit');
   cockpitModel().visible = true;
   pl.model.g.position.copy(pl.pos); pl.model.g.quaternion.copy(pl.quat);
   camera.position.copy(new THREE.Vector3(0, 1.6, -0.3).applyQuaternion(pl.quat).add(pl.pos));
   if (pl.model.canopy) pl.model.canopy.visible = false;
-  const bodyOn = typeof cockpitFull !== 'undefined' && cockpitFull; if (pl.model.prop.visible !== bodyOn) planeBodyVisible(pl, bodyOn);   // the full cockpit sits inside the plane; the open view hides it
+  const bodyOn = false; if (pl.model.prop.visible !== bodyOn) planeBodyVisible(pl, bodyOn);   /* the plane's own body stays hidden in the cockpit so nothing blocks the view */   // the full cockpit sits inside the plane; the open view hides it
   if (pl.model.canopy) pl.model.canopy.visible = false;
   if (pl.aimYaw === undefined) { const e = new THREE.Euler().setFromQuaternion(pl.quat, 'YXZ'); pl.aimYaw = e.y; pl.aimPitch = 0; }
   if (pl.onGround) pl.aimYaw = pl.groundYaw + clamp(wrapAngle(pl.aimYaw - pl.groundYaw), -1.2, 1.2);
   const roll = new THREE.Euler().setFromQuaternion(pl.quat, 'YXZ').z;
   camera.rotation.set(pl.aimPitch || 0, pl.aimYaw, roll * 0.3 + (Math.random() - 0.5) * camShake * 0.3, 'YXZ');
-  const fov = (SET.fov || 75) + 12; if (Math.abs(camera.fov - fov) > 0.1) { camera.fov = fov; camera.updateProjectionMatrix(); }   // a wider view from the cockpit
+  const fov = (SET.fov || 75) + 18; if (Math.abs(camera.fov - fov) > 0.1) { camera.fov = fov; camera.updateProjectionMatrix(); }   // a wide view from the cockpit
 }
 // in the cockpit: a small ring showing where the guns point (the nose), which chases the crosshair as the plane turns
 let _noseEl = null;
@@ -710,7 +753,7 @@ function addKillfeed(att, vic, head) {
 }
 // minimap (local, north up) and full map (M)
 const mm = $('minimap'), mmg = mm.getContext('2d');
-const MMB = 560;
+const MMB = HALF;
 let mmBg = null, bigOpen = false;
 function buildMinimapBg() {
   const c = document.createElement('canvas'); c.width = c.height = MMB;
@@ -893,7 +936,9 @@ function updateHUD(dt) {
     if (!pl._tipT) pl._tipT = simTime;
     $('pTip').style.display = pl.pullUp || pl.onGround || simTime - pl._tipT < 8 ? '' : 'none';   // the long hint goes away once you are flying
     document.body.classList.toggle('cockpitView', ck);
-  } else { ph.style.display = 'none'; document.body.classList.remove('cockpitView'); }
+    if (ck && pl._tipT && simTime - pl._tipT > 8 && !pl.onGround && !pl.pullUp) ph.style.display = 'none';   /* the head-up display shows all of this in the cockpit */
+    drawFlightHud(ck ? pl : null);
+  } else { ph.style.display = 'none'; document.body.classList.remove('cockpitView'); drawFlightHud(null); }
   updateAirTargets();
   $('crosshair').style.display = player.vehicle ? (planeView === 'cockpit' ? 'block' : 'none') : $('crosshair').style.display;
   if (!player.vehicle && _cockpit && _cockpit.visible) { _cockpit.visible = false; updateNoseMarker(null); }
@@ -918,7 +963,7 @@ function readyPlanes() { const air = RUNWAYS[player.team] && RUNWAYS[player.team
 function boardPlane(pl) {
   if (!pl.homeTeam) pl.homeTeam = pl.team; pl.team = player.team;   // a stolen plane flies for your team
   player.vehicle = pl; pl.pilot = player; pl.throttle = pl.onGround ? 0 : 1; pl.waitT = 999;
-  if (DOGFIGHT) pl.hp = pl.maxHp * 2.5;   // your plane takes a lot more hits in a dogfight zoom = false; ads = false; cancelPlace();
+  if (DOGFIGHT) pl.hp = pl.maxHp * 2.5;   /* your plane takes a lot more hits in a dogfight */ zoom = false; ads = false; cancelPlace();
   player.pos.copy(pl.pos); player.pos.y -= 1.6;
   showMessage(IS_TOUCH ? 'Hold THR + to speed up, then pull the stick down to lift off' : 'Hold Shift to speed up, then press S to lift off', 4);
 }

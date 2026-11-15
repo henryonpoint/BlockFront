@@ -126,7 +126,7 @@ function resetPlane(pl, wait = 6) {
   pl.quat.setFromEuler(new THREE.Euler(0, pl.spawn.yaw, 0, 'YXZ'));
   planeBodyVisible(pl, true); pl.model.g.visible = true; pl.model.bomb.visible = true;
   if (DOGFIGHT || (RUNWAYS[pl.team] && RUNWAYS[pl.team].carrier && !pl.parked)) {   // straight into the air (dogfights, and planes launched from a carrier), flying towards the enemy
-    pl.onGround = false; pl.waitT = 0; pl.pos.set(pl.spawn.x, 130 + (pl.idx % 4) * 14, pl.spawn.z);
+    pl.onGround = false; pl.waitT = 0; pl.pos.set(pl.spawn.x, Math.max(130, skyAt(pl.spawn.x, pl.spawn.z) + 90) + (pl.idx % 4) * 14, pl.spawn.z);   /* always well above the hills */
     pl.speed = 45 * (pl.spdMul || 1); pl.throttle = 1; pl.aiYaw = pl.spawn.yaw; pl.aiPitch = 0; pl.climbT = 0;
     pl.quat.setFromEuler(new THREE.Euler(0, pl.spawn.yaw, 0, 'YXZ'));
   }
@@ -270,24 +270,23 @@ let cockpitFull = false;   // the third view: the full cockpit, with dashboard, 
 function cockpitModel() {
   if (_cockpit) return _cockpit;
   const g = new THREE.Group();   // the open view has nothing in the way; the full cockpit lives in g.full
-  const P = new Part(), frame = 0x2c3034, dash = 0x1d1f22, trim = 0x4a5056;
-  P.box(1.3, 0.36, 0.3, dash, 0, 1.02, -1.0); P.box(1.34, 0.05, 0.42, frame, 0, 1.21, -1.04);     // dashboard with a padded top
-  for (const [x, y] of [[-0.42, 1.04], [-0.14, 1.07], [0.14, 1.07], [0.42, 1.04], [-0.28, 0.93], [0.28, 0.93]]) {
-    P.cyl(0.07, 0.07, 0.02, 0xf2f2ee, x, y, -0.84, Math.PI / 2, 0, 0, 1, 16);                     // dials
-    P.cyl(0.078, 0.078, 0.015, 0x111111, x, y, -0.845, Math.PI / 2, 0, 0, 1, 16);
-    P.box(0.01, 0.05, 0.01, 0xd8262a, x, y + 0.018, -0.828);                                    // needles
+  // a low, slim cockpit: a short dashboard under the windscreen, thin frames, so most of the view is sky
+  const P = new Part(), frame = 0x2a2e33, dash = 0x1b1d20, trim = 0x3c4248;
+  P.box(1.1, 0.26, 0.26, dash, 0, 0.92, -1.0); P.box(1.12, 0.04, 0.34, frame, 0, 1.06, -1.03);     // low dashboard with a padded lip
+  for (const [x, y] of [[-0.38, 0.95], [-0.13, 0.97], [0.13, 0.97], [0.38, 0.95]]) {
+    P.cyl(0.055, 0.055, 0.02, 0xf2f2ee, x, y, -0.86, Math.PI / 2, 0, 0, 1, 16);
+    P.cyl(0.062, 0.062, 0.015, 0x111111, x, y, -0.865, Math.PI / 2, 0, 0, 1, 16);
+    P.box(0.008, 0.04, 0.01, 0xd8262a, x, y + 0.014, -0.848);
   }
-  P.box(0.18, 0.12, 0.02, 0x2a8a3a, 0, 0.93, -0.84);                                              // a small green radar screen
-  P.box(0.03, 0.16, 0.03, frame, 0, 1.3, -1.08); P.box(0.16, 0.12, 0.01, 0x88ccff, 0, 1.42, -1.1, -0.3, 0, 0);   // gunsight and its glass
+  P.box(0.2, 0.13, 0.02, 0x163a22, 0, 0.86, -0.86);                                               // a small screen
+  P.box(0.025, 0.08, 0.025, frame, 0, 1.1, -1.06); P.box(0.15, 0.1, 0.008, 0x9fd8ff, 0, 1.18, -1.07, -0.35, 0, 0);   // head-up glass
   for (const s of [-1, 1]) {
-    P.box(0.04, 0.6, 0.04, frame, s * 0.5, 1.45, -1.25, -0.35, 0, s * 0.25);                       // windscreen posts
-    P.box(0.04, 0.04, 1.8, frame, s * 0.6, 1.24, -0.3);                                           // canopy rails
-    P.box(0.18, 0.28, 1.6, trim, s * 0.68, 1.05, -0.2);                                           // side walls
-    P.box(0.06, 0.1, 0.2, 0x222222, s * 0.62, 1.22, 0.05);                                        // throttle and switches
+    P.box(0.022, 0.5, 0.022, frame, s * 0.48, 1.32, -1.22, -0.45, 0, s * 0.3);                   // slim windscreen posts
+    P.box(0.025, 0.025, 1.6, frame, s * 0.6, 1.1, -0.25);                                          // canopy rails
+    P.box(0.12, 0.16, 1.4, trim, s * 0.66, 0.98, -0.15);                                           // low side walls
+    P.box(0.05, 0.08, 0.16, 0x222222, s * 0.6, 1.08, 0.05);                                        // throttle and switches
   }
-  P.add(new THREE.TorusGeometry(0.62, 0.025, 6, 20, Math.PI), frame, 0, 1.24, -0.75);             // canopy hoop
-  P.add(new THREE.TorusGeometry(0.62, 0.025, 6, 20, Math.PI), frame, 0, 1.24, 0.35);
-  P.box(0.05, 0.05, 1.1, frame, 0, 1.86, -0.2);                                                   // top frame
+  P.add(new THREE.TorusGeometry(0.62, 0.014, 5, 24, Math.PI), frame, 0, 1.1, 0.4);                // one canopy hoop, behind your head
   const full = new THREE.Mesh(P.build(), new THREE.MeshLambertMaterial({ vertexColors: true })); full.visible = false; g.add(full); g.full = full;
   g.visible = false; _cockpit = g; return g;
 }
@@ -319,11 +318,14 @@ function easyFly(pl, dt) {
   const ctrl = clamp(pl.speed / 28, 0.3, 1);
   // turn towards the aim, banking into the turn like a real plane, and level out when on course
   // like a real plane: roll into the bank first, and the bank is what turns the plane (more bank, tighter turn)
-  const err = wrapAngle(pl.aimYaw - yaw);
-  const wantRoll = clamp(err * 1.5, -1.05, 1.05);
-  roll += clamp(wantRoll - roll, -2.2 * dt, 2.2 * dt) * (Math.abs(wantRoll - roll) < 0.15 ? 0.6 : 1);
-  const yawRate = Math.sin(roll) * 1.25 * ctrl;
-  yaw += (Math.abs(err) < 0.02 ? err : clamp(yawRate * dt, -Math.abs(err), Math.abs(err)));
+  // every rate eases in and out (no snapping), so turns, rolls and pull-ups feel smooth
+  const err = wrapAngle(pl.aimYaw - yaw), k = (r) => Math.min(1, dt * r);
+  const wantRoll = clamp(err * 1.6, -1.1, 1.1);
+  pl.rollV = (pl.rollV || 0) + (clamp((wantRoll - roll) * 3, -2.4, 2.4) - (pl.rollV || 0)) * k(6);
+  roll += pl.rollV * dt;
+  const yawCap = (Math.abs(Math.sin(roll)) * 1.3 + 0.12) * ctrl, wantYawV = clamp(err * 2.4, -yawCap, yawCap);
+  pl.yawV = (pl.yawV || 0) + (wantYawV - (pl.yawV || 0)) * k(5);
+  yaw += pl.yawV * dt;
   // nose towards the aim; a slow plane can't climb steeply (stall protection)
   const maxUp = pl.speed < 26 ? 0.15 : 0.7;
   let wantPitch = clamp(pl.aimPitch, -0.75, maxUp);
@@ -333,7 +335,8 @@ function easyFly(pl, dt) {
   const clear = pl.pos.y - ground, landing = pl.throttle < 0.3 && pl.speed < 38;
   pl.pullUp = false;
   if (!landing && clear < 28) { wantPitch = Math.max(wantPitch, clamp((28 - clear) / 28, 0.15, 0.6)); pl.pullUp = true; }
-  pitch += clamp(wantPitch - pitch, -1.1 * dt, 1.1 * dt) * ctrl;
+  pl.pitchV = (pl.pitchV || 0) + (clamp((wantPitch - pitch) * 2.6, -1.2, 1.2) * ctrl - (pl.pitchV || 0)) * k(pl.pullUp ? 9 : 5);
+  pitch += pl.pitchV * dt;
   pl.quat.setFromEuler(new THREE.Euler(pitch, yaw, roll, 'YXZ'));
   // keep enough speed to stay up
   if (pl.speed < 24 && !landing) pl.throttle = Math.max(pl.throttle, 0.85);

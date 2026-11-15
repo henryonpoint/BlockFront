@@ -19,7 +19,8 @@ const NORMANDY = WORLD.map === 'normandy', GERMANY = WORLD.map === 'europe', DAM
 const DOGFIGHT = WORLD.map === 'dogfight' || WORLD.map === 'jetfight' || WORLD.map === 'wwifight', JETFIGHT = WORLD.map === 'jetfight', WWIFIGHT = WORLD.map === 'wwifight';
 const NO_TUNNELS = WAKE || DAM;   // tunnels sit at a fixed depth: they would break into the dam's gorge
 // ===================== core.js : setup, sky, sound, terrain math =====================
-const HALF = 560, GRID = 336, CELL = (HALF * 2) / GRID, W1 = GRID + 1;
+const HALF = DOGFIGHT ? 1000 : 560, GRID = 336,   // dogfights get a map almost twice as wide (same detail cost)
+  CELL = (HALF * 2) / GRID, W1 = GRID + 1;
 const MTN = HALF - 50, EDGE = HALF - 24;   // mountains start, players stay inside
 const BLUE = 'blue', RED = 'red';
 const TEAM_COLOR = { blue: 0x2f6fe0, red: 0xd93a3a, green: 0x2fa84f, yellow: 0xe0b020 };
@@ -338,6 +339,20 @@ function rawHeight(x, z) {
     if (d < 34) return lerp(3.2, 0.2, (d - 20) / 14);
     if (d < 46) return lerp(0.2, -2.6, (d - 34) / 12);
     return lerp(-2.6, sea, smooth(46, 80, d));
+  }
+  if (DOGFIGHT) {
+    // tall mountains cut by deep winding canyons to fly through, and a wide open valley in the middle
+    const ridge = (f, ox, oz) => 1 - Math.abs(vnoise(x * f + ox, z * f + oz) * 2 - 1);
+    const mtn = 50 + Math.pow(ridge(0.0045, 7, 3), 1.7) * 150 + vnoise(x * 0.03, z * 0.03) * 12;
+    const cz1 = Math.sin(x * 0.0042 + 1.3) * 210 + Math.sin(x * 0.011) * 50 + 420;
+    const cz2 = Math.sin(x * 0.0037 - 0.7) * 230 + Math.sin(x * 0.009 + 2) * 45 - 430;
+    const cx3 = Math.sin(z * 0.004 + 2.1) * 220 + Math.sin(z * 0.012) * 40 + 520;
+    const cx4 = Math.sin(z * 0.0046 - 1.4) * 200 + Math.sin(z * 0.010 + 1) * 40 - 540;
+    const cd = Math.min(Math.abs(z - cz1), Math.abs(z - cz2), Math.abs(x - cx3), Math.abs(x - cx4));
+    const valley = Math.hypot(x / 1.5, z / 1.25) - 400;                            // the open middle where the bases are
+    const open = Math.min(cd - 22, valley);
+    const floor = 4 + vnoise(x * 0.02, z * 0.02) * 6;
+    return lerp(floor, mtn, Math.pow(smooth(0, 70, open), 1.4)) + h * 0.15;
   }
   if (NORMANDY) {
     // the beach: the sea to the south, wide sand, a low sea wall, steep bluffs cut by gullies (the roads), then
