@@ -465,7 +465,7 @@ function animateNPC(n, dt, speed, aiming) {
   const m = n.model;
   m.gun.visible = true;
   m.root.position.copy(n.pos); m.root.rotation.y = n.heading;
-  n.walkPhase += speed * dt * 2.1;
+  n.walkPhase = (isFinite(n.walkPhase) ? n.walkPhase : 0) + (isFinite(speed) ? speed : 0) * dt * 2.1;   // soldiers shown from the host's data start without one
   const sw = speed > 0.2 ? Math.sin(n.walkPhase) * (n.crouch ? 0.35 : 0.75) : 0;
   n.crouchK = (n.crouchK || 0) + ((n.crouch ? 1 : 0) - (n.crouchK || 0)) * Math.min(1, dt * 10);
   const ck = n.crouchK;

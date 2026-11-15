@@ -222,7 +222,7 @@ function playAt(name, pos, vol = 1) {
   if (soundBudget <= 0) return;
   const d = camera.position.distanceTo(pos);
   const v = Math.pow(clamp(1 - d / 160, 0, 1), 1.6) * vol;
-  if (v < 0.03) return;
+  if (!(v >= 0.03)) return;   // also skips a sound from a bad (not-a-number) position
   soundBudget--;
   if (d < 70 && vol >= 0.5 && typeof noteCombat === 'function') noteCombat(d);
   sndDist = d; SFX[name](v); sndDist = 0;

@@ -228,7 +228,7 @@ function peerAwake(pr) {
 }
 function electHost() {
   // the current host keeps the job; otherwise whoever has been here longest (measured by each computer's own timer, so clocks don't matter)
-  const yielding = performance.now() < (net.noHostUntil || 0) && humanPeers().some(pe => pe.presence.hc && peerAwake(pe.presence));
+  const yielding = performance.now() < (net.noHostUntil || 0) && humanPeers().length > 0;
   const all = [...(document.hidden || yielding ? [] : [{ id: net.myId, age: (performance.now() - net.joinPerf) / 100, hc: net.isHost && net.hostId === net.myId }]),
     ...humanPeers().filter(pe => peerAwake(pe.presence)).map(pe => ({ id: pe.presence.id, age: pe.presence.age || 0, hc: !!pe.presence.hc }))];
   if (!all.length) return;
@@ -455,7 +455,11 @@ let lastOwners = '';
 function applySnapshot(P, dt) {
   if (Array.isArray(P.CF) && (P.CF[0] !== appliedPoints || P.CF[1] !== BATTLE.soldiers)) applyBattle({ points: P.CF[0], soldiers: P.CF[1] }, true);
   if (Array.isArray(P.P) && P.P.length !== points.length) return;   // setup still switching over
-  if (Array.isArray(P.N)) P.N.forEach((d, i) => {
+  if (Array.isArray(P.N)) P.N.forEach((d, i) => { try { applyNpcSnap(d, i); } catch (e) { if (typeof loopError === 'function') loopError('npc snapshot', e); } });
+  applyRestOfSnapshot(P);
+}
+function applyNpcSnap(d, i) {
+  {
     const n = npcs[i]; if (!n) return;
     if (d === 0) { if (!n.inactive) { n.inactive = true; n.alive = false; n.model.root.visible = false; } return; }
     n.inactive = false;
@@ -481,7 +485,9 @@ function applySnapshot(P, dt) {
     const ti = ((f >> 8) & 31) - 1;
     if (ti >= 0 && turrets[ti]) { const t = turrets[ti]; t.user = n; n.turret = t; t.yaw = n.netHeading - Math.PI; updateTurretVisual(t); }
     else if (n.turret) { if (n.turret.user === n) n.turret.user = null; n.turret = null; }
-  });
+  }
+}
+function applyRestOfSnapshot(P) {
   if (Array.isArray(P.P)) points.forEach((p, i) => {
     p.progress = (P.P[i] || 0) / 100;
     const o = (P.O || '')[i]; const owner = TEAMS.find(t => t[0] === o) || null; const ct = (P.CT || '')[i]; p.capTeam = TEAMS.find(t => t[0] === ct) || null;
