@@ -160,7 +160,7 @@ function interact() {
     } else {
       player.pos.copy(pl.pos).add(new THREE.Vector3(0, 2.5, 0)); openChute(); player.velY = 6;
     }
-    pl.pilot = null; player.vehicle = null; pl.waitT = 15;
+    pl.pilot = null; player.vehicle = null; pl.waitT = 15; if (_cockpit) { _cockpit.visible = false; pl.model.g.remove(_cockpit); } if (pl.model.canopy) pl.model.canopy.visible = true; updateNoseMarker(null); pl.aimYaw = undefined;
     const f = planeFwd(pl); player.yaw = Math.atan2(-f.x, -f.z); player.pitch = 0;
     return;
   }
@@ -199,6 +199,13 @@ function updatePlayer(dt) {
   if (player.vehicle) {
     const pl = player.vehicle;
     player.pos.copy(pl.pos); player.pos.y -= 1.6; player.vel.copy(planeFwd(pl)).multiplyScalar(pl.speed);
+    if (planeView === 'cockpit') {
+      cockpitCamera(pl);
+      updateNoseMarker(pl);
+      return;
+    }
+    if (_cockpit) _cockpit.visible = false; if (pl.model.canopy) pl.model.canopy.visible = true;
+    updateNoseMarker(null);
     camOrbit.t -= dt; if (camOrbit.t <= 0) { camOrbit.yaw *= Math.exp(-dt * 3); camOrbit.pitch *= Math.exp(-dt * 3); }
     const off = new THREE.Vector3(0, 3.6, 14).applyAxisAngle(new THREE.Vector3(1, 0, 0), camOrbit.pitch).applyAxisAngle(UPV, camOrbit.yaw).applyQuaternion(pl.quat);
     const want = pl.pos.clone().add(off);
@@ -305,6 +312,29 @@ function hijackVehicle(v, by) {
   showMessage(`Hijacked the ${v.T.name}! It's yours now`, 2);
   if (typeof netRequest === 'function' && net.active && !net.isHost) netRequest(['hj', v.idx]);
 }
+// sitting in the pilot's seat, looking where you are steering (also called right after the plane moves, so it never lags)
+function cockpitCamera(pl) {
+  if (cockpitModel().parent !== pl.model.g) setPlaneView('cockpit');
+  cockpitModel().visible = true;
+  pl.model.g.position.copy(pl.pos); pl.model.g.quaternion.copy(pl.quat);
+  camera.position.copy(new THREE.Vector3(0, 1.35, -0.3).applyQuaternion(pl.quat).add(pl.pos));
+  if (pl.model.canopy) pl.model.canopy.visible = false;
+  if (pl.aimYaw === undefined) { const e = new THREE.Euler().setFromQuaternion(pl.quat, 'YXZ'); pl.aimYaw = e.y; pl.aimPitch = 0; }
+  if (pl.onGround) pl.aimYaw = pl.groundYaw + clamp(wrapAngle(pl.aimYaw - pl.groundYaw), -1.2, 1.2);
+  const roll = new THREE.Euler().setFromQuaternion(pl.quat, 'YXZ').z;
+  camera.rotation.set(pl.aimPitch || 0, pl.aimYaw, roll * 0.3 + (Math.random() - 0.5) * camShake * 0.3, 'YXZ');
+  const fov = SET.fov || 75; if (Math.abs(camera.fov - fov) > 0.1) { camera.fov = fov; camera.updateProjectionMatrix(); }
+}
+// in the cockpit: a small ring showing where the guns point (the nose), which chases the crosshair as the plane turns
+let _noseEl = null;
+function updateNoseMarker(pl) {
+  if (!_noseEl) { _noseEl = document.createElement('div'); _noseEl.className = 'hud'; _noseEl.style.cssText = 'position:fixed;width:26px;height:26px;margin:-13px 0 0 -13px;border:2px solid #ffd54f;border-radius:50%;pointer-events:none;z-index:5;display:none;box-shadow:0 0 4px rgba(0,0,0,.6)'; document.body.appendChild(_noseEl); }
+  if (!pl) { _noseEl.style.display = 'none'; return; }
+  camera.updateMatrixWorld();
+  const p = pl.pos.clone().addScaledVector(planeFwd(pl), 250).project(camera);
+  if (p.z > 1 || Math.abs(p.x) > 1.2 || Math.abs(p.y) > 1.2) { _noseEl.style.display = 'none'; return; }
+  _noseEl.style.display = 'block'; _noseEl.style.left = ((p.x + 1) / 2 * innerWidth) + 'px'; _noseEl.style.top = ((1 - p.y) / 2 * innerHeight) + 'px';
+}
 // a round parachute: canopy panels in team colour and white, with lines down to the harness
 function makeChute(color) {
   const g = new THREE.Group(), R = 4, TH = Math.PI / 2.3, team = new Part(), white = new Part(), lines = new Part();
@@ -385,6 +415,7 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyR') startReload();
   if (e.code === 'KeyE' && !player.vehicle) interact();
   if (e.code === 'KeyF' && player.vehicle) interact();
+  if (e.code === 'KeyV' && player.vehicle && !e.repeat) togglePlaneView();
   if (e.code === 'KeyF' && player.gv) switchSeat();
   if (e.code === 'KeyC' && player.alive && !player.vehicle && !player.gv && !player.turret) toggleCrouch();
   if (e.code === 'KeyG' && player.alive && !player.vehicle) throwGrenade();
@@ -415,6 +446,7 @@ addEventListener('mousemove', e => {
 });
 function lookDelta(mx, my) {
   mx *= SET.sens; my *= SET.sens; if (SET.invert) my = -my;
+  if (player.vehicle && planeView === 'cockpit') { const pl = player.vehicle; if (pl.aimYaw === undefined) setPlaneView('cockpit'); pl.aimYaw -= mx * 0.0024; pl.aimPitch = clamp((pl.aimPitch || 0) - my * 0.0024, -0.9, 0.9); return; }
   if (player.vehicle) { camOrbit.yaw = clamp(camOrbit.yaw - mx * 0.003, -2.5, 2.5); camOrbit.pitch = clamp(camOrbit.pitch - my * 0.003, -0.6, 0.8); camOrbit.t = 2; return; }
   if (player.turret) { const t = player.turret; t.yaw -= mx * 0.0022; t.pitch = clamp(t.pitch - my * 0.0022, -0.35, 1.2); return; }
   if (player.gv && player.gv.T.heli && player.seat === 0) {   // helicopter pilot: mouse left/right turns, up/down aims
@@ -731,8 +763,14 @@ function updateHUD(dt) {
     const pl = player.vehicle; ph.style.display = 'block';
     $('pSpeed').textContent = Math.round(pl.speed * 3.6) + ' km/h'; $('pAlt').textContent = Math.round(pl.pos.y - heightAt(pl.pos.x, pl.pos.z)) + ' m';
     $('pThr').textContent = Math.round(pl.throttle * 100) + '%'; $('pBombs').textContent = pl.bombs; $('pHp').textContent = Math.max(0, Math.round(pl.hp / pl.maxHp * 100)) + '%';
-    $('pTip').textContent = IS_TOUCH ? (pl.onGround ? (pl.speed < 24 ? 'Hold THR + to speed up' : 'Pull the stick DOWN to lift off!') : 'Stick: pitch and roll   FIRE guns   BOMB   USE bails out') : pl.onGround ? (pl.speed < 24 ? 'Hold Shift to speed up (C to slow down)' : 'Press S to lift off!') : 'W/S pitch   A/D roll   Q/E rudder   Shift/C throttle   Space guns   X bomb   F bail out';
+    const ck = planeView === 'cockpit';
+    $('pTip').textContent = IS_TOUCH ? (pl.onGround ? (pl.speed < 24 ? 'Hold THR + to speed up' : 'Pull the stick DOWN to lift off!') : 'Stick: pitch and roll   FIRE guns   BOMB   USE bails out')
+      : pl.onGround ? (pl.speed < 24 ? 'Hold Shift to speed up (C to slow down)' : ck ? 'Look up (or press S) to lift off!' : 'Press S to lift off!')
+      : pl.pullUp ? 'PULL UP! Ground ahead' : ck ? 'Mouse: steer where you look   Shift/C throttle   Click guns   Right click bomb   V outside view   F bail out' : 'W/S pitch   A/D roll   Q/E rudder   Shift/C throttle   Space guns   X bomb   V cockpit   F bail out';
+    $('pTip').style.color = pl.pullUp ? '#ff6b5a' : '';
   } else ph.style.display = 'none';
+  $('crosshair').style.display = player.vehicle ? (planeView === 'cockpit' ? 'block' : 'none') : $('crosshair').style.display;
+  if (!player.vehicle && _cockpit && _cockpit.visible) { _cockpit.visible = false; updateNoseMarker(null); }
   drawMinimap();
 }
 

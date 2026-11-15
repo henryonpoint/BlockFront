@@ -99,7 +99,7 @@ function makePlaneModel(team) {
   const bomb = add(new THREE.SphereGeometry(0.3, 10, 8), MATS.black, 0, -1.0, -1.2); bomb.scale.z = 2.4;
   scene.add(g);
   g.traverse(o => { if (o.isMesh) o.receiveShadow = true; });
-  return { g, prop, bomb };
+  return { g, prop, bomb, canopy };
 }
 function makePlane(team, x, z, yaw, wait) {
   const m = makePlaneModel(team);
@@ -188,6 +188,75 @@ function planeTick(pl, dt) {
 }
 
 // ----- player flying (keyboard) -----
+// ----- cockpit view with easy flying -----
+// V switches between the chase camera and sitting in the cockpit. In the cockpit the plane flies where you look:
+// move the mouse to put the crosshair where you want to go and the plane banks and turns there by itself.
+// W/S and A/D still nudge it. It keeps itself from stalling, levels its wings, and pulls up before hitting the
+// ground (unless the throttle is low, which means you are coming in to land).
+let planeView = 'chase';
+let _cockpit = null;
+function cockpitModel() {
+  if (_cockpit) return _cockpit;
+  const P = new Part(), frame = 0x2a2d31, dash = 0x1d1f22;   // the pilot's eyes are at (0, 1.35, -0.3), just above the fuselage
+  P.box(1.3, 0.3, 0.5, dash, 0, 0.98, -1.25);                                     // dashboard, sitting on the fuselage
+  P.box(1.34, 0.05, 0.56, frame, 0, 1.15, -1.27);                                 // its top edge
+  for (const [x, y] of [[-0.4, 1.03], [-0.14, 1.05], [0.14, 1.05], [0.4, 1.03]]) {
+    P.cyl(0.075, 0.075, 0.03, 0xf2f2ee, x, y, -0.99, Math.PI / 2, 0, 0, 1, 14);   // dials
+    P.box(0.011, 0.055, 0.01, 0xd8262a, x, y + 0.018, -0.975);                    // needles
+  }
+  P.box(0.035, 0.5, 0.035, frame, -0.55, 1.42, -1.5, 0, 0, -0.22); P.box(0.035, 0.5, 0.035, frame, 0.55, 1.42, -1.5, 0, 0, 0.22);   // windscreen posts
+  P.box(1.0, 0.035, 0.035, frame, 0, 1.66, -1.5);                                 // top of the windscreen
+  P.box(0.035, 0.035, 1.3, frame, -0.6, 1.66, -0.85); P.box(0.035, 0.035, 1.3, frame, 0.6, 1.66, -0.85);   // canopy rails
+  const glass = new THREE.Mesh(new THREE.PlaneGeometry(1.05, 0.48), new THREE.MeshBasicMaterial({ color: 0x9fc8e8, transparent: true, opacity: 0.07, depthWrite: false }));
+  glass.position.set(0, 1.42, -1.51);
+  const g = new THREE.Group(); g.add(new THREE.Mesh(P.build(), new THREE.MeshLambertMaterial({ vertexColors: true })), glass);
+  g.visible = false; _cockpit = g; return g;
+}
+function setPlaneView(v) {
+  planeView = v; const pl = player.vehicle;
+  const c = cockpitModel();
+  if (pl) { pl.model.g.add(c); c.visible = v === 'cockpit'; const e = new THREE.Euler().setFromQuaternion(pl.quat, 'YXZ'); pl.aimYaw = e.y; pl.aimPitch = clamp(e.x, -0.6, 0.6); }
+  else c.visible = false;
+  try { localStorage.setItem('bf_planeView', v); } catch (e) { }
+}
+function togglePlaneView() {
+  setPlaneView(planeView === 'chase' ? 'cockpit' : 'chase');
+  showMessage(planeView === 'cockpit' ? 'Cockpit view: the plane flies where you look. Move the mouse to steer. V for the outside view' : 'Outside view: W/S pitch, A/D roll. V for the cockpit', 3);
+}
+try { if (localStorage.getItem('bf_planeView') === 'cockpit') planeView = 'cockpit'; } catch (e) { }
+const _eE = new THREE.Euler();
+function easyFly(pl, dt) {
+  // keys nudge where you are aiming, so they work alongside the mouse
+  const pitchIn = (keys.KeyS ? 1 : 0) - (keys.KeyW ? 1 : 0), turnIn = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0) + ((keys.KeyE ? 1 : 0) - (keys.KeyQ ? 1 : 0)) * 0.5;
+  if (pl.aimYaw === undefined) { _eE.setFromQuaternion(pl.quat, 'YXZ'); pl.aimYaw = _eE.y; pl.aimPitch = _eE.x; }
+  pl.aimYaw -= turnIn * 0.9 * dt; pl.aimPitch = clamp(pl.aimPitch + pitchIn * 0.7 * dt, -0.9, 0.9);
+  _eE.setFromQuaternion(pl.quat, 'YXZ');
+  let yaw = _eE.y, pitch = _eE.x, roll = _eE.z;
+  const ctrl = clamp(pl.speed / 28, 0.3, 1);
+  // turn towards the aim, banking into the turn like a real plane, and level out when on course
+  const err = wrapAngle(pl.aimYaw - yaw), yawRate = clamp(err * 1.6, -0.95, 0.95) * ctrl;
+  yaw += yawRate * dt;
+  roll += (clamp(-yawRate * 1.15, -1.05, 1.05) - roll) * Math.min(1, dt * 3);
+  // nose towards the aim; a slow plane can't climb steeply (stall protection)
+  const maxUp = pl.speed < 26 ? 0.15 : 0.7;
+  let wantPitch = clamp(pl.aimPitch, -0.75, maxUp);
+  // ground warning: look ahead and pull up early (skipped when the throttle is low: you are landing)
+  const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
+  let ground = skyAt(pl.pos.x, pl.pos.z); for (const d of [20, 45, 80, 130]) ground = Math.max(ground, skyAt(pl.pos.x + fx * d, pl.pos.z + fz * d));
+  const clear = pl.pos.y - ground, landing = pl.throttle < 0.3 && pl.speed < 38;
+  pl.pullUp = false;
+  if (!landing && clear < 28) { wantPitch = Math.max(wantPitch, clamp((28 - clear) / 28, 0.15, 0.6)); pl.pullUp = true; }
+  pitch += clamp(wantPitch - pitch, -1.1 * dt, 1.1 * dt) * ctrl;
+  pl.quat.setFromEuler(new THREE.Euler(pitch, yaw, roll, 'YXZ'));
+  // keep enough speed to stay up
+  if (pl.speed < 24 && !landing) pl.throttle = Math.max(pl.throttle, 0.85);
+  const f = planeFwd(pl);
+  pl.pos.addScaledVector(f, pl.speed * dt);
+  pl.pos.y -= (1 - clamp(pl.speed / 26, 0, 1)) * 8 * dt;
+  if (!landing) { const need = skyAt(pl.pos.x, pl.pos.z) + 6 - pl.pos.y; if (need > 0) pl.pos.y += Math.min(need, 25 * dt); }   // last-moment save
+  if (pl.pos.y > 260) pl.pos.y = 260;
+  if (Math.max(Math.abs(pl.pos.x), Math.abs(pl.pos.z)) > HALF + 40) { pl.aimYaw = Math.atan2(pl.pos.x, pl.pos.z); showMessage('Return to the battlefield!', 0.5); }
+}
 function updatePlayerPlane(pl, dt) {
   const up = keys.ShiftLeft || keys.ShiftRight || keys.ArrowUp, down = keys.KeyC || keys.ArrowDown;
   pl.throttle = clamp(pl.throttle + ((up ? 1 : 0) - (down ? 1 : 0)) * dt * 0.7, 0, 1);
@@ -205,8 +274,11 @@ function updatePlayerPlane(pl, dt) {
     pl.quat.setFromEuler(new THREE.Euler(0, pl.groundYaw, 0, 'YXZ'));
     pl.pos.addScaledVector(planeFwd(pl), pl.speed * dt);
     pl.pos.y = heightAt(pl.pos.x, pl.pos.z) + 1.6;
-    if (pl.speed > 24 && pitchIn > 0) { pl.onGround = false; pl.quat.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(0.12, 0, 0))); pl.pos.y += 0.5; }
+    if (pl.speed > 24 && (pitchIn > 0 || (planeView === 'cockpit' && pl.aimPitch > 0.12))) { pl.onGround = false; pl.aimPitch = Math.max(pl.aimPitch || 0, 0.25); pl.quat.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(0.12, 0, 0))); pl.pos.y += 0.5; }
     for (const o of nearbyColliders(pl.pos.x, pl.pos.z)) if (o.kind === 'box' && pl.pos.x > o.minX - 1 && pl.pos.x < o.maxX + 1 && pl.pos.z > o.minZ - 1 && pl.pos.z < o.maxZ + 1 && pl.pos.y - 1.5 < o.maxY) { if (pl.speed > 15) { destroyPlane(pl, null); return; } pl.speed = 0; }
+  } else if (planeView === 'cockpit') {
+    easyFly(pl, dt);
+    if (!planeGroundCheck(pl)) return;
   } else {
     const ctrl = clamp(pl.speed / 30, 0.15, 1);
     let right = new THREE.Vector3(1, 0, 0).applyQuaternion(pl.quat);
@@ -232,6 +304,7 @@ function updatePlayerPlane(pl, dt) {
   if ((mouse.left || keys.Space) && pl.gunT <= 0) planeGuns(pl, player, true);
   if ((mouse.right || keys.KeyX) && !pl.onGround) planeBomb(pl, player);
   planeTick(pl, dt);
+  if (planeView === 'cockpit' && typeof cockpitCamera === 'function') cockpitCamera(pl);
 }
 
 // ----- AI flying -----
