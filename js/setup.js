@@ -2,7 +2,7 @@
 // How many control points are in play, and how many soldiers each team has (computer soldiers fill
 // every spot that a real player is not using). Online, the host's setup is used by everyone.
 const POINT_SETS = { 3: ['A', 'C', 'E'], 5: ['A', 'B', 'C', 'D', 'E'], 7: ['A', 'B', 'C', 'D', 'E', 'F', 'G'] };
-const SOLDIER_CHOICES = [6, 10, 14, 20, 30, 40];
+const SOLDIER_CHOICES = [6, 10, 14, 20, 30, 40, 50, 100];
 const BATTLE = { points: 7, soldiers: 14, diff: 'normal', clown: false, god: false };
 // god mode only works in your own solo battles, so it never spoils an online game
 const godOn = () => (BATTLE.god && !net.active) || (typeof CHEAT !== 'undefined' && CHEAT.god && cheatsOK());   // the console's god mode works online when the host allows cheats
@@ -76,7 +76,7 @@ function syncBattleUI() {
   document.querySelectorAll('#battleGod .chip').forEach(c => c.classList.toggle('on', (c.dataset.v === 'on') === BATTLE.god));
   const ptsRow = $('battlePts'); if (ptsRow) { ptsRow.style.display = WORLD.mode === 'conquest' || WORLD.mode === 'four' ? '' : 'none'; ptsRow.previousElementSibling.style.display = ptsRow.style.display; }
   const note = $('battleNote');
-  if (note) note.textContent = WORLD.mode === 'four' ? 'Four armies, one map. Blue, red, green and yellow each start in their own corner. Hold every point to win.' : WORLD.mode === 'tdm' ? `Team battle: first team to ${tdmTarget()} takedowns wins.` : WORLD.mode === 'koth' ? `King of the hill: hold point C for ${KOTH_TIME} seconds in total to win.` : BATTLE.soldiers >= 30 ? 'Big battles need a fast computer. If it gets slow, pick fewer soldiers.' : BATTLE.points === 3 ? 'Small map: the fight stays in the middle.' : BATTLE.points === 5 ? 'Medium map: the far left and right points are off.' : 'Full map: all seven points.';
+  if (note) note.textContent = WORLD.mode === 'four' ? 'Four armies, one map. Blue, red, green and yellow each start in their own corner. Hold every point to win.' : WORLD.mode === 'tdm' ? `Team battle: first team to ${tdmTarget()} takedowns wins.` : WORLD.mode === 'koth' ? `King of the hill: hold point C for ${KOTH_TIME} seconds in total to win.` : BATTLE.soldiers >= 50 ? 'Huge battles (solo only: online games use up to 40 a team). They need a fast computer; if it gets slow, pick fewer.' : BATTLE.soldiers >= 30 ? 'Big battles need a fast computer. If it gets slow, pick fewer soldiers.' : BATTLE.points === 3 ? 'Small map: the fight stays in the middle.' : BATTLE.points === 5 ? 'Medium map: the far left and right points are off.' : 'Full map: all seven points.';
 }
 (function buildBattleUI() {
   const box = $('battleSetup'); if (!box) return;

@@ -120,7 +120,7 @@ function makePlane(team, x, z, yaw, wait, kind) {
 function resetPlane(pl, wait = 6) {
   if (pl.homeTeam) pl.team = pl.homeTeam;
   if (pl.parked) wait = 1e9;   // spawned from the console: stays parked for a player
-  pl.alive = true; pl.hp = pl.maxHp; pl.speed = 0; pl.throttle = 0; pl.onGround = true; pl.bombs = pl.maxBombs || 1; pl.waitT = wait;
+  pl.alive = true; pl.hp = pl.maxHp; pl.speed = 0; pl.throttle = 0; pl.onGround = true; pl.bombs = pl.maxBombs !== undefined ? pl.maxBombs : 1; pl.waitT = wait;
   pl.groundYaw = pl.aiYaw = pl.spawn.yaw; pl.aiPitch = 0; pl.aiBank = 0; pl.wp = null;
   pl.pos.set(pl.spawn.x, heightAt(pl.spawn.x, pl.spawn.z) + 1.6, pl.spawn.z);
   pl.quat.setFromEuler(new THREE.Euler(0, pl.spawn.yaw, 0, 'YXZ'));
@@ -135,7 +135,7 @@ function resetPlane(pl, wait = 6) {
 function buildPlanes() {
   if (DOGFIGHT) {   // the dogfight: a squadron per team, starting in the air (players take over a plane when they deploy)
     for (const t of ['blue', 'red']) for (let i = 0; i < 9; i++) {
-      const B = BASES[t], s = teamSide(t), kind = JETFIGHT ? (i % 2 ? 'f22' : 'f18') : 'prop';
+      const B = BASES[t], s = teamSide(t), kind = JETFIGHT ? (i % 2 ? 'f22' : 'f18') : WWIFIGHT ? (t === 'red' ? 'triplane' : 'biplane') : 'prop';
       makePlane(t, B.x + (i - 4) * 45, B.z - s * 120, s > 0 ? 0 : Math.PI, 0, kind);
     }
     return;

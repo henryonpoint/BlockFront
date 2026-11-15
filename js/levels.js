@@ -2,7 +2,8 @@
 // Ground colours and the buildings for the three newer maps. The big shapes (beach, bluffs, gorge, dam crest)
 // are in the terrain itself (core.js rawHeight), so soldiers and vehicles walk and drive on them properly.
 // Everything placed here uses the seeded random numbers, so every player builds exactly the same map.
-const G_GRID = [-150, -90, -30, 30, 90, 150];   // the old town's street grid (Germany 1944)
+const G_GRID = [-150, -90, -30, 30, 90, 150];
+const BERLIN_LANDMARK_BLOCKS = [[0, -60], [60, -60], [-120, -120]];   // parliament, cathedral, flak tower   // the old town's street grid (Germany 1944)
 const TOWN_R = 178;
 function townStreetDist(x, z) {
   let m = Infinity;
@@ -108,6 +109,7 @@ function buildGermany() {
     if (x1 - x0 < 20 || z1 - z0 < 20) continue;
     const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
     if (Math.hypot(cx, cz) > TOWN_R - 10) continue;
+    if (BERLIN_LANDMARK_BLOCKS.some(([lx, lz]) => Math.abs(cx - lx) < 5 && Math.abs(cz - lz) < 5)) continue;   // a landmark stands here
     if (Math.abs(cx) < 5 && Math.abs(cz) < 5) {   // the town square: a fountain, rubble, and the church on its north side
       rubble(-14, 12); rubble(15, -10, 1.2); rubble(-6, -20);
       continue;
@@ -126,13 +128,7 @@ function buildGermany() {
       }
     }
   }
-  // the church: a long nave and a tall bell tower with a broken spire
-  const chx = 0, chz = -52;
-  addBlock(chx, chz, 13, 11, 24, LV.stone);
-  addBlock(chx, chz + 15, 7.5, 24, 7.5, LV.stone);
-  const ty = heightAt(chx, chz + 15) + 24;
-  const spire = new THREE.Mesh(new THREE.ConeGeometry(5, 9, 4), new THREE.MeshLambertMaterial({ color: 0x4a5560 })); spire.position.set(chx, ty + 3.5, chz + 15); spire.rotation.set(0.15, Math.PI / 4, 0.1); spire.castShadow = true; scene.add(spire);
-  addMesh(new THREE.BoxGeometry(13.6, 0.6, 24.6), LV.stone, chx, heightAt(chx, chz) + 11, chz);
+  buildBerlinLandmarks();
   // war damage across the countryside: tank traps, sandbags, wrecked cars and more rubble
   for (let i = 0; i < 70; i++) { const a = rand(0, 6.28), r = rand(60, 520), x = Math.cos(a) * r, z = Math.sin(a) * r; if (Math.abs(x) > EDGE - 20 || Math.abs(z) > EDGE - 20) continue; if (lvFree(x, z, 3) && waterDepth(x, z) === 0) (Math.random() < 0.5 ? rubble : hedgehog)(x, z); }
   for (let i = 0; i < 14; i++) { const x = rand(-TOWN_R + 10, TOWN_R - 10), z = rand(-TOWN_R + 10, TOWN_R - 10); if (townStreetDist(x, z) < 2.5 && Math.hypot(x, z) < TOWN_R - 10) { let near = false; for (const p of POINTS_DEF) if (Math.hypot(x - p.x, z - p.z) < 14) near = true; if (!near && typeof addCar === 'function') addCar(x, z, Math.random() < 0.5, 0x2a2826); } }
@@ -147,7 +143,9 @@ function buildNormandy() {
     addMesh(new THREE.CylinderGeometry(0.14, 0.16, 2.6, 6), MATS.wood || LV.rust, x, heightAt(x, z) + 0.9, z).rotation.x = -0.45;
   }
   // concrete bunkers along the top of the bluffs, looking down at the sand
-  for (let x = -480; x <= 480; x += 80) { const z = 196 + rand(-6, 6); if (lvFree(x, z, 7)) casemate(x, z); }
+  for (let x = -500; x <= 500; x += 40) { const z = 198 + rand(-5, 5); if (lvFree(x, z, 6)) casemate(x, z); }          // a wall of bunkers along the bluffs
+  for (let x = -460; x <= 460; x += 60) { const z = 165 + rand(-6, 6); if (lvFree(x + 20, z, 6)) casemate(x + 20, z); }   // a second line behind
+  for (let i = 0; i < 40; i++) { const x = rand(-500, 500), z = rand(205, 228); if (lvFree(x, z, 2)) for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; addBlock(x + Math.cos(a) * 2.2, z + Math.sin(a) * 2.2, 1.4, 0.9, 1.4, MATS.sandbag || LV.hedge); } }   // sandbagged gun pits
   // hedgerows: thick earth banks topped with bushes, boxing in the fields inland
   for (let z = 100; z > -500; z -= 75) for (let x = -520; x < 520; x += 8) {
     if (!lvFree(x, z, 2) || waterDepth(x, z) > 0) continue;
@@ -188,6 +186,7 @@ function buildDam() {
 }
 // the bungee jump: drop off the dam into the gorge and a parachute opens for you
 function updateLevel(dt) {
+  if (GERMANY) { updateBombers(dt); updateLeader(dt); }
   if (NORMANDY) {
     updateLandingCraft();
     if (player.inBoat && player.alive) { rideBoat(player); player.velY = 0; player.yaw = player.yaw; }
@@ -202,7 +201,7 @@ function updateLevel(dt) {
 // Six flat-bottomed landing boats run in from the sea, drop their front ramp on the sand, let the soldiers out,
 // then back off and come round again. The boats follow the clock (not each player's game time), so every player
 // sees them in the same place. Blue soldiers, and blue players who pick the beach, ride in until the ramp opens.
-const LCVP = { boats: [], period: 40, lanes: [-300, -180, -60, 60, 180, 300], now: () => Date.now() };
+const LCVP = { boats: [], period: 40, lanes: Array.from({ length: 20 }, (_, i) => -342 + i * 36), now: () => Date.now() };   // twenty landing boats
 function lcvpModel() {
   const P = new Part(), hull = 0x56604a, dark = 0x3a4232;
   P.box(3.4, 0.4, 9, dark, 0, 0.2, 0);                                            // flat bottom
@@ -267,4 +266,131 @@ spawnChar = function (c, pref) {
   }
   return r;
 };
+}
+
+
+// ===================== Berlin 1945 =====================
+function buildBerlinLandmarks() {
+  const stone = LV.stone, sand = new THREE.MeshLambertMaterial({ color: 0xb8ab90 }), conc = LV.concrete;
+  // the parliament: a long stone building with corner towers and a columned front facing the square, its dome
+  // burned out to a bare steel frame (as it was in 1945)
+  const px = 0, pz = -62;
+  addBlock(px, pz, 46, 15, 26, sand);
+  for (const [dx, dz] of [[-21, -11], [21, -11], [-21, 11], [21, 11]]) addBlock(px + dx, pz + dz, 8, 21, 8, sand);
+  const gy = heightAt(px, pz + 15);
+  for (let i = 0; i < 6; i++) addBlock(px - 10 + i * 4, pz + 15.5, 1.3, 13, 1.3, stone);                          // columns
+  addMesh(new THREE.BoxGeometry(24, 2.4, 4), sand, px, gy + 14.2, pz + 15.2);                                         // the beam over them
+  const pd = new THREE.Mesh(new THREE.ConeGeometry(13, 4, 4, 1), sand); pd.position.set(px, gy + 17.4, pz + 15); pd.rotation.y = Math.PI / 4; pd.scale.set(1, 1, 0.3); scene.add(pd);   // pediment
+  const dy = heightAt(px, pz) + 15; const steel = new THREE.MeshLambertMaterial({ color: 0x3a3e42 });
+  for (let i = 0; i < 12; i++) { const rib = new THREE.Mesh(new THREE.TorusGeometry(7, 0.18, 4, 16, Math.PI), steel); rib.position.set(px, dy, pz); rib.rotation.y = i * Math.PI / 12; scene.add(rib); }   // the bare dome
+  addMesh(new THREE.CylinderGeometry(7.4, 7.4, 2.4, 20, 1, true), stone, px, dy + 1.2, pz);
+  // the cathedral: a big domed church with four corner towers
+  const cx = 60, cz = -60, cy = heightAt(cx, cz);
+  addBlock(cx, cz, 26, 16, 22, stone);
+  addMesh(new THREE.CylinderGeometry(7, 7, 6, 16), stone, cx, cy + 19, cz);
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(7.2, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0x5f8f7a })); dome.position.set(cx, cy + 22, cz); dome.castShadow = true; scene.add(dome);
+  addMesh(new THREE.CylinderGeometry(0.6, 1.2, 4, 8), new THREE.MeshLambertMaterial({ color: 0x5f8f7a }), cx, cy + 30.5, cz);
+  for (const [dx, dz] of [[-11, -9], [11, -9], [-11, 9], [11, 9]]) { addBlock(cx + dx, cz + dz, 4, 21, 4, stone); const cap = new THREE.Mesh(new THREE.SphereGeometry(2.2, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), dome.material); cap.position.set(cx + dx, cy + 21, cz + dz); scene.add(cap); }
+  // the flak tower: a huge concrete block with a gun platform on each corner
+  const fx = -120, fz = -120, fy = heightAt(fx, fz);
+  addBlock(fx, fz, 30, 36, 30, conc);
+  for (const [dx, dz] of [[-13, -13], [13, -13], [-13, 13], [13, 13]]) {
+    addMesh(new THREE.CylinderGeometry(4.2, 4.2, 3, 12), conc, fx + dx, fy + 37.5, fz + dz);
+    const gun = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 7, 8), LV.rail); gun.rotation.set(-0.9, (dx > 0 ? 1 : -1) * 0.6, 0); gun.position.set(fx + dx, fy + 41, fz + dz + 2); scene.add(gun);
+  }
+  for (let i = 0; i < 6; i++) addMesh(new THREE.BoxGeometry(1.4, 1, 0.4), LV.dark, fx - 12 + i * 4.8, fy + 20, fz + 15.1, false);   // gun slits
+  // the city gate: six heavy columns across the road into the city, with a stone beam on top
+  const gx = -205, gzy = heightAt(gx, 0);
+  for (const z of [-15, -9, -3, 3, 9, 15]) if (Math.abs(z) > 4) addBlock(gx, z, 2.4, 13, 2.4, sand); else addMesh(new THREE.BoxGeometry(2.4, 13, 2.4), sand, gx, gzy + 6.5, z);
+  addBlock(gx, 0, 5, 3.2, 36, sand, { y: gzy + 13 });
+  addBlock(gx, 0, 3, 2, 10, sand, { y: gzy + 16.2 });
+}
+
+// ---------- bombers over Berlin ----------
+// A formation of big four-engine bombers crosses the city every 50 seconds and drops bombs on it. Like the landing
+// craft, everything follows the clock and a seed made from it, so every player sees the same planes and blasts.
+const BOMBERS = { meshes: [], bombs: [], wave: -1, period: 50, alt: 175, speed: 62 };
+let _b17Geo = null;
+function b17Model() {
+  if (!_b17Geo) {
+    const P = new Part(), body = 0x8e949a, dark = 0x5c6268;
+    P.cyl(1.2, 1.0, 16, body, 0, 0, 0, Math.PI / 2, 0, 0, 1, 12); P.cyl(0.25, 1.2, 4, body, 0, 0, -10, -Math.PI / 2, 0, 0, 1, 12); P.cyl(1.0, 0.4, 6, body, 0, 0.2, 11, Math.PI / 2, 0, 0, 1, 12);
+    P.box(32, 0.35, 4.2, body, 0, -0.2, -1.5); P.box(11, 0.25, 2.6, body, 0, 0.3, 12.5);                           // wings, tailplane
+    P.add(new THREE.BoxGeometry(0.3, 5, 4.5), body, 0, 2.8, 12.3, -0.3, 0, 0);                                       // tall tail fin
+    for (const x of [-10, -5, 5, 10]) { P.cyl(0.8, 0.7, 3.4, dark, x, -0.2, -3.6, Math.PI / 2, 0, 0, 1, 10); P.cyl(0.35, 0.35, 0.5, 0x222222, x, -0.2, -5.4, Math.PI / 2, 0, 0, 1, 8); for (const r of [0, 2.1, 4.2]) P.box(0.18, 3.4, 0.06, 0x2a2a2a, x, -0.2, -5.6, 0, 0, r); }   // engines and prop discs
+    P.box(1.2, 0.5, 1.6, 0x223344, 0, 0.9, -7);                                                                     // cockpit glass
+    P.box(0.5, 0.05, 2, 0xffffff, 12, 0.0, -1.5); P.box(0.5, 0.05, 2, 0xffffff, -12, 0.0, -1.5);                     // white wing stars
+    _b17Geo = P.build();
+  }
+  const m = new THREE.Mesh(_b17Geo, VEH_MAT); m.castShadow = true; m.visible = false; scene.add(m); return m;
+}
+function seeded01(k) { const x = Math.sin(k * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
+function bomberWave(k) {   // the path of wave k: a heading across the middle of the map
+  const ang = seeded01(k) * Math.PI * 2, off = (seeded01(k + 0.5) - 0.5) * 200;
+  const dir = new THREE.Vector3(Math.sin(ang), 0, Math.cos(ang)), side = new THREE.Vector3(dir.z, 0, -dir.x);
+  const start = dir.clone().multiplyScalar(-1300).addScaledVector(side, off);
+  return { dir, side, start };
+}
+function bomberPos(w, j, t) {   // plane j of the V formation, t seconds into the wave
+  const row = Math.ceil(j / 2), sgn = j % 2 ? 1 : -1;
+  return w.start.clone().addScaledVector(w.dir, BOMBERS.speed * t - row * 22).addScaledVector(w.side, sgn * row * 26).setY(BOMBERS.alt + row * 4);
+}
+function updateBombers(dt) {
+  if (!BOMBERS.meshes.length) for (let j = 0; j < 5; j++) BOMBERS.meshes.push(b17Model());
+  const now = Date.now() / 1000, k = Math.floor(now / BOMBERS.period), t = now - k * BOMBERS.period, w = bomberWave(k);
+  const host = !net.active || net.isHost;
+  if (k !== BOMBERS.wave) { BOMBERS.wave = k; BOMBERS.dropped = new Set(); }
+  let near = Infinity;
+  BOMBERS.meshes.forEach((m, j) => {
+    const p = bomberPos(w, j, t); m.visible = t < 42; m.position.copy(p); m.rotation.set(0, Math.atan2(-w.dir.x, -w.dir.z), 0);
+    near = Math.min(near, p.distanceTo(camera.position));
+    // over the city: one bomb every 1.3 seconds
+    const flat = Math.hypot(p.x, p.z);
+    if (flat < 240) { const slot = Math.floor(t / 1.3), id = j * 1000 + slot; if (!BOMBERS.dropped.has(id)) { BOMBERS.dropped.add(id); dropBerlinBomb(p.clone(), w.dir, host); } }
+  });
+  if (near < 500 && Math.random() < dt * 2 && typeof tn === 'function' && typeof actx !== 'undefined' && actx) tn('sawtooth', 62, 58, 0.5, 0.035 * (1 - near / 500));   // the drone of the engines
+  for (let i = BOMBERS.bombs.length - 1; i >= 0; i--) {
+    const b = BOMBERS.bombs[i]; b.vel.y -= 20 * dt; b.m.position.addScaledVector(b.vel, dt); b.m.lookAt(b.m.position.clone().add(b.vel));
+    const gh = heightAt(b.m.position.x, b.m.position.z);
+    if (b.m.position.y <= gh + 0.5) { scene.remove(b.m); BOMBERS.bombs.splice(i, 1); explosion(new THREE.Vector3(b.m.position.x, gh + 0.5, b.m.position.z), 9, 40, null, 140, !b.host); if (typeof makeCrater === 'function') makeCrater(new THREE.Vector3(b.m.position.x, gh, b.m.position.z), 9); }
+  }
+}
+function dropBerlinBomb(p, dir, host) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 1.4, 8), new THREE.MeshLambertMaterial({ color: 0x30343a })); m.geometry.rotateX(Math.PI / 2);
+  m.position.copy(p).y -= 1.5; scene.add(m);
+  BOMBERS.bombs.push({ m, vel: dir.clone().multiplyScalar(BOMBERS.speed * 0.8), host });
+  if (BOMBERS.bombs.length > 60) { const o = BOMBERS.bombs.shift(); scene.remove(o.m); }
+}
+
+// ---------- the bunker ----------
+// He hides in the far side room of the bunker nearest the middle of the city. A blue player who reaches him ends
+// the war: blue wins straight away.
+const LEADER = { at: null, found: false, g: null };
+function placeLeader() {
+  if (LEADER.g || !bunkers.length) return;
+  const b = bunkers.slice().sort((p, q) => Math.hypot(p.x, p.z) - Math.hypot(q.x, q.z))[0];
+  const w = bW(b, 18, 13); LEADER.at = new THREE.Vector3(w.x, b.F, w.z); LEADER.bunker = b.name;
+  const P = new Part(), coat = 0x6a6e66, dark = 0x2b2c2a, skin = 0xe2b896;
+  P.box(0.62, 0.95, 0.36, coat, 0, 1.15, 0); P.box(0.66, 0.5, 0.4, coat, 0, 0.62, 0);                                 // long grey coat
+  for (const s of [-1, 1]) { P.box(0.2, 0.62, 0.22, dark, s * 0.15, 0.31, 0); P.box(0.18, 0.75, 0.18, coat, s * 0.42, 1.2, 0, 0, 0, s * 0.12); }   // boots, arms
+  P.box(0.34, 0.36, 0.32, skin, 0, 1.82, 0); P.box(0.12, 0.04, 0.02, 0x1a1a1a, 0, 1.75, 0.165);                        // head, moustache
+  P.box(0.42, 0.08, 0.42, coat, 0, 2.03, 0.02); P.box(0.36, 0.1, 0.36, dark, 0, 2.1, 0); P.box(0.36, 0.03, 0.14, dark, 0, 2.0, 0.24);   // peaked cap
+  LEADER.g = new THREE.Mesh(P.build(), VEH_MAT); LEADER.g.position.copy(LEADER.at); scene.add(LEADER.g);
+  const desk = bW(b, 20.5, 13); addMesh(new THREE.BoxGeometry(2.2, 0.85, 1.1), MATS.darkWood, desk.x, b.F + 0.43, desk.z);
+}
+function updateLeader(dt) {
+  placeLeader(); if (!LEADER.g || LEADER.found) return;
+  LEADER.g.position.y = LEADER.at.y + Math.abs(Math.sin(simTime * 6)) * 0.03;   // trembling
+  LEADER.g.rotation.y = Math.atan2(player.pos.x - LEADER.at.x, player.pos.z - LEADER.at.z);
+  if (!player.alive || player.team !== 'blue' || gameOver) return;
+  if (player.pos.distanceTo(LEADER.at) < 2.6) {
+    LEADER.found = true;
+    if (!net.active || net.isHost) leaderFound('blue', player.name); else netRequest(['hf']);
+  }
+}
+function leaderFound(team, name) {
+  if (gameOver || team !== 'blue') return;
+  LEADER.found = true;
+  showMessage(`${name} found Hitler hiding in his bunker. The war in Europe is over!`, 8);
+  if (typeof endGame === 'function') endGame('blue');
 }

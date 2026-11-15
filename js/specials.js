@@ -208,11 +208,41 @@ function jetModel(team, kind) {
   scene.add(g);
   return { g, prop, bomb, canopy, gunYaw, gunPitch };
 }
+// World War 1 fighters: a red triplane (three stacked wings, like the famous Red Baron's) and a two-winged biplane
+function ww1Model(team, kind) {
+  const tri = kind === 'triplane', g = new THREE.Group();
+  const col = tri ? 0xc0201a : 0x9a8a5a, wingCol = tri ? 0xc8261e : 0xd8ccb0, dark = 0x2a221c;
+  const geo = vcached(kind + team, () => {
+    const p = new Part();
+    p.box(1.0, 1.0, 5.2, col, 0, 0, 0.4); p.cyl(0.55, 0.15, 1.8, col, 0, 0.05, 3.9, Math.PI / 2, 0, 0, 1, 8);   // boxy body, tapering tail
+    p.cyl(0.62, 0.62, 0.6, 0x5a5a5a, 0, 0, -2.4, Math.PI / 2, 0, 0, 1, 12);                                   // round engine at the front
+    const wings = tri ? [[-0.65, 7.2], [0.25, 7.4], [1.15, 7.6]] : [[-0.55, 8.6], [1.05, 8.6]];
+    for (const [y, span] of wings) p.box(span, 0.1, 1.5, wingCol, 0, y, -1.0);                               // stacked wings
+    for (const sd of [-1, 1]) { p.box(0.06, wings[wings.length - 1][0] - wings[0][0], 0.06, dark, sd * (tri ? 3.2 : 3.8), (wings[0][0] + wings[wings.length - 1][0]) / 2, -1.0); p.box(0.06, 1.0, 0.06, dark, sd * 0.6, 0.6, -1.2); }   // struts
+    p.box(2.6, 0.08, 0.9, wingCol, 0, 0.1, 4.2); p.add(new THREE.BoxGeometry(0.08, 0.9, 0.8), col, 0, 0.5, 4.4);   // tailplane, rudder
+    for (const sd of [-1, 1]) { p.box(0.06, 0.9, 0.06, dark, sd * 0.6, -0.9, -1.2); p.cyl(0.32, 0.32, 0.12, 0x222222, sd * 0.75, -1.35, -1.2, 0, 0, Math.PI / 2, 1, 10); }   // landing gear
+    p.box(0.08, 0.08, 0.9, 0x222222, -0.18, 0.62, -1.6); p.box(0.08, 0.08, 0.9, 0x222222, 0.18, 0.62, -1.6);   // twin machine guns
+    p.box(0.5, 0.12, 0.5, dark, 0, 0.5, 0.2);                                                                 // open cockpit
+    if (!tri) for (const sd of [-1, 1]) p.cyl(0.4, 0.4, 0.02, P_TEAM_RING(team), sd * 3, 1.11, -1.0, 0, 0, 0, 1, 12);   // round markings on the wing
+    return p;
+  });
+  const m = new THREE.Mesh(geo, VEH_MAT); m.castShadow = true; g.add(m);
+  const prop = new THREE.Group(); prop.position.set(0, 0, -2.75); g.add(prop);
+  const blade = new THREE.Mesh(new THREE.BoxGeometry(0.2, 2.6, 0.06), new THREE.MeshLambertMaterial({ color: 0x6b4a2a })); prop.add(blade);
+  const canopy = new THREE.Object3D(); g.add(canopy);
+  const bomb = new THREE.Object3D(); g.add(bomb);
+  const gunYaw = new THREE.Group(); g.add(gunYaw); const gunPitch = new THREE.Group(); gunYaw.add(gunPitch);
+  scene.add(g);
+  return { g, prop, bomb, canopy, gunYaw, gunPitch };
+}
+function P_TEAM_RING(team) { return (VPAINT[team] || VPAINT.blue).team; }
 // speed (times the normal plane), toughness, bombs and how fast they reload
 const PLANE_KINDS = {
   prop: { name: 'Fighter plane', spd: 1, hp: 320, bombs: 1, regen: 25, model: team => makePlaneModel(team) },
   f18: { name: 'F-18 Hornet', spd: 1.75, hp: 420, bombs: 2, regen: 15, model: team => jetModel(team, 'f18') },
   f22: { name: 'F-22 Raptor', spd: 2.0, hp: 480, bombs: 2, regen: 12, model: team => jetModel(team, 'f22') },
+  triplane: { name: 'Red triplane', spd: 0.72, hp: 200, bombs: 0, regen: 999, model: team => ww1Model(team, 'triplane') },
+  biplane: { name: 'Biplane', spd: 0.78, hp: 220, bombs: 0, regen: 999, model: team => ww1Model(team, 'biplane') },
   stealth: { name: 'Stealth bomber', spd: 1.35, hp: 700, bombs: 2, regen: 30, bombBig: true, model: team => jetModel(team, 'stealth') },
 };
 

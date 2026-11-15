@@ -5,7 +5,7 @@ const net = {
   active: false, isHost: true, joinPerf: 0, w1: null, w2: null, myId: Math.random().toString(36).slice(2, 10), jt: 0, game: null,
   seq: 0, fx: [], hits: [], dd: [], req: [], kf: [], chat: [], cmd: [], lastSnap: [null, null], snapAt: [0, 0], snapGap: [250, 250], seen: {}, remotes: new Map(), sendT: 0, hostId: null, status: '',
 };
-const NPC_POOL = 40;
+const NPC_POOL = 100;   // up to 100 a team in solo battles (online games use up to 40, so every update stays small)
 const TEAM_POOL = (typeof FOUR !== 'undefined' && FOUR) ? 24 : NPC_POOL;   // 4 teams share the work, so each gets fewer   // most computer soldiers a team can have (see the battle setup)
 let npcs = [];
 const r10 = v => Math.round(v * 10);
@@ -143,7 +143,7 @@ function buildWorld2() {
 }
 
 // ---------- connecting ----------
-const GAME_BUILD = 35;   // bump when vehicles or the world change, so mismatched versions never mix
+const GAME_BUILD = 36;   // bump when vehicles or the world change, so mismatched versions never mix
 // the version number on the start screen and pause menu, so everyone can check they are on the same one
 const GAME_DATE = 'Nov 15, 2026';
 setTimeout(() => { const v = document.getElementById('verTag'); if (v) v.textContent = `Version ${GAME_BUILD}  \u00b7  ${GAME_DATE}${window.STANDALONE ? '' : '  \u00b7  Claude'}`; const p = document.getElementById('verPause'); if (p) p.textContent = `Version ${GAME_BUILD}`; }, 0);
@@ -395,7 +395,7 @@ function netUpdate(dt) {
         if (killer) { teamKills[killer.team]++; if (killer === player) { player.kills++; addMoney(e[2] ? 150 : 100, e[2] ? 'Headshot' : 'Elimination'); SFX.kill(); } }
         hostKillfeed(killer, c, e[2]); addKillfeed(killer, c, e[2]);
       }
-      for (const e of newEntries(P.id, 'rq', P.rq)) if (e[1] === 'tw') { if (typeof towerRequest === 'function') towerRequest(e); } else if (e[1] === 'tc') { if (typeof treasureRequest === 'function') treasureRequest(e, c); } else if (e[1] === 'vs') { if (typeof spawnRequest === 'function') spawnRequest(e); } else if (e[1] === 'md') { if (typeof dropRequest === 'function') dropRequest(e, c); } else if (e[1] === 'hj') { const v = gvehicles[e[2]]; if (v && v.alive) for (const o of occupants(v)) if (o.team !== c.team && !o.isPlayer && !o.isRemote) { leaveSeat(o); o.noVehT = simTime + 30; } } else if (e[1] === 'rec') recruitNPC(e[2]); else if (e[1] === 'wh' && typeof whistleForVehicle === 'function') { const v = gvehicles[e[2]]; if (v && v.alive) whistleForVehicle(v, teamOf(e[3]), v.pos); }
+      for (const e of newEntries(P.id, 'rq', P.rq)) if (e[1] === 'tw') { if (typeof towerRequest === 'function') towerRequest(e); } else if (e[1] === 'tc') { if (typeof treasureRequest === 'function') treasureRequest(e, c); } else if (e[1] === 'vs') { if (typeof spawnRequest === 'function') spawnRequest(e); } else if (e[1] === 'hf') { if (typeof leaderFound === 'function') leaderFound(c.team, c.name); } else if (e[1] === 'md') { if (typeof dropRequest === 'function') dropRequest(e, c); } else if (e[1] === 'hj') { const v = gvehicles[e[2]]; if (v && v.alive) for (const o of occupants(v)) if (o.team !== c.team && !o.isPlayer && !o.isRemote) { leaveSeat(o); o.noVehT = simTime + 30; } } else if (e[1] === 'rec') recruitNPC(e[2]); else if (e[1] === 'wh' && typeof whistleForVehicle === 'function') { const v = gvehicles[e[2]]; if (v && v.alive) whistleForVehicle(v, teamOf(e[3]), v.pos); }
     }
     // their buildings
     const want = new Set();

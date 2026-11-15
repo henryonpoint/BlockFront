@@ -20,7 +20,8 @@ function balanceTeams(initial) {
   for (const t of TEAMS) {
     let humans = player.team === t ? 1 : 0;
     for (const r of net.remotes.values()) if (r.char.team === t) humans++;
-    const want = DOGFIGHT ? 0 : clamp(BATTLE.soldiers - humans + (recruits[t] || 0), 2, TEAM_POOL);   // a dogfight has no soldiers on the ground
+    const cap = net.active ? Math.min(40, TEAM_POOL) : TEAM_POOL, base = NORMANDY ? Math.max(BATTLE.soldiers, 100) : BATTLE.soldiers;   // Normandy is a huge battle
+    const want = DOGFIGHT ? 0 : clamp(base - humans + (recruits[t] || 0), 2, cap);   // a dogfight has no soldiers on the ground
     npcs.filter(n => n.team === t).forEach((n, i) => {
       if (i < want && n.inactive) { n.inactive = false; n.alive = false; n.respawnT = initial ? 0 : 1; }
       if (i >= want && !n.inactive) { n.inactive = true; n.alive = false; n.model.root.visible = false; if (n.turret) { n.turret.user = null; n.turret = null; } }

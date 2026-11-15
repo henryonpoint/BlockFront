@@ -4,19 +4,19 @@
 // ---------- which map and game mode this page builds ----------
 // The world is built once when the page loads, so changing the map or mode reloads the page.
 // A join that needs a different map stores what it needs in sessionStorage first ('bf_force').
-const MAPS = { green: 'Green valley', snow: 'Snow mountain', desert: 'Desert', houston: 'Houston city', wake: 'Wake Island', normandy: 'Normandy beach', europe: 'Germany 1944', dam: 'The Dam', dogfight: 'Dogfight: old planes', jetfight: 'Dogfight: jets' };
+const MAPS = { green: 'Green valley', snow: 'Snow mountain', desert: 'Desert', houston: 'Houston city', wake: 'Wake Island', normandy: 'Normandy beach', europe: 'Berlin 1945', dam: 'The Dam', dogfight: 'Dogfight: old planes', jetfight: 'Dogfight: jets', wwifight: 'Dogfight: WW1 triplanes' };
 const MODES = { conquest: 'Conquest', tdm: 'Team battle', koth: 'King of the hill', four: '4 teams' };
 const WORLD = (() => {
   let w = { map: 'green', mode: 'conquest' };
   try { const b = JSON.parse(localStorage.getItem('bf_battle') || '{}'); if (MAPS[b.map]) w.map = b.map; if (MODES[b.mode]) w.mode = b.mode; } catch (e) { }
   try { const f = JSON.parse(sessionStorage.getItem('bf_force') || 'null'); if (f) { if (MAPS[f.map]) w.map = f.map; if (MODES[f.mode]) w.mode = f.mode; w.force = f; } } catch (e) { }
   if ((w.map === 'wake' || w.map === 'normandy') && w.mode === 'four') w.mode = 'conquest';   // only room for two sides
-  if (w.map === 'dogfight' || w.map === 'jetfight') w.mode = 'tdm';   // dogfights are scored on planes shot down   // the island only has room for two sides
+  if (w.map === 'dogfight' || w.map === 'jetfight' || w.map === 'wwifight') w.mode = 'tdm';   // dogfights are scored on planes shot down   // the island only has room for two sides
   return w;
 })();
 const SNOW = WORLD.map === 'snow', DESERT = WORLD.map === 'desert', HOUSTON = WORLD.map === 'houston', WAKE = WORLD.map === 'wake';
 const NORMANDY = WORLD.map === 'normandy', GERMANY = WORLD.map === 'europe', DAM = WORLD.map === 'dam';
-const DOGFIGHT = WORLD.map === 'dogfight' || WORLD.map === 'jetfight', JETFIGHT = WORLD.map === 'jetfight';
+const DOGFIGHT = WORLD.map === 'dogfight' || WORLD.map === 'jetfight' || WORLD.map === 'wwifight', JETFIGHT = WORLD.map === 'jetfight', WWIFIGHT = WORLD.map === 'wwifight';
 const NO_TUNNELS = WAKE || DAM;   // tunnels sit at a fixed depth: they would break into the dam's gorge
 // ===================== core.js : setup, sky, sound, terrain math =====================
 const HALF = 560, GRID = 336, CELL = (HALF * 2) / GRID, W1 = GRID + 1;
