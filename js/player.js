@@ -539,7 +539,7 @@ addEventListener('mousemove', e => {
 });
 function lookDelta(mx, my) {
   mx *= SET.sens; my *= SET.sens; if (SET.invert) my = -my;
-  if (player.vehicle && planeView === 'cockpit') { const pl = player.vehicle; if (pl.aimYaw === undefined) setPlaneView('cockpit'); pl.aimYaw -= mx * 0.0024; pl.aimPitch = clamp((pl.aimPitch || 0) - my * 0.0024, -0.9, 0.9); return; }
+  if (player.vehicle && planeView === 'cockpit') { const pl = player.vehicle; if (pl.aimYaw === undefined) setPlaneView('cockpit'); pl.aimYaw -= mx * 0.0024; pl.aimPitch = clamp((pl.aimPitch || 0) + my * 0.0024, -0.9, 0.9); return; }   // like a flight stick: pull the mouse back (towards you) to climb
   if (player.vehicle) { camOrbit.yaw = clamp(camOrbit.yaw - mx * 0.003, -2.5, 2.5); camOrbit.pitch = clamp(camOrbit.pitch - my * 0.003, -0.6, 0.8); camOrbit.t = 2; return; }
   if (player.turret) { const t = player.turret; t.yaw -= mx * 0.0022; t.pitch = clamp(t.pitch - my * 0.0022, -0.35, 1.2); return; }
   if (player.gv && player.gv.T.heli && player.seat === 0) {   // helicopter pilot: mouse left/right turns, up/down aims
