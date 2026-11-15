@@ -398,6 +398,16 @@ function resume() {
   playing = true; lockPointer();
 }
 $('pause').addEventListener('click', resume);
+$('resumeBtn').addEventListener('click', e => { e.stopPropagation(); resume(); });
+// leave the battle and go back to the start screen (online, this also leaves the game cleanly)
+$('exitMenu').addEventListener('click', e => {
+  e.stopPropagation();
+  const b = $('exitMenu'); if (net.active && !b.dataset.sure) { b.dataset.sure = '1'; b.textContent = 'Click again to leave the battle'; setTimeout(() => { b.dataset.sure = ''; b.textContent = 'Exit to main menu'; }, 3000); return; }
+  try { net.closeGame && net.closeGame(); } catch (er) { }
+  try { LOBBY.close && LOBBY.close(); } catch (er) { }
+  try { sessionStorage.removeItem('bf_force'); sessionStorage.setItem('bf_intro', '1'); } catch (er) { }
+  document.body.classList.add('reloading'); setTimeout(() => location.reload(), 120);
+});
 
 // ---------- shop ----------
 const GEAR = [

@@ -167,6 +167,8 @@
   .btn:hover { background: #2563eb; }
   body:not(.started) .hud { display: none !important; }
   #pause { cursor: pointer; }
+  #verTag { position: absolute; right: 14px; bottom: 10px; z-index: 5; font: 600 12px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: rgba(255,255,255,0.7); background: rgba(0,0,0,0.45); padding: 4px 10px; border-radius: 8px; letter-spacing: .04em; pointer-events: none; }
+  .pauseBtns { display: flex; gap: 10px; margin: 10px 0 4px; } .pauseBtns .btn { flex: 1; margin: 0; }
   #death { background: rgba(60,0,0,0.45); }
   #shop .box { max-width: 760px; width: 90vw; max-height: 86vh; overflow: auto; }
   #shopMoney { font-size: 22px; font-weight: 800; color: #7CFC8A; }
@@ -340,6 +342,7 @@
 </div>
 
 <div id="start" class="screen">
+<div id="verTag"></div>
   <div class="letterbox top"></div><div class="letterbox bottom"></div>
   <div class="startWrap">
     <div class="leftPanel">
@@ -434,7 +437,7 @@
   </div>
 </div>
 <div id="connecting" class="screen"><div class="box"><h1>Connecting...</h1><p>Looking for a battle to join.</p></div></div>
-<div id="pause" class="screen"><div class="box"><h1 id="pauseTitle">Paused</h1><p id="pauseText">Click to jump back in.</p><p class="small">You are on the <b id="youTeam">Blue</b> team.</p><div class="settings" id="setPause"></div><div class="settings extraSettings"></div></div></div>
+<div id="pause" class="screen"><div class="box"><h1 id="pauseTitle">Paused</h1><p id="pauseText">Click to jump back in.</p><p class="small">You are on the <b id="youTeam">Blue</b> team. <span id="verPause" style="opacity:.6"></span></p><div class="btnRow pauseBtns"><div class="btn" id="resumeBtn">Back to battle</div><div class="btn" id="exitMenu" style="background:#5a2a2a">Exit to main menu</div></div><div class="settings" id="setPause"></div><div class="settings extraSettings"></div></div></div>
 <div id="death" class="screen"><div class="box"><h1 id="deathTitle">You're down!</h1><p id="deathBy"></p><p>Where do you want to deploy?</p><div class="chips" id="spawnPick"></div><div class="btn wait" id="deploy">Deploy</div><p class="small">Tip: buy armor, medkits and a medical station in the shop.</p></div></div>
 <div id="shop" class="screen"><div class="box"><h1>Supply Shop</h1><div id="shopMoney"></div><div id="shopGrid"></div><div class="btn" id="shopClose">Back to battle (B)</div></div></div>
 <div id="end" class="screen"><div class="box"><h1 id="endTitle"></h1><p id="endText"></p><div id="endStats"></div><div class="btn" id="again">Play again</div></div></div>
@@ -443,43 +446,43 @@
 <script src="lib/three.min.js"></script>
 <script src="lib/cannon.min.js"></script>
 <script src="lib/peerjs.min.js"></script>
-<script src="js/core.js?v=13"></script>
-<script src="js/world.js?v=13"></script>
-<script src="js/bunker.js?v=13"></script>
-<script src="js/trenches.js?v=13"></script>
-<script src="js/tunnels.js?v=13"></script>
-<script src="js/chars.js?v=13"></script>
-<script src="js/fx.js?v=13"></script>
-<script src="js/models.js?v=13"></script>
-<script src="js/weapons.js?v=13"></script>
-<script src="js/vehicles.js?v=13"></script>
-<script src="js/gvehicles.js?v=13"></script>
-<script src="js/vmodels.js?v=13"></script>
-<script src="js/heliboat.js?v=13"></script>
-<script src="js/snowmap.js?v=13"></script>
-<script src="js/houston.js?v=13"></script>
-<script src="js/wake.js?v=13"></script>
-<script src="js/ai.js?v=13"></script>
-<script src="js/build.js?v=13"></script>
-<script src="js/relaynet.js?v=13"></script>
-<script src="js/peernet.js?v=13"></script>
-<script src="js/net.js?v=13"></script>
-<script src="js/player.js?v=13"></script>
-<script src="js/setup.js?v=13"></script>
-<script src="js/main.js?v=13"></script>
-<script src="js/lobby.js?v=13"></script>
-<script src="js/polish.js?v=13"></script>
-<script src="js/clown.js?v=13"></script>
-<script src="js/craters.js?v=13"></script>
-<script src="js/topview.js?v=13"></script>
-<script src="js/animals.js?v=13"></script>
-<script src="js/loot.js?v=13"></script>
-<script src="js/sticky.js?v=13"></script>
-<script src="js/nuke.js?v=13"></script>
-<script src="js/city.js?v=13"></script>
-<script src="js/sound.js?v=13"></script>
-<script src="js/controls.js?v=13"></script>
-<script src="js/touch.js?v=13"></script>
-<script src="js/intro.js?v=13"></script>
+<script src="js/core.js?v=13b"></script>
+<script src="js/world.js?v=13b"></script>
+<script src="js/bunker.js?v=13b"></script>
+<script src="js/trenches.js?v=13b"></script>
+<script src="js/tunnels.js?v=13b"></script>
+<script src="js/chars.js?v=13b"></script>
+<script src="js/fx.js?v=13b"></script>
+<script src="js/models.js?v=13b"></script>
+<script src="js/weapons.js?v=13b"></script>
+<script src="js/vehicles.js?v=13b"></script>
+<script src="js/gvehicles.js?v=13b"></script>
+<script src="js/vmodels.js?v=13b"></script>
+<script src="js/heliboat.js?v=13b"></script>
+<script src="js/snowmap.js?v=13b"></script>
+<script src="js/houston.js?v=13b"></script>
+<script src="js/wake.js?v=13b"></script>
+<script src="js/ai.js?v=13b"></script>
+<script src="js/build.js?v=13b"></script>
+<script src="js/relaynet.js?v=13b"></script>
+<script src="js/peernet.js?v=13b"></script>
+<script src="js/net.js?v=13b"></script>
+<script src="js/player.js?v=13b"></script>
+<script src="js/setup.js?v=13b"></script>
+<script src="js/main.js?v=13b"></script>
+<script src="js/lobby.js?v=13b"></script>
+<script src="js/polish.js?v=13b"></script>
+<script src="js/clown.js?v=13b"></script>
+<script src="js/craters.js?v=13b"></script>
+<script src="js/topview.js?v=13b"></script>
+<script src="js/animals.js?v=13b"></script>
+<script src="js/loot.js?v=13b"></script>
+<script src="js/sticky.js?v=13b"></script>
+<script src="js/nuke.js?v=13b"></script>
+<script src="js/city.js?v=13b"></script>
+<script src="js/sound.js?v=13b"></script>
+<script src="js/controls.js?v=13b"></script>
+<script src="js/touch.js?v=13b"></script>
+<script src="js/intro.js?v=13b"></script>
 </body>
 </html>
