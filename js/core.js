@@ -256,6 +256,27 @@ function fbm(x, z) {
 const WAKE_U = [[-330, -260], [-305, 210], [-230, 255], [230, 255], [305, 210], [330, -260]].map(([x, z]) => ({ x, z }));
 function wakeDist(x, z) { let m = Infinity; for (let i = 0; i < WAKE_U.length - 1; i++) m = Math.min(m, distToSeg(x, z, WAKE_U[i].x, WAKE_U[i].z, WAKE_U[i + 1].x, WAKE_U[i + 1].z)); return Math.min(m, Math.hypot(x, z + 20) + 2); }
 const CARRIER = { x: 0, z: 470, hl: 105, hw: 17, deck: 13 };
+// the smaller islands round Wake, each one different
+const WAKE_ISLES = [
+  { kind: 'volcano', x: 400, z: -400, r: 95 },     // a smoking volcano with a crater
+  { kind: 'rocks', x: 462, z: -70, r: 42 },        // a rocky outcrop with a lighthouse
+  { kind: 'sandbar', x: -470, z: 80, r: 85 },      // a long low sandbar with palms and a wreck
+  { kind: 'jungle', x: -330, z: 360, r: 52 },      // a hilly jungle island with a hidden bunker
+];
+function wakeIsles(x, z) {
+  let h = -99;
+  for (const I of WAKE_ISLES) {
+    const dx = x - I.x, dz = z - I.z, d = Math.hypot(dx, dz); if (d > I.r + 40) continue;
+    const n = vnoise(x * 0.05 + I.x, z * 0.05 + I.z), shore = lerp(-14, 0.4, smooth(I.r + 35, I.r, d));
+    let g = shore;
+    if (I.kind === 'volcano') { const t = clamp(1 - d / I.r, 0, 1); g = Math.max(shore, 0.4 + Math.pow(t, 1.35) * 78 + n * 4); if (d < 18) g -= (18 - d) * 2.4; }
+    else if (I.kind === 'rocks') { g = Math.max(shore, smooth(I.r, I.r * 0.45, d) * (16 + n * 10) + Math.pow(vnoise(x * 0.12, z * 0.12), 2) * 8 * smooth(I.r, 10, d)); }
+    else if (I.kind === 'sandbar') { const e = Math.hypot(dx / 1.0, dz / 0.3); g = lerp(-14, 1.6 + n * 0.8, smooth(I.r + 30, I.r * 0.75, e)); }
+    else { const t = smooth(I.r, I.r * 0.2, d); g = Math.max(shore, 2 + t * (14 + n * 9)); }
+    h = Math.max(h, g);
+  }
+  return h;
+}
 const POINTS_DEF = NORMANDY ? [
   { n: 'A', x: -300, z: 285 }, { n: 'B', x: 300, z: 285 }, { n: 'C', x: 0, z: 160 },
   { n: 'D', x: -260, z: 145 }, { n: 'E', x: 260, z: 145 }, { n: 'F', x: -250, z: -220 }, { n: 'G', x: 250, z: -220 },
@@ -357,10 +378,12 @@ function rawHeight(x, z) {
     // the atoll: jungle in the middle, sandy beaches, shallow water, then the deep ocean
     const d = wakeDist(x, z), bump = vnoise(x * 0.03 + 4, z * 0.03 - 7) * 3.2 + vnoise(x * 0.09, z * 0.09) * 0.8;
     const sea = -14 + vnoise(x * 0.01, z * 0.01) * 4;
-    if (d < 20) return 3.2 + bump * smooth(14, 4, d) * smooth(6, 30, pathDist(x, z));
-    if (d < 34) return lerp(3.2, 0.2, (d - 20) / 14);
-    if (d < 46) return lerp(0.2, -2.6, (d - 34) / 12);
-    return lerp(-2.6, sea, smooth(46, 80, d));
+    let g;
+    if (d < 20) g = 3.2 + bump * smooth(14, 4, d) * smooth(6, 30, pathDist(x, z));
+    else if (d < 34) g = lerp(3.2, 0.2, (d - 20) / 14);
+    else if (d < 46) g = lerp(0.2, -2.6, (d - 34) / 12);
+    else g = lerp(-2.6, sea, smooth(46, 80, d));
+    return Math.max(g, wakeIsles(x, z));
   }
   if (DOGFIGHT) {
     // tall mountains cut by deep winding canyons to fly through, and a wide open valley in the middle

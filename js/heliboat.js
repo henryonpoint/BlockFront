@@ -246,6 +246,11 @@ function simBoat(v, dt, inp) {
   v.pos.y = WATER_Y - 0.05 + Math.sin(t * 1.7) * 0.05;
   v.pitch = lerp(v.pitch, clamp(v.speed / T.maxSpeed, -0.3, 1) * 0.11 + Math.sin(t * 1.3) * 0.02, Math.min(1, dt * 3));
   v.roll = lerp(v.roll, -v.steer * 0.12 * clamp(Math.abs(v.speed) / 10, 0, 1) + Math.sin(t * 1.1) * 0.025, Math.min(1, dt * 3));
+  if (Math.abs(v.speed) > 5 && typeof emitSpray === 'function') {   // spray off the bow and a rooster tail behind
+    const k = Math.abs(v.speed) / T.maxSpeed, rx = Math.cos(v.yaw), rz = -Math.sin(v.yaw);
+    for (let i = 0; i < k * 50 * dt; i++) for (const sd of [-1, 1]) emitSpray(v.pos.x + fx * half * 0.6 + rx * sd * 1.2, WATER_Y + 0.3, v.pos.z + fz * half * 0.6 + rz * sd * 1.2, rx * sd * rand(2, 4) + fx * v.speed * 0.4, rand(2, 3 + k * 3), rz * sd * rand(2, 4) + fz * v.speed * 0.4, rand(0.6, 1.1));
+    for (let i = 0; i < k * 30 * dt; i++) emitSpray(v.pos.x - fx * (half + 0.4), WATER_Y + 0.3, v.pos.z - fz * (half + 0.4), -fx * rand(2, 5) + rand(-1, 1), rand(3, 5 + k * 4), -fz * rand(2, 5) + rand(-1, 1), rand(0.7, 1.2));
+  }
   if (Math.abs(v.speed) > 4 && Math.random() < dt * 20) {
     for (const s of [-1, 1]) smokePuff(new THREE.Vector3(v.pos.x - fx * half * 0.4 + Math.cos(v.yaw) * s * 1.2, WATER_Y + 0.1, v.pos.z - fz * half * 0.4 - Math.sin(v.yaw) * s * 1.2), 0xf4f8fa, 0.4, 0.7, 0.4);
     smokePuff(new THREE.Vector3(v.pos.x - fx * (half + 0.5), WATER_Y + 0.15, v.pos.z - fz * (half + 0.5)), 0xffffff, 0.5, 1.0, 0.2);

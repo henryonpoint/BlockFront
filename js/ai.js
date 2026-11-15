@@ -283,7 +283,13 @@ function updateNPC(n, dt) {
   if (n.detour && !n.tplan) { n.detourT -= dt; if (n.detourT <= 0 || Math.hypot(n.detour.x - n.pos.x, n.detour.z - n.pos.z) < 1.5) n.detour = null; else goal = n.detour; }
   if (n.vehTarget) {
     const v = n.vehTarget; goal = v.pos;
-    if (Math.hypot(v.pos.x - n.pos.x, v.pos.z - n.pos.z) < v.T.radius + 1.8) { npcBoard(n); return; }
+    const reach = v.T.boat ? v.T.radius + 7 : v.T.radius + 1.8;   // boats are boarded from the dock edge, without swimming out
+    if (WAKE && v.T.boat && typeof CARRIER !== 'undefined') {   // on Wake, walk down the carrier's ramp onto the dock first
+      const dk = { x: clamp(v.pos.x, CARRIER.x + CARRIER.hl + 48, CARRIER.x + CARRIER.hl + 68), z: clamp(v.pos.z, CARRIER.z - 4, CARRIER.z + 20) };
+      const onDock = Math.abs(n.pos.x - dk.x) < 14 && Math.abs(n.pos.z - (CARRIER.z + 8)) < 14 && n.pos.y < 3;
+      if (!onDock && Math.hypot(v.pos.x - CARRIER.x, v.pos.z - CARRIER.z) < 260 && Math.hypot(n.pos.x - CARRIER.x, n.pos.z - CARRIER.z) < 200) goal = n.pos.x < CARRIER.x + CARRIER.hl + 40 ? { x: CARRIER.x + CARRIER.hl + 30, z: CARRIER.z + 9 } : dk;
+    }
+    if (Math.hypot(v.pos.x - n.pos.x, v.pos.z - n.pos.z) < reach) { npcBoard(n); return; }
   }
   if (n.mountTarget) {
     const seat = turretSeat(n.mountTarget);
@@ -320,7 +326,15 @@ function updateNPC(n, dt) {
     const hill = (SNOW || DESERT) && !undergroundAt(n.pos.x, n.pos.z, n.pos.y);
     if (hill) { const g = heightAt(n.pos.x + mx * 1.2, n.pos.z + mz * 1.2) - heightAt(n.pos.x, n.pos.z); if (g > 0.5) speed *= clamp(1.25 - g * 0.5, 0.45, 1); }
     const nx = n.pos.x + mx * speed * dt, nz = n.pos.z + mz * speed * dt;
-    if (!blockedAt(nx, nz, n.pos.y, 0.45, hill)) { n.pos.x = nx; n.pos.z = nz; }
+    // soldiers don't wade out into deep water: they find a boat, or pick somewhere they can walk to
+    const intoSea = waterDepth(n.pos.x, n.pos.z) < 1.0 && waterDepth(nx, nz) >= 1.0 && !(n.vehTarget && n.vehTarget.pos.distanceTo(n.pos) < 12);   // also stops them walking off a deck edge
+    if (intoSea) {
+      if (simTime > (n.boatLookT || 0)) {
+        n.boatLookT = simTime + 2; let best = null, bd = 220;
+        for (const v of gvehicles) { if (!v.alive || !v.T.boat || v.team !== n.team || v.remote || Math.abs(v.speed) > 2 || freeSeat(v) < 0) continue; const d = v.pos.distanceTo(n.pos); if (d < bd) { bd = d; best = v; } }
+        if (best) n.vehTarget = best; else { n.goalT = 0; n.goal = null; }
+      }
+    } else if (!blockedAt(nx, nz, n.pos.y, 0.45, hill)) { n.pos.x = nx; n.pos.z = nz; }
     else if (strafing) n.strafeDir *= -1;
     pushProps(n.pos, mx * speed, mz * speed, 0.25);
   }

@@ -150,7 +150,7 @@ function addShipDeckRamps(s) {
   rm.position.set((u0 + u1) / 2, WATER_Y + (top + 0.4) / 2, v); rm.rotation.z = ang; rm.scale.x = Math.hypot(len, top) / len; s.g.add(rm);
   const landing = new THREE.Mesh(new THREE.BoxGeometry(4, 0.3, Math.abs(v - 3 + s.halfW(-10)) + 1), new THREE.MeshLambertMaterial({ color: 0x5a5e62 })); landing.position.set(u1 + 2, WATER_Y + top, (v - 3 - s.halfW(-10) + 1) / 2); s.g.add(landing);
 }
-function placeShip(s) { s.g.position.set(s.x, WATER_Y + Math.sin((typeof simTime !== 'undefined' ? simTime : 0) * 0.5 + s.x) * 0.15, s.z); s.g.rotation.set(s.lean || 0, s.yaw + Math.PI / 2, 0, 'YXZ'); }   // the models are built along +x (u), so turn them to face their heading
+function placeShip(s) { s.g.position.set(s.x, WATER_Y + Math.sin((typeof simTime !== 'undefined' ? simTime : 0) * 0.5 + s.x) * 0.15, s.z); s.g.rotation.set((s.lean || 0) + (s.waveRoll || 0), s.yaw + Math.PI / 2, s.wavePitch || 0, 'YXZ'); }   // the models are built along +x (u), so turn them to face their heading
 
 // ---------- hooking into ground, walls and water ----------
 function installShipHooks() {
@@ -200,6 +200,7 @@ function buildShips() {
 }
 // ---------- moving, carrying, steering, firing ----------
 function updateShips(dt) {
+  updateSpray(dt);
   if (!SH.built) buildShips();
   if (!SHIPS2.length) return;
   const host = !net.active || net.isHost;
@@ -263,7 +264,55 @@ function updateShipFx(s, dt) {
     s.fx.bow.scale.set(14, s.B * 0.5 + k * 10, 1); s.fx.bow.position.set(s.L / 2 - 4, 0.2, 0); s.fx.bow.material.opacity = k * 0.6;
   }
   if (s.radar) s.radar.rotation.y += dt * 1.5;
+  // spray thrown up by the bow, foam churned along the sides and behind the propellers, and ripples spreading out
+  if (k > 0.05) {
+    const b = shipBasis(s), bowU = s.L / 2 - 6, rate = k * 90 * dt;
+    for (const sd of [-1, 1]) for (let i = 0; i < rate; i++) {
+      const u = bowU - rand(0, 14), v = sd * (s.halfW(u) + 0.6), p = shipWorld(s, u, v);
+      emitSpray(p.x, WATER_Y + 0.4, p.z, b.rx * sd * rand(3, 5 + k * 8) + b.fx * s.speed * 0.3, rand(3, 5 + k * 9), b.rz * sd * rand(3, 5 + k * 8) + b.fz * s.speed * 0.3, rand(1.1, 2));
+    }
+    for (let i = 0; i < rate * 0.6; i++) { const p = shipWorld(s, -s.L / 2 + rand(0, 6), rand(-s.B / 3, s.B / 3)); emitSpray(p.x, WATER_Y + 0.3, p.z, rand(-1.5, 1.5) - b.fx * 2, rand(1, 3 + k * 3), rand(-1.5, 1.5) - b.fz * 2, rand(0.8, 1.4)); }
+    s.ringT = (s.ringT || 0) - dt;
+    if (s.ringT <= 0) { s.ringT = lerp(1.2, 0.35, k); for (const sd of [-1, 1]) { const p = shipWorld(s, bowU - 10, sd * (s.halfW(bowU - 10) + 3)); emitRipple(p.x, p.z, s.B * 0.6, 3 + k * 4); } }
+  }
+  // the hull rides the swell: a slow pitch and roll on top of any heel in a turn
+  const t = typeof simTime !== 'undefined' ? simTime : 0;
+  s.wavePitch = Math.sin(t * 0.45 + s.x * 0.01) * (0.006 + k * 0.006); s.waveRoll = Math.sin(t * 0.6 + s.z * 0.01) * 0.01;
   placeShip(s);
+}
+// a shared pool of spray droplets (white specks that fly up and fall back) and spreading ripple rings
+const SPRAY = { n: 0, max: 1600, pos: null, vel: null, life: null, pts: null, rings: [] };
+function emitSpray(x, y, z, vx, vy, vz, life) {
+  if (!SPRAY.pts) {
+    const g = new THREE.BufferGeometry(); SPRAY.pos = new Float32Array(SPRAY.max * 3); SPRAY.vel = new Float32Array(SPRAY.max * 3); SPRAY.life = new Float32Array(SPRAY.max);
+    for (let i = 0; i < SPRAY.max; i++) SPRAY.pos[i * 3 + 1] = -999;
+    g.setAttribute('position', new THREE.BufferAttribute(SPRAY.pos, 3));
+    SPRAY.pts = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xf2f8fc, size: 0.55, transparent: true, opacity: 0.85, depthWrite: false }));
+    SPRAY.pts.frustumCulled = false; scene.add(SPRAY.pts);
+  }
+  const i = SPRAY.n = (SPRAY.n + 1) % SPRAY.max;
+  SPRAY.pos[i * 3] = x; SPRAY.pos[i * 3 + 1] = y; SPRAY.pos[i * 3 + 2] = z; SPRAY.vel[i * 3] = vx; SPRAY.vel[i * 3 + 1] = vy; SPRAY.vel[i * 3 + 2] = vz; SPRAY.life[i] = life;
+}
+function emitRipple(x, z, r0, grow) {
+  if (SPRAY.rings.length > 40) return;
+  const m = new THREE.Mesh(new THREE.RingGeometry(0.92, 1, 40), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35, depthWrite: false }));
+  m.rotation.x = -Math.PI / 2; m.position.set(x, WATER_Y + 0.12, z); m.scale.setScalar(r0); scene.add(m); SPRAY.rings.push({ m, grow, t: 0 });
+}
+function updateSpray(dt) {
+  if (SPRAY.pts) {
+    const P = SPRAY.pos, V = SPRAY.vel, L = SPRAY.life;
+    for (let i = 0; i < SPRAY.max; i++) {
+      if (L[i] <= 0) continue;
+      L[i] -= dt; V[i * 3 + 1] -= 9.8 * dt;
+      P[i * 3] += V[i * 3] * dt; P[i * 3 + 1] += V[i * 3 + 1] * dt; P[i * 3 + 2] += V[i * 3 + 2] * dt;
+      if (P[i * 3 + 1] < WATER_Y || L[i] <= 0) { L[i] = 0; P[i * 3 + 1] = -999; }   // back into the sea
+    }
+    SPRAY.pts.geometry.attributes.position.needsUpdate = true;
+  }
+  for (let i = SPRAY.rings.length - 1; i >= 0; i--) {
+    const r = SPRAY.rings[i]; r.t += dt; r.m.scale.multiplyScalar(1 + r.grow * dt / Math.max(4, r.m.scale.x)); r.m.material.opacity = Math.max(0, 0.35 - r.t * 0.12);
+    if (r.t > 3) { scene.remove(r.m); r.m.geometry.dispose(); r.m.material.dispose(); SPRAY.rings.splice(i, 1); }
+  }
 }
 // move the ship and everything standing on it (soldiers, players, vehicles, props)
 function moveShip(s, dx, dz, dyaw) {

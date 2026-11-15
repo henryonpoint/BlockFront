@@ -425,7 +425,15 @@ function aiBoat(v, n, dt) {
   if (v.departT > 0) { v.departT -= dt; if (occupants(v).length < v.seats.length && v.departT > 0) { inp.brake = true; return inp; } v.departT = 0; }
   if (!v.aiGoal) v.aiGoal = n.goalPoint;
   const gp = v.aiGoal; if (!gp) { inp.brake = true; return inp; }
-  const want = Math.atan2(-(gp.x - v.pos.x), -(gp.z - v.pos.z));
+  // stuck against something: back off for a moment, then try again
+  if (v.boatRevT > 0) { v.boatRevT -= dt; inp.thr = -0.7; inp.steer = (v.avoidSide || 1); return inp; }
+  if (Math.abs(v.speed) < 1.2 && !v.departT) { v.boatStuck = (v.boatStuck || 0) + dt; if (v.boatStuck > 2.5) { v.boatStuck = 0; v.boatRevT = 1.6; v.avoidSide = -(v.avoidSide || 1); } } else v.boatStuck = 0;
+  let tgt = gp;
+  if (WAKE && typeof CARRIER !== 'undefined') {   // leaving the dock: go round the carrier's stern first, out into open water
+    const C = CARRIER, nearCv = v.pos.x > C.x - C.hl - 40 && v.pos.x < C.x + C.hl + 95 && v.pos.z > C.z - C.hw - 30 && v.pos.z < C.z + 60;
+    if (nearCv && gp.z < C.z - C.hw) tgt = v.pos.x > C.x + C.hl + 85 ? { x: C.x + C.hl + 100, z: C.z - C.hw - 40 } : { x: C.x + C.hl + 95, z: C.z + 42 };
+  }
+  const want = Math.atan2(-(tgt.x - v.pos.x), -(tgt.z - v.pos.z));
   let best = null;
   for (const o of [0, 0.35, -0.35, 0.7, -0.7, 1.1, -1.1, 1.6, -1.6]) {
     const a = want + o * (v.avoidSide || 1), fx = -Math.sin(a), fz = -Math.cos(a);
@@ -540,7 +548,7 @@ function npcInVehicle(n, dt) {
   const v = n.gv, role = v.T.seats[n.seat].role;
   if (!v.alive) { leaveSeat(n); return; }
   if (role === 'drive') {
-    simVehicle(v, dt, aiDrive(v, n, dt));
+    (typeof moveVehicle === "function" ? moveVehicle : simVehicle)(v, dt, aiDrive(v, n, dt));   // boats and helicopters use their own physics
     if (v.arrived > 0.5 && v.T.boat) { for (const c of occupants(v)) if (!c.isPlayer && !c.isRemote) { leaveSeat(c); c.noVehT = simTime + 30; } v.aiGoal = null; return; }   // beached: everybody out
     if (v.arrived > 0.5) {
       for (const c of occupants(v)) if (c !== n && v.T.seats[c.seat].role === 'ride' && !c.isPlayer && !c.isRemote) leaveSeat(c);

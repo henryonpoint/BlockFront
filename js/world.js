@@ -193,6 +193,10 @@ function terrainColorWake(x, z, h, slope) {
   const c = new THREE.Color().setRGB(lerp(0.2, 0.32, n), lerp(0.44, 0.56, n), lerp(0.14, 0.2, n)).multiplyScalar(0.9 + nf * 0.14);   // jungle green
   const sand = new THREE.Color(0.92, 0.85, 0.64).multiplyScalar(0.94 + nf * 0.08);
   if (h < 2.6) c.lerp(sand, smooth(2.6, 1.4, h));                    // beaches
+  for (const I of WAKE_ISLES) { const d = Math.hypot(x - I.x, z - I.z); if (d > I.r + 20) continue;
+    if (I.kind === 'volcano') { c.lerp(new THREE.Color(0.24, 0.22, 0.22).multiplyScalar(0.85 + nf * 0.3), smooth(I.r * 0.8, I.r * 0.45, d)); if (d < 20) c.lerp(new THREE.Color(0.55, 0.18, 0.06), smooth(20, 8, d)); }   // black lava rock, a hot red crater
+    else if (I.kind === 'rocks' && h > 2) c.lerp(new THREE.Color(0.48, 0.46, 0.44).multiplyScalar(0.85 + nf * 0.3), clamp((h - 2) / 4, 0, 0.9));   // grey rock
+    else if (I.kind === 'sandbar') c.lerp(sand, 0.9); }
   if (h < -0.4) c.lerp(new THREE.Color(0.78, 0.74, 0.56), 0.6);          // sand under the shallow water
   if (pathDist(x, z) < 4.5) c.lerp(new THREE.Color(0.7, 0.62, 0.46), 0.8);
   const r = RUNWAYS.red; if (Math.abs(x - r.x) < r.len / 2 + 8 && Math.abs(z - r.z) < r.wid / 2 + 6) c.lerp(new THREE.Color(0.66, 0.62, 0.52), 0.85);   // coral airstrip

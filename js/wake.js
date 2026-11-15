@@ -190,12 +190,52 @@ function buildWakeVehicles() {
 // ---------- every frame ----------
 function updateWake(dt) {
   for (const s of WAKE_SMOKE) {
-    if (s.radar) { s.radar.rotation.y += dt * 1.6; continue; }
-    s.t -= dt; if (s.t <= 0) { s.t = 0.4; smokePuff(new THREE.Vector3(s.x, s.y, s.z), s.dark ? 0x4a4a4a : 0x9a9a9a, 1.1, 4, 2.2); }
+    if (s.radar) { s.radar.rotation.y += dt * (s.spin || 1.6); continue; }
+    s.t -= dt; if (s.t <= 0) { s.t = s.big ? 0.25 : 0.4; smokePuff(new THREE.Vector3(s.x, s.y, s.z), s.dark ? 0x4a4a4a : 0x9a9a9a, s.big ? 4 : 1.1, s.big ? 8 : 4, s.big ? 6 : 2.2); }
   }
+}
+// ---------- the smaller islands ----------
+function wkIsles() {
+  const palms = [];
+  for (const I of WAKE_ISLES) {
+    if (I.kind === 'volcano') {
+      // a glowing crater, smoke rising from it, and black boulders on the slopes
+      const cy = heightAt(I.x, I.z);
+      const lava = new THREE.Mesh(new THREE.CircleGeometry(9, 24), new THREE.MeshBasicMaterial({ color: 0xff6a1a })); lava.rotation.x = -Math.PI / 2; lava.position.set(I.x, cy + 0.4, I.z); scene.add(lava);
+      const glow = new THREE.PointLight(0xff7a30, 2.2, 90, 1.5); glow.position.set(I.x, cy + 8, I.z); scene.add(glow);
+      for (let k = 0; k < 4; k++) WAKE_SMOKE.push({ x: I.x + rand(-5, 5), y: cy + 6, z: I.z + rand(-5, 5), t: rand(0, 1), dark: true, big: true });
+      const rock = wkMat(0x2a2626);
+      for (let k = 0; k < 40; k++) { const a = rand(0, 6.28), r = rand(20, I.r * 0.9), x = I.x + Math.cos(a) * r, z = I.z + Math.sin(a) * r, s = rand(1, 3.2); const m = addMesh(new THREE.DodecahedronGeometry(s, 0), rock, x, heightAt(x, z) + s * 0.4, z); m.rotation.set(rand(0, 3), rand(0, 3), 0); }
+    } else if (I.kind === 'rocks') {
+      // a red and white striped lighthouse on the highest rock, with a keeper's hut and a turning beam
+      let bx = I.x, bz = I.z, by = -99; for (let k = 0; k < 60; k++) { const x = I.x + rand(-15, 15), z = I.z + rand(-15, 15), h = heightAt(x, z); if (h > by) { by = h; bx = x; bz = z; } }
+      const P = new Part();
+      for (let i = 0; i < 6; i++) P.cyl(2.6 - i * 0.22, 2.8 - i * 0.22, 3.2, i % 2 ? 0xc8302a : 0xf2f0ea, 0, 1.6 + i * 3.2, 0, 0, 0, 0, 1, 16);
+      P.cyl(2.2, 2.2, 0.4, 0x2a2a2a, 0, 19.4, 0, 0, 0, 0, 1, 16); P.cyl(1.4, 1.4, 2.4, 0x9fd8ff, 0, 20.8, 0, 0, 0, 0, 1, 12); P.cyl(0.1, 1.7, 1.6, 0x2a2a2a, 0, 22.8, 0, 0, 0, 0, 1, 12);
+      for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2; P.box(0.08, 1, 0.08, 0x2a2a2a, Math.cos(a) * 2.1, 20.1, Math.sin(a) * 2.1); }
+      const lh = new THREE.Mesh(P.build(), VEH_MAT); lh.position.set(bx, by - 0.3, bz); lh.castShadow = true; scene.add(lh); addCircle(bx, bz, 2.9, by + 22);
+      const beam = new THREE.Mesh(new THREE.ConeGeometry(6, 70, 16, 1, true), new THREE.MeshBasicMaterial({ color: 0xfff6c8, transparent: true, opacity: 0.16, side: THREE.DoubleSide, depthWrite: false }));
+      beam.geometry.translate(0, -35, 0); beam.rotation.z = Math.PI / 2 - 0.08; const pivot = new THREE.Group(); pivot.position.set(bx, by + 20.5, bz); pivot.add(beam); scene.add(pivot); WAKE_SMOKE.push({ radar: pivot, spin: 0.9 });
+      house(bx + 8, bz + 5, 6, 5, 3.2, {});
+    } else if (I.kind === 'sandbar') {
+      // palms in a line along the bar, driftwood, and a wrecked fishing boat on its side
+      for (let k = 0; k < 26; k++) { const x = I.x + rand(-I.r * 0.75, I.r * 0.75), z = I.z + rand(-8, 8), h = heightAt(x, z); if (h > 1) palms.push({ x, z, y: h, s: rand(0.8, 1.2), r: rand(0, 6.28), lean: rand(-0.35, 0.35) }); }
+      for (let k = 0; k < 10; k++) { const x = I.x + rand(-60, 60), z = I.z + rand(-10, 10), h = heightAt(x, z); if (h > 0.5) addMesh(new THREE.CylinderGeometry(0.15, 0.2, rand(2, 4), 6), wkMat(0x9a8a6a), x, h + 0.15, z, false).rotation.set(Math.PI / 2, rand(0, 3), 0); }
+      const W = new Part(); W.box(3, 2, 9, 0x6a4a30, 0, 1, 0); W.box(2.6, 0.2, 8.6, 0x8a6a48, 0, 2, 0); W.box(1.6, 1.6, 2, 0xd8d0c0, 0, 2.8, 1.5); W.cyl(0.08, 0.08, 5, 0x5a4028, 0, 4.5, -1);
+      const wm = new THREE.Mesh(W.build(), VEH_MAT); wm.position.set(I.x + 30, heightAt(I.x + 30, I.z + 6), I.z + 6); wm.rotation.set(0.1, 0.6, 0.9); wm.castShadow = true; scene.add(wm);
+    } else {
+      // thick jungle, a concrete bunker hidden in it, a radio mast on the top, and a little dock
+      for (let k = 0; k < 70; k++) { const a = rand(0, 6.28), r = rand(4, I.r * 0.85), x = I.x + Math.cos(a) * r, z = I.z + Math.sin(a) * r, h = heightAt(x, z); if (h > 1.4) palms.push({ x, z, y: h, s: rand(0.8, 1.35), r: rand(0, 6.28), lean: rand(-0.3, 0.3) }); }
+      wkPillbox(I.x + 14, I.z - 18, Math.PI); wkPillbox(I.x - 20, I.z + 10, 0);
+      const ty = heightAt(I.x, I.z); addMesh(new THREE.CylinderGeometry(0.15, 0.45, 24, 6), MATS.steel, I.x, ty + 12, I.z); addCircle(I.x, I.z, 0.7, ty + 24);
+      for (let x = I.x + I.r - 6; x < I.x + I.r + 12; x += 3) addMesh(new THREE.BoxGeometry(3, 0.3, 4), wkMat(0x6a4a30), x, 0.4, I.z, false);
+    }
+  }
+  wkPalms(palms);
 }
 function buildWakeExtras() {
   wkCarrier();
   wkWarship(-175, 432, 70, false); wkWarship(205, 515, 110, true); wkWarship(-60, 545, 64, false); wkWarship(330, 420, 60, false);
   wkIsland();
+  wkIsles();
 }
