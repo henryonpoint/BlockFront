@@ -121,6 +121,7 @@ function buildWorld1() {
     if (typeof treasureState === 'function') o.TR = treasureState();
     if (typeof zombieState === 'function') { const zb = zombieState(); if (zb.length) o.ZB = zb; }
     if (typeof SHIPS2 !== 'undefined' && SHIPS2.length) o.SHP = shipState();
+    if (GERMANY && typeof LEADER !== 'undefined' && LEADER.idx !== undefined) o.LB = LEADER.idx;
     o.CHT = net.allowCheats ? 1 : 0; net.cheatsAllowed = !!net.allowCheats;
     if (typeof SPAWNED !== 'undefined' && SPAWNED.length) o.VS = SPAWNED;
     o.CF = [BATTLE.points, BATTLE.soldiers, BATTLE.diff]; o.HS = [Math.round(holdScore.blue), Math.round(holdScore.red)]; if (typeof clownNetState === 'function') o.CL = clownNetState();
@@ -144,7 +145,7 @@ function buildWorld2() {
 }
 
 // ---------- connecting ----------
-const GAME_BUILD = 44;   // bump when vehicles or the world change, so mismatched versions never mix
+const GAME_BUILD = 45;   // bump when vehicles or the world change, so mismatched versions never mix
 // the version number on the start screen and pause menu, so everyone can check they are on the same one
 const GAME_DATE = 'Nov 15, 2026';
 setTimeout(() => { const v = document.getElementById('verTag'); if (v) v.textContent = `Version ${GAME_BUILD}  \u00b7  ${GAME_DATE}${window.STANDALONE ? '' : '  \u00b7  Claude'}`; const p = document.getElementById('verPause'); if (p) p.textContent = `Version ${GAME_BUILD}`; }, 0);
@@ -500,6 +501,7 @@ function applySnapshot(P, dt) {
   if (P.TR && typeof applyTreasure === 'function') applyTreasure(P.TR);
   if (P.CHT !== undefined) net.cheatsAllowed = !!P.CHT;
   if (P.SHP && typeof applyShipState === 'function') applyShipState(P.SHP);
+  if (P.LB !== undefined && typeof LEADER !== 'undefined') LEADER.idx = P.LB;   /* which bunker Hitler is in this game */
   if (typeof applyZombies === 'function') applyZombies(P.ZB);
   if (P.VS && typeof applySpawned === 'function') applySpawned(P.VS);
 }

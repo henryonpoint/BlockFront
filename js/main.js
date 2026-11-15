@@ -20,7 +20,7 @@ function balanceTeams(initial) {
   for (const t of TEAMS) {
     let humans = player.team === t ? 1 : 0;
     for (const r of net.remotes.values()) if (r.char.team === t) humans++;
-    const cap = net.active ? Math.min(40, TEAM_POOL) : TEAM_POOL, base = NORMANDY ? Math.max(BATTLE.soldiers, 100) : BATTLE.soldiers;   // Normandy is a huge battle
+    const cap = net.active ? Math.min(40, TEAM_POOL) : TEAM_POOL, base = NORMANDY ? Math.max(BATTLE.soldiers, 100) : GERMANY ? Math.max(BATTLE.soldiers, 60) : BATTLE.soldiers;   // Normandy is a huge battle
     const want = DOGFIGHT ? 0 : clamp(base - humans + (recruits[t] || 0), 2, cap);   // a dogfight has no soldiers on the ground
     npcs.filter(n => n.team === t).forEach((n, i) => {
       if (i < want && n.inactive) { n.inactive = false; n.alive = false; n.respawnT = initial ? 0 : 1; }
@@ -191,7 +191,7 @@ function endGame(team) {
   const won = team === player.team;
   $('endTitle').textContent = won ? 'VICTORY!' : 'DEFEAT';
   $('endTitle').style.color = TEAM_CSS[team];
-  $('endText').textContent = `${teamName(team)} team ${WORLD.mode === 'tdm' ? 'reached ' + tdmTarget() + ' takedowns' : WORLD.mode === 'koth' ? 'held the hill the longest' : 'holds every control point'}. You took out ${player.kills} ${player.kills === 1 ? 'enemy' : 'enemies'} and finished with $${player.money}.`;
+  $('endText').textContent = `${teamName(team)} team ${GERMANY && typeof LEADER !== 'undefined' && LEADER.found && team === 'blue' ? 'took down Hitler and ended the war in Europe' : WORLD.mode === 'tdm' ? 'reached ' + tdmTarget() + ' takedowns' : WORLD.mode === 'koth' ? 'held the hill the longest' : 'holds every control point'}. You took out ${player.kills} ${player.kills === 1 ? 'enemy' : 'enemies'} and finished with $${player.money}.`;
   showEndStats();
   setTimeout(() => {
     $('end').style.display = 'flex'; playing = false; uiOpen = 'end';

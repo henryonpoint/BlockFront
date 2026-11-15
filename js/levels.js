@@ -3,7 +3,7 @@
 // are in the terrain itself (core.js rawHeight), so soldiers and vehicles walk and drive on them properly.
 // Everything placed here uses the seeded random numbers, so every player builds exactly the same map.
 const G_GRID = [-150, -90, -30, 30, 90, 150];
-const BERLIN_LANDMARK_BLOCKS = [[0, -60], [60, -60], [-120, -120]];   // parliament, cathedral, flak tower   // the old town's street grid (Germany 1944)
+const BERLIN_LANDMARK_BLOCKS = [[0, -60], [60, -60], [-120, -120], [-60, 60], [60, 60]];   // parliament, cathedral, flak tower   // the old town's street grid (Germany 1944)
 const TOWN_R = 178;
 function townStreetDist(x, z) {
   let m = Infinity;
@@ -199,9 +199,9 @@ function buildDam() {
 }
 // the bungee jump: drop off the dam into the gorge and a parachute opens for you
 function updateLevel(dt) {
-  if (GERMANY) { updateBombers(dt); updateLeader(dt); }
+  if (GERMANY) { installLeaderHooks(); installGuardHook(); updateBombers(dt); updateLeader(dt); }
   if ((GERMANY || NORMANDY) && started) updateBarrage(dt);
-  if ((GERMANY || NORMANDY) && started && !BARRAGE.told && player.alive) { BARRAGE.told = true; showMessage(NORMANDY ? 'June 6, 1944: D-Day. Blue storms the beach, red holds the bunkers' : 'Berlin, April 1945: the last battle in Europe. Somewhere a bunker hides Hitler', 6); }
+  if ((GERMANY || NORMANDY) && started && !BARRAGE.told && player.alive) { BARRAGE.told = true; showMessage(NORMANDY ? 'June 6, 1944: D-Day. Blue storms the beach, red holds the bunkers' : 'Berlin, April 1945: the last battle in Europe. Hitler hides in one of the bunkers. Blue: find the clues by the landmarks (red blinking lights) to track him down', 8); }
   if (NORMANDY) {
     updateLandingCraft();
     if (player.inBoat && player.alive) { rideBoat(player); player.velY = 0; player.yaw = player.yaw; }
@@ -314,11 +314,54 @@ function buildBerlinLandmarks() {
     const gun = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 7, 8), LV.rail); gun.rotation.set(-0.9, (dx > 0 ? 1 : -1) * 0.6, 0); gun.position.set(fx + dx, fy + 41, fz + dz + 2); scene.add(gun);
   }
   for (let i = 0; i < 6; i++) addMesh(new THREE.BoxGeometry(1.4, 1, 0.4), LV.dark, fx - 12 + i * 4.8, fy + 20, fz + 15.1, false);   // gun slits
-  // the city gate: six heavy columns across the road into the city, with a stone beam on top
+  // the Reichstag's front: rows of tall windows and a carved band under the roof
+  { const P = new Part(), gy0 = heightAt(px, pz), win = 0x2a2c30, carve = 0x9a8e74;
+    for (let i = 0; i < 9; i++) for (const yy of [4, 9]) { const x = px - 20 + i * 5; if (Math.abs(x - px) < 13) continue; P.box(1.6, 3, 0.1, win, x, gy0 + yy, pz + 13.05); P.box(1.6, 3, 0.1, win, x, gy0 + yy, pz - 13.05); }
+    P.box(46.2, 1, 26.2, carve, px, gy0 + 14.6, pz); P.box(24.4, 1.2, 0.3, 0x5a5448, px, gy0 + 15.6, pz + 17.2);
+    const m = new THREE.Mesh(P.build(), VEH_MAT); m.castShadow = true; scene.add(m); }
+  // the Brandenburg Gate on the road into the city: twelve columns in two rows, five passages, the stone attic,
+  // and the four-horse chariot on top
   const gx = -205, gzy = heightAt(gx, 0);
-  for (const z of [-15, -9, -3, 3, 9, 15]) if (Math.abs(z) > 4) addBlock(gx, z, 2.4, 13, 2.4, sand); else addMesh(new THREE.BoxGeometry(2.4, 13, 2.4), sand, gx, gzy + 6.5, z);
-  addBlock(gx, 0, 5, 3.2, 36, sand, { y: gzy + 13 });
-  addBlock(gx, 0, 3, 2, 10, sand, { y: gzy + 16.2 });
+  for (const z of [-15, -9, -3, 3, 9, 15]) for (const dx of [-3, 3]) { if (Math.abs(z) > 4) addBlock(gx + dx, z, 1.8, 13, 1.8, sand); else addMesh(new THREE.CylinderGeometry(0.9, 1, 13, 12), sand, gx + dx, gzy + 6.5, z); }
+  { const P = new Part(), c = 0xb8ab90, d = 0x9a8e74, bronze = 0x4f6a5a;
+    for (const z of [-15, -9, -3, 3, 9, 15]) for (const dx of [-3, 3]) if (Math.abs(z) > 4) P.cyl(0.95, 1.05, 13, c, gx + dx, gzy + 6.5, z, 0, 0, 0, 1, 12);   // fluted columns over the solid cores
+    P.box(9, 2.2, 38, c, gx, gzy + 14.1, 0); P.box(9.4, 0.4, 38.4, d, gx, gzy + 15.4, 0);                     // the beam
+    P.box(7, 3, 22, c, gx, gzy + 17, 0); P.box(7.4, 0.4, 22.4, d, gx, gzy + 18.7, 0);                          // the stepped attic
+    for (const sd of [-1, 1]) { P.box(10, 9, 6, c, gx, gzy + 4.5, sd * 22); P.box(10.4, 0.6, 6.4, d, gx, gzy + 9.2, sd * 22); }   // the side wings
+    P.box(3, 1.4, 2.2, bronze, gx - 1.5, gzy + 19.7, 0);                                                        // the chariot
+    for (const z of [-2.1, -0.7, 0.7, 2.1]) { P.box(2.6, 1.2, 0.6, bronze, gx + 1.4, gzy + 20.3, z); P.box(0.8, 1.2, 0.5, bronze, gx + 2.8, gzy + 21.1, z, 0, 0, -0.5); for (const lx of [0.4, 2.2]) P.box(0.25, 1.2, 0.25, bronze, gx + lx, gzy + 19.3, z); }   // four horses
+    P.box(0.6, 2.4, 0.6, bronze, gx - 1.6, gzy + 21.6, 0); P.box(0.15, 2.4, 0.15, bronze, gx - 1.2, gzy + 23, 0.5); P.add(new THREE.TorusGeometry(0.5, 0.1, 6, 12), bronze, gx - 1.2, gzy + 24.4, 0.5, 0, Math.PI / 2, 0);   // the goddess with her staff and wreath
+    const m = new THREE.Mesh(P.build(), VEH_MAT); m.castShadow = true; scene.add(m); }
+  addBlock(gx, 0, 9, 3.2, 38, sand, { y: gzy + 13, solid: false });
+  // the Victory Column on its roundabout further out: red granite base, a ring of columns, the tall banded shaft
+  // and the golden winged figure on top
+  { const vx = -290, vz = 0, vy = heightAt(vx, vz), P = new Part(), gran = 0x8a4a40, st = 0xc8bca0, gold = 0xd8b040;
+    addBlock(vx, vz, 12, 6, 12, new THREE.MeshLambertMaterial({ color: gran }));
+    P.cyl(5, 5, 5, st, vx, vy + 8.5, vz, 0, 0, 0, 1, 20); for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2; P.cyl(0.35, 0.35, 5, 0xe8e0c8, vx + Math.cos(a) * 5.3, vy + 8.5, vz + Math.sin(a) * 5.3, 0, 0, 0, 1, 8); }
+    P.cyl(5.8, 5.8, 0.6, st, vx, vy + 11.3, vz, 0, 0, 0, 1, 20);
+    for (let k = 0; k < 3; k++) { P.cyl(1.7 - k * 0.15, 1.8 - k * 0.15, 9, st, vx, vy + 16.2 + k * 9.4, vz, 0, 0, 0, 1, 16); P.cyl(1.95 - k * 0.15, 1.95 - k * 0.15, 0.6, gold, vx, vy + 20.9 + k * 9.4, vz, 0, 0, 0, 1, 16); }
+    P.cyl(2.4, 1.6, 1.6, st, vx, vy + 41.5, vz, 0, 0, 0, 1, 16); P.cyl(1.2, 1.2, 1.4, st, vx, vy + 43, vz, 0, 0, 0, 1, 12);
+    P.box(0.8, 3.4, 0.7, gold, vx, vy + 45.4, vz); P.ball(0.45, gold, vx, vy + 47.4, vz); for (const sd of [-1, 1]) P.box(0.2, 2.6, 1.6, gold, vx + sd * 0.7, vy + 46.4, vz - 0.3, 0, 0, sd * 0.35); P.box(0.12, 3.6, 0.12, gold, vx + 0.6, vy + 46, vz + 0.4);
+    const m = new THREE.Mesh(P.build(), VEH_MAT); m.castShadow = true; scene.add(m); }
+  // the Kaiser Wilhelm Memorial Church: a tall stone spire over a long nave with a round end
+  { const kx = -60, kz = 60, ky = heightAt(kx, kz), P = new Part(), st = 0x9c8e78, dk = 0x6a5e50, roof = 0x4a5a5a;
+    addBlock(kx, kz + 6, 16, 14, 28, new THREE.MeshLambertMaterial({ color: st })); addBlock(kx, kz - 14, 10, 34, 10, new THREE.MeshLambertMaterial({ color: st }));
+    P.cyl(8, 8, 12, st, kx, ky + 6, kz + 20, 0, 0, 0, 1, 16);                                                  // the round end
+    P.cyl(0.1, 11.5, 7, roof, kx, ky + 17.5, kz + 6, 0, Math.PI / 4, 0, 1, 4); P.box(1, 7, 28, roof, kx, ky + 17.5, kz + 6, 0, 0, 0);   // nave roof
+    P.cyl(0.4, 7.2, 22, roof, kx, ky + 45, kz - 14, 0, Math.PI / 4, 0, 1, 4);                                  // the pointed spire
+    for (const sd of [-1, 1]) for (let i = 0; i < 4; i++) P.box(0.12, 6, 2.2, dk, kx + sd * 8.05, ky + 7, kz - 4 + i * 6);   // tall arched windows
+    for (const f of [-1, 1]) { P.box(2.2, 6, 0.12, dk, kx, ky + 26, kz - 14 + f * 5.05); P.cyl(1.4, 1.4, 0.15, 0xf2f0e6, kx, ky + 30.5, kz - 14 + f * 5.1, Math.PI / 2, 0, 0, 1, 16); }   // belfry openings, clock faces
+    for (const f of [-1, 1]) P.box(0.12, 6, 2.2, dk, kx + f * 5.05, ky + 26, kz - 14);
+    const m = new THREE.Mesh(P.build(), VEH_MAT); m.castShadow = true; scene.add(m); }
+  // the Red Town Hall: a long red brick hall with rows of arched windows and a tall clock tower in the middle
+  { const rx = 60, rz = 60, ry = heightAt(rx, rz), P = new Part(), brick = 0xa04a36, dk = 0x2a2a2e, trim = 0xc8b898;
+    addBlock(rx, rz, 40, 16, 26, new THREE.MeshLambertMaterial({ color: brick })); addBlock(rx, rz + 15, 8, 36, 8, new THREE.MeshLambertMaterial({ color: brick }));
+    for (const f of [-1, 1]) for (let i = 0; i < 10; i++) for (const yy of [4, 10]) P.box(1.6, 3.2, 0.12, dk, rx - 18 + i * 4, ry + yy, rz + f * 13.06);
+    P.box(40.4, 0.6, 26.4, trim, rx, ry + 7, rz); P.box(40.6, 1, 26.6, trim, rx, ry + 15.8, rz);
+    for (const f of [-1, 1]) { P.cyl(1.6, 1.6, 0.15, 0xf2f0e6, rx, ry + 30, rz + 15 + f * 4.1, Math.PI / 2, 0, 0, 1, 16); P.box(0.2, 1.2, 0.1, dk, rx, ry + 30.3, rz + 15 + f * 4.2); }
+    for (let c = 0; c < 4; c++) P.box(1.2, 2.4, 1.2, brick, rx + (c % 2 ? 3.6 : -3.6), ry + 37.2, rz + 15 + (c < 2 ? 3.6 : -3.6));   // corner turrets
+    P.cyl(0.5, 3.4, 6, 0x4a5a5a, rx, ry + 39, rz + 15, 0, Math.PI / 4, 0, 1, 4); P.cyl(0.08, 0.08, 4, 0x3a3e42, rx, ry + 44, rz + 15);
+    const m = new THREE.Mesh(P.build(), VEH_MAT); m.castShadow = true; scene.add(m); }
 }
 
 // ---------- bombers over Berlin ----------
@@ -378,38 +421,106 @@ function dropBerlinBomb(p, dir, host) {
 }
 
 // ---------- the bunker ----------
-// He hides in the far side room of the bunker nearest the middle of the city. A blue player who reaches him ends
-// the war: blue wins straight away.
-const LEADER = { at: null, found: false, g: null };
+// Hitler hides in a deep room of one of the city's bunkers, a different one every game (the host picks it and
+// tells everyone). Clues at the landmarks lead to it; red soldiers guard it. A blue player has to shoot him to end
+// the war. Eva Braun is in the room with him; she is not a target, and she surrenders when he falls.
+const LEADER = { at: null, found: false, g: null, eva: null, idx: undefined, clues: [], got: 0, seen: false, smoke: null };
+function leaderBunker() { return LEADER.idx === undefined ? null : bunkers[LEADER.idx % Math.max(1, bunkers.length)]; }
 function placeLeader() {
-  if (LEADER.g || !bunkers.length) return;
-  const b = bunkers.slice().sort((p, q) => Math.hypot(p.x, p.z) - Math.hypot(q.x, q.z))[0];
+  if (!bunkers.length) return;
+  if (LEADER.idx === undefined && (!net.active || net.isHost)) LEADER.idx = Math.floor(Math.random() * bunkers.length);
+  if (LEADER.idx === undefined || (LEADER.g && LEADER.placed === LEADER.idx)) return;
+  for (const o of [LEADER.g, LEADER.eva, LEADER.desk]) if (o) scene.remove(o);
+  const b = leaderBunker(); LEADER.placed = LEADER.idx;
   const w = bW(b, 18, 13); LEADER.at = new THREE.Vector3(w.x, b.F, w.z); LEADER.bunker = b.name;
   const P = new Part(), coat = 0x6a6e66, dark = 0x2b2c2a, skin = 0xe2b896;
-  P.box(0.62, 0.95, 0.36, coat, 0, 1.15, 0); P.box(0.66, 0.5, 0.4, coat, 0, 0.62, 0);                                 // long grey coat
-  for (const s of [-1, 1]) { P.box(0.2, 0.62, 0.22, dark, s * 0.15, 0.31, 0); P.box(0.18, 0.75, 0.18, coat, s * 0.42, 1.2, 0, 0, 0, s * 0.12); }   // boots, arms
-  P.box(0.34, 0.36, 0.32, skin, 0, 1.82, 0); P.box(0.12, 0.04, 0.02, 0x1a1a1a, 0, 1.75, 0.165);                        // head, moustache
-  P.box(0.42, 0.08, 0.42, coat, 0, 2.03, 0.02); P.box(0.36, 0.1, 0.36, dark, 0, 2.1, 0); P.box(0.36, 0.03, 0.14, dark, 0, 2.0, 0.24);   // peaked cap
+  P.box(0.62, 0.95, 0.36, coat, 0, 1.15, 0); P.box(0.66, 0.5, 0.4, coat, 0, 0.62, 0);
+  for (const s of [-1, 1]) { P.box(0.2, 0.62, 0.22, dark, s * 0.15, 0.31, 0); P.box(0.18, 0.75, 0.18, coat, s * 0.42, 1.2, 0, 0, 0, s * 0.12); }
+  P.box(0.34, 0.36, 0.32, skin, 0, 1.82, 0); P.box(0.12, 0.04, 0.02, 0x1a1a1a, 0, 1.75, 0.165);
+  P.box(0.42, 0.08, 0.42, coat, 0, 2.03, 0.02); P.box(0.36, 0.1, 0.36, dark, 0, 2.1, 0); P.box(0.36, 0.03, 0.14, dark, 0, 2.0, 0.24);
   LEADER.g = new THREE.Mesh(P.build(), VEH_MAT); LEADER.g.position.copy(LEADER.at); scene.add(LEADER.g);
-  const desk = bW(b, 20.5, 13); addMesh(new THREE.BoxGeometry(2.2, 0.85, 1.1), MATS.darkWood, desk.x, b.F + 0.43, desk.z);
+  const E = new Part(), dress = 0x2a3a5a, hair = 0xc8a060;   // Eva: a dark blue dress, fair hair
+  E.box(0.5, 0.8, 0.32, dress, 0, 1.2, 0); E.cyl(0.36, 0.26, 0.75, dress, 0, 0.45, 0, 0, 0, 0, 1, 10);
+  for (const s of [-1, 1]) { E.box(0.14, 0.7, 0.14, skin, s * 0.34, 1.2, 0, 0, 0, s * 0.1); E.box(0.12, 0.12, 0.2, 0x1a1a1a, s * 0.1, 0.05, 0.03); }
+  E.box(0.3, 0.32, 0.28, skin, 0, 1.78, 0); E.box(0.36, 0.22, 0.34, hair, 0, 1.94, -0.03); E.box(0.36, 0.3, 0.12, hair, 0, 1.75, -0.16);
+  const ew = bW(b, 17, 11.2); LEADER.eva = new THREE.Mesh(E.build(), VEH_MAT); LEADER.eva.position.set(ew.x, b.F, ew.z); scene.add(LEADER.eva);
+  const desk = bW(b, 20.5, 13); LEADER.desk = addMesh(new THREE.BoxGeometry(2.2, 0.85, 1.1), MATS.darkWood, desk.x, b.F + 0.43, desk.z);
+  placeClues();
+}
+// clues: briefcases with a blinking red lamp beside the landmarks; each one found tells you more
+const CLUE_SPOTS = [[8, -40], [60, -40], [-195, 24], [-276, 12], [-60, 34], [60, 38]];
+function placeClues() {
+  if (LEADER.clues.length) return;
+  for (const [x, z] of CLUE_SPOTS) {
+    const y = groundAt(x, z, heightAt(x, z) + 2), g = new THREE.Group(); g.position.set(x, y, z);
+    const P = new Part(); P.box(0.7, 0.5, 0.2, 0x5a3a22, 0, 0.25, 0); P.box(0.3, 0.06, 0.06, 0x2a2a2a, 0, 0.53, 0); P.box(0.72, 0.04, 0.22, 0xb89a4a, 0, 0.36, 0);
+    g.add(new THREE.Mesh(P.build(), VEH_MAT));
+    const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff3020 })); lamp.position.set(0, 0.62, 0); g.add(lamp); g.lamp = lamp;
+    scene.add(g); LEADER.clues.push({ g, got: false });
+  }
+}
+function clueText(n) {
+  const b = leaderBunker(); if (!b) return '';
+  const c = bW(b, 0, 0), dirs = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'];
+  const dir = dirs[Math.round(((Math.atan2(c.x, -c.z) * 180 / Math.PI) + 360) % 360 / 45) % 8];
+  if (n === 1) return `Captured orders: the Führer's bunker is in the ${dir} part of the battlefield`;
+  if (n === 2) return `Radio intercept: his bunker is the one near control point ${b.name}`;
+  if (n === 3) return `A captured guard talks: the bunker is ${Math.round(Math.hypot(player.pos.x - c.x, player.pos.z - c.z) / 10) * 10} m from where you stand`;
+  return 'Bunker map found! Red smoke now marks the entrance. He is in the deepest room';
 }
 function updateLeader(dt) {
-  placeLeader(); if (!LEADER.g || LEADER.found) return;
+  placeLeader(); if (!LEADER.g) return;
+  // blinking clue lamps, and picking clues up
+  const blink = Math.sin(simTime * 6) > 0;
+  for (const c of LEADER.clues) {
+    if (c.got) continue; c.g.lamp.visible = blink;
+    if (player.alive && player.pos.distanceTo(c.g.position) < 2.2) {
+      c.got = true; scene.remove(c.g); LEADER.got++;
+      showMessage(`CLUE ${Math.min(LEADER.got, 4)} of 4. ${clueText(Math.min(LEADER.got, 4))}`, 7);
+      if (LEADER.got >= 4 && !LEADER.smoke) { const b = leaderBunker(), e = bW(b, -B_TRENCH + 2, 0); LEADER.smoke = new THREE.Vector3(e.x, heightAt(e.x, e.z), e.z); }
+    }
+  }
+  if (LEADER.smoke && Math.random() < dt * 12) smokePuff(LEADER.smoke.clone().add(new THREE.Vector3(rand(-1, 1), rand(0, 3), rand(-1, 1))), 0xd83020, rand(1.5, 2.6), 4, 4);
+  if (LEADER.found) return;
   LEADER.g.position.y = LEADER.at.y + Math.abs(Math.sin(simTime * 6)) * 0.03;   // trembling
   LEADER.g.rotation.y = Math.atan2(player.pos.x - LEADER.at.x, player.pos.z - LEADER.at.z);
-  if (!player.alive || player.team !== 'blue' || gameOver) return;
-  if (player.pos.distanceTo(LEADER.at) < 2.6) {
-    LEADER.found = true; if (typeof unlock === 'function') unlock('warend');
-    if (!net.active || net.isHost) leaderFound('blue', player.name); else netRequest(['hf']);
-  }
+  LEADER.eva.rotation.y = Math.atan2(player.pos.x - LEADER.eva.position.x, player.pos.z - LEADER.eva.position.z);
+  if (!LEADER.seen && player.alive && player.team === 'blue' && player.pos.distanceTo(LEADER.at) < 9) { LEADER.seen = true; showMessage('You found Hitler in his bunker! Take him down to end the war. (Leave Eva Braun, she is unarmed)', 5); }
+}
+// bullets: Hitler can be hit (by the attackers); Eva cannot
+function leaderRayHit(origin, dir, maxD, team, best) {
+  if (!LEADER.g || LEADER.found || team !== 'blue') return best;
+  const t = raySphere(origin, dir, _ldC.set(LEADER.at.x, LEADER.at.y + 1.2, LEADER.at.z), 0.75);
+  if (t !== null && t < (best ? best.dist : maxD)) return { dist: t, point: origin.clone().addScaledVector(dir, t), leader: true };
+  return best;
+}
+const _ldC = new THREE.Vector3();
+function installLeaderHooks() {
+  if (installLeaderHooks.done || typeof rayHit !== 'function' || typeof applyHit !== 'function') return; installLeaderHooks.done = true;
+  const rh = rayHit; rayHit = function (o, d, m, team, opts) { return leaderRayHit(o, d, m, team, rh(o, d, m, team, opts)); };
+  const ah = applyHit; applyHit = function (hit, d, wpn, shooter) {
+    if (hit && hit.leader) { if (shooter && (shooter === player || shooter.isPlayer) && !LEADER.found) { if (typeof unlock === 'function') unlock('warend'); if (!net.active || net.isHost) leaderFound('blue', player.name); else netRequest(['hf']); } return; }
+    return ah.apply(this, arguments);
+  };
 }
 function leaderFound(team, name) {
   if (gameOver || team !== 'blue') return;
   LEADER.found = true;
-  showMessage(`${name} found Hitler hiding in his bunker. The war in Europe is over!`, 8);
+  if (LEADER.g) { LEADER.g.rotation.x = -Math.PI / 2; LEADER.g.position.y = LEADER.at.y + 0.2; }   // he falls
+  showMessage(`${name} took down Hitler in his bunker. Eva Braun surrenders. The war in Europe is over!`, 8);
   if (typeof endGame === 'function') endGame('blue');
 }
-
+// a third of the red army guards the bunker entrance instead of chasing control points
+function installGuardHook() {
+  if (installGuardHook.done || typeof chooseObjective !== 'function') return; installGuardHook.done = true;
+  const co = chooseObjective; chooseObjective = function (n, exclude) {
+    const b = leaderBunker();
+    if (GERMANY && b && n.team === 'red' && chars.indexOf(n) % 3 === 0) {
+      const e = bW(b, -8, 0); n.goalPoint = { x: e.x, z: e.z, r: 22, owner: 'red', progress: -1, guard: true }; n.goal = randomInPoint(n.goalPoint); n.goalT = rand(40, 70); n.tplan = null; return;
+    }
+    return co.apply(this, arguments);
+  };
+}
 // ===================== making the battles intense =====================
 // Shells: every couple of seconds one lands somewhere in the battle zones, with a whistle first. Like the boats and
 // bombers, it follows the clock and a seed, so every player sees the same shell land in the same place.
