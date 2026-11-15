@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta http-equiv="Cache-Control" content="no-cache">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Blockfront: Control Point Wars</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #000; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; user-select: none; color: #fff; }
+  canvas { display: block; }
+  .hud { position: fixed; pointer-events: none; text-shadow: 0 1px 3px rgba(0,0,0,0.9); }
+  #compass { top: 8px; left: 50%; transform: translateX(-50%); width: 440px; height: 30px; opacity: 0.95; }
+  #points { top: 46px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; }
+  #points .pt { position: relative; width: 34px; height: 34px; border-radius: 50%; border: 3px solid #ddd; transition: border-color .3s, background .3s; background: rgba(0,0,0,0.45); overflow: hidden; }
+  #points .pt .fill { position: absolute; left: 0; right: 0; bottom: 0; height: 0; opacity: 0.75; }
+  #points .pt span { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; }
+  #points .pt.contest { animation: contest 0.7s infinite; }
+  @keyframes contest { 50% { box-shadow: 0 0 0 4px rgba(255,255,255,0.55); } }
+  #teamstat { top: 88px; left: 50%; transform: translateX(-50%); text-align: center; font-weight: 700; font-size: 14px; }
+  #teamstat small { font-weight: 500; opacity: 0.85; }
+  #capture { top: 132px; left: 50%; transform: translateX(-50%); width: 280px; text-align: center; display: none; font-weight: 600; }
+  #capture .bar { margin-top: 4px; height: 10px; background: rgba(0,0,0,0.5); border-radius: 5px; overflow: hidden; border: 1px solid rgba(255,255,255,0.4); }
+  #captureFill { height: 100%; width: 0; }
+  #minimap { top: 12px; right: 12px; width: 190px; height: 190px; border: 2px solid rgba(255,255,255,0.75); border-radius: 14px; box-shadow: 0 4px 16px rgba(0,0,0,0.5); }
+  #money { top: 214px; right: 14px; font-size: 24px; font-weight: 800; color: #7CFC8A; }
+  #cashfeed { top: 248px; right: 14px; text-align: right; font-weight: 700; color: #7CFC8A; }
+  #cashfeed .cash { animation: rise 2.2s forwards; }
+  @keyframes rise { 0% { opacity: 0; transform: translateY(8px); } 15% { opacity: 1; transform: none; } 80% { opacity: 1; } 100% { opacity: 0; } }
+  #killfeed { top: 12px; left: 12px; font-size: 14px; font-weight: 600; }
+  #killfeed div { background: rgba(8,12,20,0.6); padding: 4px 10px; border-radius: 6px; margin-bottom: 4px; width: fit-content; animation: slidein .25s; }
+  #killfeed div.mine { border-left: 3px solid #fbbf24; background: rgba(60,45,5,0.7); }
+  @keyframes slidein { from { opacity: 0; transform: translateX(-14px); } }
+  #killfeed em { font-style: normal; opacity: 0.8; font-weight: 500; margin: 0 4px; }
+  #vitals { bottom: 16px; left: 16px; width: 300px; display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 12px; background: linear-gradient(90deg, rgba(8,12,20,0.6), rgba(8,12,20,0.15)); }
+  #hpNum { font-size: 38px; font-weight: 800; line-height: 1; min-width: 62px; text-align: right; font-variant-numeric: tabular-nums; }
+  #hpNum.low { color: #ff5a5a; animation: pulse 0.8s infinite; }
+  @keyframes pulse { 50% { opacity: 0.55; } }
+  #vitals .bars { flex: 1; display: flex; flex-direction: column; gap: 5px; }
+  #vitals .bar { height: 12px; background: rgba(0,0,0,0.55); border-radius: 6px; overflow: hidden; border: 1px solid rgba(255,255,255,0.28); }
+  #vitals .bar.ar { height: 7px; }
+  #hpFill { height: 100%; background: linear-gradient(90deg, #22c55e, #86efac); width: 100%; transition: width .15s; }
+  #hpFill.low { background: linear-gradient(90deg, #dc2626, #f87171); }
+  #arFill { height: 100%; background: linear-gradient(90deg, #38bdf8, #a5f3fc); width: 0; transition: width .15s; }
+  #arNum { font-size: 11px; font-weight: 700; color: #a5f3fc; min-width: 20px; }
+  #ammo { bottom: 74px; right: 14px; text-align: right; padding: 8px 14px; border-radius: 12px; background: linear-gradient(270deg, rgba(8,12,20,0.6), rgba(8,12,20,0.1)); }
+  #wname { font-size: 15px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; opacity: 0.9; }
+  #wammo { font-size: 44px; font-weight: 800; line-height: 1.05; font-variant-numeric: tabular-nums; }
+  #wammo.low { color: #fbbf24; } #wammo.empty { color: #ff5a5a; }
+  #wammo small { font-size: 20px; opacity: 0.8; }
+  #extras { font-size: 13px; opacity: 0.9; }
+  #slots { bottom: 14px; right: 14px; display: flex; gap: 4px; }
+  #slots div { width: 56px; padding: 4px 2px; text-align: center; font-size: 10px; background: rgba(8,12,20,0.55); border: 2px solid rgba(255,255,255,0.12); border-radius: 8px; transition: transform .12s, border-color .12s; }
+  #slots div b { display: block; font-size: 14px; }
+  #slots div.on { border-color: #fbbf24; background: rgba(251,191,36,0.3); transform: translateY(-4px); }
+  #slots div.locked { opacity: 0.35; }
+  #prompt { bottom: 140px; left: 50%; transform: translateX(-50%); font-size: 18px; font-weight: 700; background: rgba(0,0,0,0.35); padding: 4px 12px; border-radius: 6px; }
+  #prompt:empty { display: none; }
+  #msg { top: 176px; left: 50%; transform: translateX(-50%); font-size: 22px; font-weight: 800; text-align: center; max-width: 80vw; transition: opacity 0.4s; opacity: 0; }
+  #crosshair { left: 50%; top: 50%; width: 0; height: 0; --gap: 5px; }
+  #crosshair { --xc: #fff; --xs: 1; --xg: 1; --th: calc(2px * var(--xs)); --ln: calc(8px * var(--xs)); --gp: calc(var(--gap) * var(--xg)); }
+  #crosshair i { position: absolute; background: var(--xc); box-shadow: 0 0 2px #000; }
+  #crosshair .t { left: calc(var(--th) / -2); bottom: var(--gp); width: var(--th); height: var(--ln); } #crosshair .b { left: calc(var(--th) / -2); top: var(--gp); width: var(--th); height: var(--ln); }
+  #crosshair .l { top: calc(var(--th) / -2); right: var(--gp); height: var(--th); width: var(--ln); } #crosshair .r { top: calc(var(--th) / -2); left: var(--gp); height: var(--th); width: var(--ln); }
+  #crosshair .d { left: calc(var(--th) / -2); top: calc(var(--th) / -2); width: var(--th); height: var(--th); display: none; border-radius: 50%; }
+  #crosshair[data-style="dot"] .t, #crosshair[data-style="dot"] .b, #crosshair[data-style="dot"] .l, #crosshair[data-style="dot"] .r,
+  #crosshair[data-style="circle"] .t, #crosshair[data-style="circle"] .b, #crosshair[data-style="circle"] .l, #crosshair[data-style="circle"] .r, #crosshair[data-style="tee"] .t { display: none; }
+  #crosshair[data-style="dot"] .d { display: block; --th: calc(5px * var(--xs)); } #crosshair[data-style="crossdot"] .d, #crosshair[data-style="circle"] .d { display: block; }
+  #crosshair[data-style="circle"]::before { content: ''; position: absolute; width: calc(20px * var(--xs) + var(--gp) * 2); height: calc(20px * var(--xs) + var(--gp) * 2); transform: translate(-50%, -50%); border: 2px solid var(--xc); border-radius: 50%; box-shadow: 0 0 2px #000; }
+  #fpsCounter { position: fixed; right: 10px; bottom: 8px; z-index: 6; font-size: 13px; font-weight: 700; color: #a7f3d0; background: rgba(0,0,0,0.5); padding: 3px 8px; border-radius: 6px; pointer-events: none; }
+  .settings .tog { width: 44px; height: 24px; border-radius: 999px; background: rgba(255,255,255,0.18); position: relative; cursor: pointer; flex: none; }
+  .settings .tog::after { content: ''; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #cbd5e1; transition: left 0.15s; }
+  .settings .tog.on { background: #5f8a3a; } .settings .tog.on::after { left: 23px; background: #fff; }
+  .settings .swatches { display: flex; gap: 6px; } .settings .sw { width: 22px; height: 22px; border-radius: 50%; cursor: pointer; border: 2px solid rgba(0,0,0,0.5); }
+  .settings .sw.on { outline: 3px solid #e8c46a; outline-offset: 1px; }
+  .settings .btn.small { margin: 0; padding: 6px 14px; font-size: 14px; }
+  #keysPanel { display: none; position: fixed; inset: 0; z-index: 40; align-items: center; justify-content: center; background: rgba(3,6,12,0.75); }
+  #keysPanel.on { display: flex; }
+  #keysPanel .keysBox { width: 440px; max-width: calc(100% - 32px); max-height: calc(100% - 40px); overflow: auto; padding: 20px; border-radius: 16px; background: rgba(10,16,26,0.97); border: 2px solid rgba(201,162,74,0.6); color: #e5edf6; box-sizing: border-box; }
+  #keysPanel h2 { margin: 0 0 4px; color: #f1d999; }
+  #keysPanel .krow { display: flex; align-items: center; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.07); font-size: 14px; }
+  #keysPanel .kbtn { min-width: 110px; text-align: center; padding: 6px 10px; border-radius: 8px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); cursor: pointer; font-weight: 700; }
+  #keysPanel .kbtn.wait { background: #e8c46a; color: #111; }
+  #keysPanel .btnRow { display: flex; gap: 10px; margin-top: 12px; } #keysPanel .btnRow .btn { flex: 1; margin: 0; }
+  #hitmarker { left: 50%; top: 50%; width: 26px; height: 26px; margin: -13px 0 0 -13px; opacity: 0; }
+  #hitmarker::before, #hitmarker::after { content: ""; position: absolute; left: 12px; top: 0; width: 2px; height: 26px; background: #fff; }
+  #hitmarker::before { transform: rotate(45deg); } #hitmarker::after { transform: rotate(-45deg); }
+  #hitmarker.kill::before, #hitmarker.kill::after { background: #ff4040; width: 3px; }
+  #hitmarker.pop { animation: hitpop .18s; }
+  @keyframes hitpop { from { transform: scale(1.7); } }
+  #scope { inset: 0; display: none; background: radial-gradient(circle at center, transparent 0, transparent 34vmin, #000 34.3vmin); }
+  #scope::before, #scope::after { content: ""; position: absolute; background: #000; }
+  #scope::before { left: 50%; top: 16vh; bottom: 16vh; width: 2px; margin-left: -1px; }
+  #scope::after { top: 50%; left: 16vw; right: 16vw; height: 2px; margin-top: -1px; }
+  #vignette { inset: 0; opacity: 0; background: radial-gradient(circle at center, transparent 45%, rgba(220,20,20,0.75) 100%); }
+  #planeHud { left: 50%; bottom: 20px; transform: translateX(-50%); display: none; background: rgba(0,0,0,0.45); padding: 10px 18px; border-radius: 10px; font-size: 14px; text-align: center; }
+  #planeHud div.r { display: flex; gap: 18px; }
+  #planeHud b { font-size: 18px; }
+  #pTip { color: #fde047; font-weight: 700; margin-top: 4px; }
+  .screen { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(8,14,26,0.78); z-index: 10; }
+  .screen .box { text-align: center; max-width: 560px; max-height: 92vh; overflow: auto; box-sizing: border-box; padding: 26px; background: rgba(20,28,44,0.92); border-radius: 14px; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
+  .screen h1 { margin: 0 0 12px; font-size: 36px; }
+  .screen p { margin: 6px 0; line-height: 1.5; color: #dbe3ef; }
+  #start .lobbyPanel { display: none; position: absolute; inset: 0; z-index: 5; align-items: center; justify-content: center; background: rgba(3,6,12,0.7); }
+  #start .lobbyPanel.on { display: flex; }
+  #start .lobbyBox { width: 460px; max-width: calc(100% - 32px); max-height: calc(100% - 40px); overflow: auto; box-sizing: border-box; padding: 22px; border-radius: 16px; background: rgba(10,16,26,0.96); border: 2px solid rgba(201,162,74,0.6); text-align: left; display: flex; flex-direction: column; gap: 8px; }
+  #start .lobbyBox h2 { margin: 0 0 4px; font-size: 26px; color: #f1d999; }
+  #start .codeRow { display: flex; gap: 10px; } #start .codeRow input { flex: 1; text-transform: uppercase; letter-spacing: 6px; font-size: 22px; text-align: center; font-weight: 800; }
+  #start .codeRow .btn { margin: 0; padding: 12px 22px; }
+  #gameList { display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow: auto; }
+  #gameList .game { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); cursor: pointer; }
+  #gameList .game:hover { border-color: #e8c46a; background: rgba(232,196,106,0.12); }
+  #gameList .game b { display: block; font-size: 15px; color: #fff; } #gameList .game span { font-size: 12px; color: #aab8c8; }
+  #gameList .game .gp { margin-left: auto; font-weight: 800; color: #f1d999; white-space: nowrap; }
+  #start .small.err { color: #ff8a8a; min-height: 1em; }
+  #start .btnRow .btn.big { flex: 1; margin-top: 4px; font-size: 18px; padding: 14px 10px; }
+  #chips-wrap-fix {}
+  #hostVis { flex-direction: column; align-items: stretch; } #hostVis .chip { text-align: left; }
+  body.reloading #start .startWrap { opacity: 0.4; pointer-events: none; }
+  #menuFade { position: fixed; inset: 0; background: #000; pointer-events: none; z-index: 9; opacity: 1; }
+  #start { display: flex; padding: 0; background: radial-gradient(ellipse at 70% 50%, rgba(0,0,0,0) 30%, rgba(0,0,0,0.55) 100%); }
+  #start .letterbox { position: absolute; left: 0; right: 0; height: 7vh; background: #000; z-index: 1; pointer-events: none; }
+  #start .letterbox.top { top: 0; } #start .letterbox.bottom { bottom: 0; }
+  #start .startWrap { position: relative; z-index: 2; display: grid; grid-template-columns: minmax(400px, 520px) 1fr; width: 100%; height: 100%; }
+  #start .leftPanel > :first-child { margin-top: auto; } #start .leftPanel > :last-child { margin-bottom: auto; }
+  #start .leftPanel { display: flex; flex-direction: column; justify-content: flex-start; gap: 8px; padding: 8vh 44px; background: linear-gradient(90deg, rgba(5,9,16,0.94) 0%, rgba(5,9,16,0.82) 70%, rgba(5,9,16,0) 100%); overflow: auto; text-align: left; }
+  #start .brand { display: flex; align-items: center; gap: 18px; }
+  #start .emblem { width: 120px; height: 132px; flex: none; filter: drop-shadow(0 8px 18px rgba(0,0,0,0.6)); animation: emIn 0.9s cubic-bezier(.2,1.4,.4,1) both; }
+  #start .emblem .shine { animation: emShine 4.5s ease-in-out 1s infinite; }
+  @keyframes emIn { from { transform: scale(0.6) rotate(-8deg); opacity: 0; } to { transform: none; opacity: 1; } }
+  @keyframes emShine { 0% { transform: skewX(-18deg) translateX(0); } 40%, 100% { transform: skewX(-18deg) translateX(320px); } }
+  #start h1 { margin: 0; font-size: clamp(34px, 3.3vw, 46px); line-height: 1; font-weight: 900; letter-spacing: 1px; background: linear-gradient(180deg, #fff6d8 0%, #e8c46a 55%, #a87d26 100%); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 3px 10px rgba(0,0,0,0.7)); }
+  #start .sub { margin-top: 8px; font-size: 14px; font-weight: 700; letter-spacing: 4px; color: #b9c7d6; }
+  #start .tagline { margin: 8px 0 2px; font-size: 16px; color: #dfe7f1; line-height: 1.5; }
+  #start .vehTags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+  #start .vehTags span { font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: rgba(201,162,74,0.14); border: 1px solid rgba(201,162,74,0.45); color: #f1d999; }
+  #start .fieldLabel { font-size: 12px; font-weight: 700; letter-spacing: 1px; color: #9fb0c2; margin-top: 6px; text-transform: uppercase; }
+  #start input { font: inherit; font-size: 18px; padding: 12px 14px; border-radius: 10px; border: 2px solid rgba(201,162,74,0.6); background: rgba(10,16,26,0.9); color: #fff; width: 100%; box-sizing: border-box; outline: none; }
+  #start input:focus { border-color: #e8c46a; box-shadow: 0 0 0 3px rgba(232,196,106,0.25); }
+  #start .chips { justify-content: flex-start; margin: 2px 0 6px; }
+  #start .btn { margin-top: 0; text-align: center; }
+  #start .btn.big { margin-top: 8px; padding: 16px 20px; font-size: 20px; font-weight: 800; letter-spacing: 1px; background: linear-gradient(180deg, #5f8a3a, #3c5f22); border: 2px solid #c9a24a; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.25); }
+  #start .btn.big:hover { background: linear-gradient(180deg, #6d9c43, #476f29); }
+  #start .btnRow { display: flex; gap: 10px; } #start .btnRow .btn { flex: 1; }
+  #start .small { margin-top: 4px; }
+  #start .rightSide { display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-end; gap: 12px; padding: 9vh 30px; overflow: auto; }
+  #start .card { width: 380px; max-width: 100%; box-sizing: border-box; padding: 14px 16px; border-radius: 14px; background: rgba(8,13,22,0.72); border: 1px solid rgba(255,255,255,0.12); backdrop-filter: blur(6px); text-align: left; }
+  #start .card h3 { margin: 0 0 8px; font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: #e8c46a; }
+  #start .card .settings { margin: 0; padding: 0; background: none; max-width: none; }
+  #start .keys { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; font-size: 13px; }
+  #start .keys b { color: #fde68a; white-space: nowrap; }
+  #start .keys span { color: #d5deea; }
+  @media (max-height: 860px) and (min-width: 901px) {
+    #start .vehTags, #start .tagline { display: none; }
+    #start .emblem { width: 92px; height: 101px; }
+    #start .btn.big { padding: 12px 20px; }
+  }
+  @media (max-width: 900px) {
+    #start .startWrap { grid-template-columns: 1fr; height: auto; min-height: 100%; }
+    #start .leftPanel { padding: 9vh 20px 12px; background: rgba(5,9,16,0.86); }
+    #start .rightSide { align-items: stretch; padding: 0 20px 9vh; background: rgba(5,9,16,0.86); }
+    #start .card { width: 100%; } #start .howTo { display: none; }
+    #start h1 { font-size: 36px; } #start .emblem { width: 84px; height: 92px; }
+    #start { overflow: auto; align-items: flex-start; }
+  }
+  .btn { margin-top: 16px; display: inline-block; padding: 12px 26px; background: #3b82f6; border-radius: 10px; font-weight: 700; cursor: pointer; transition: transform .1s, background .15s; box-shadow: 0 4px 14px rgba(0,0,0,0.35); }
+  .btn:active { transform: scale(0.96); }
+  .btn:hover { background: #2563eb; }
+  body:not(.started) .hud { display: none !important; }
+  #pause { cursor: pointer; }
+  #death { background: rgba(60,0,0,0.45); }
+  #shop .box { max-width: 760px; width: 90vw; max-height: 86vh; overflow: auto; }
+  #shopMoney { font-size: 22px; font-weight: 800; color: #7CFC8A; }
+  #shopGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; text-align: left; }
+  #shopGrid h3 { grid-column: 1 / -1; margin: 10px 0 2px; font-size: 16px; color: #93c5fd; }
+  #shopGrid .item { background: rgba(255,255,255,0.07); border: 2px solid rgba(255,255,255,0.12); border-radius: 8px; padding: 8px 10px; cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
+  #shopGrid .item:hover { border-color: #fbbf24; }
+  #shopGrid .item span { font-size: 12px; opacity: 0.8; }
+  #shopGrid .item i { font-style: normal; font-weight: 800; color: #7CFC8A; }
+  #shopGrid .item.owned { opacity: 0.55; cursor: default; border-color: rgba(124,252,138,0.5); }
+  #shopGrid .item.owned i { color: #fff; }
+  #shopGrid .item.poor { opacity: 0.45; cursor: not-allowed; }
+  #shopGrid .item.poor i { color: #f87171; }
+  .chips { display: flex; gap: 8px; justify-content: center; margin: 10px 0; flex-wrap: wrap; }
+  .chip { padding: 8px 14px; border-radius: 20px; background: rgba(255,255,255,0.08); border: 2px solid rgba(255,255,255,0.2); cursor: pointer; font-weight: 600; }
+  .chip.on { border-color: #fbbf24; background: rgba(251,191,36,0.2); }
+  .btn.alt { background: #475569; } .btn.alt:hover { background: #334155; }
+  .btn.wait { background: #475569; }
+  .small { font-size: 12px; opacity: 0.75; }
+  #online { bottom: 72px; left: 16px; font-size: 13px; font-weight: 600; opacity: 0.9; }
+  #hitdir { left: 50%; top: 50%; width: 220px; height: 220px; margin: -110px 0 0 -110px; opacity: 0; }
+  #hitdir::before { content: ""; position: absolute; left: 50%; top: 0; width: 80px; height: 22px; margin-left: -40px; border-radius: 50% 50% 0 0 / 100% 100% 0 0; border-top: 6px solid rgba(255,40,40,0.9); }
+  #scoreboard { left: 50%; top: 50%; transform: translate(-50%, -50%); display: none; gap: 18px; background: rgba(10,16,28,0.88); padding: 16px 20px; border-radius: 12px; z-index: 5; max-height: 80vh; overflow: hidden; }
+  #scoreboard .col { width: 280px; } #scoreboard.four .col { width: 200px; }
+  #scoreboard h3 { margin: 0 0 6px; font-size: 16px; } #scoreboard h3 small { font-weight: 500; opacity: 0.7; font-size: 12px; }
+  #scoreboard .row { display: flex; gap: 6px; font-size: 13px; padding: 2px 4px; border-radius: 4px; }
+  #scoreboard .row span { flex: 1; } #scoreboard .row b { width: 28px; text-align: right; }
+  #scoreboard .row.hdr { opacity: 0.6; } #scoreboard .row.me { background: rgba(251,191,36,0.25); } #scoreboard .row.human { background: rgba(255,255,255,0.08); }
+  #spawnPick { margin-top: 8px; }
+  #cine { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, transparent 58%, rgba(0,0,0,0.32) 100%); }
+  #killBanner { left: 50%; top: 64%; transform: translateX(-50%); text-align: center; opacity: 0; transition: opacity .35s; }
+  #killBanner .k1 { font-size: 13px; font-weight: 800; letter-spacing: 3px; color: #ff6b6b; }
+  #killBanner .k2 { font-size: 24px; font-weight: 800; }
+  #killBanner .k2 small { color: #7CFC8A; font-size: 18px; margin-left: 8px; }
+  #killBanner .k3 { font-size: 20px; font-weight: 800; color: #fbbf24; letter-spacing: 2px; margin-top: 2px; }
+  #killBanner.show { opacity: 1; animation: kpop .22s; }
+  @keyframes kpop { from { transform: translateX(-50%) scale(1.25); } }
+  .dmgNum { position: fixed; font-weight: 800; font-size: 18px; color: #fff; text-shadow: 0 1px 3px #000, 0 0 2px #000; pointer-events: none; transform: translate(-50%, -50%); will-change: transform, opacity; }
+  .dmgNum.head { color: #fbbf24; font-size: 23px; }
+  #protect { left: 50%; bottom: 190px; transform: translateX(-50%); font-size: 13px; font-weight: 700; color: #a5f3fc; display: none; }
+  .settings { margin: 14px auto 0; padding: 12px 14px; border-radius: 10px; background: rgba(255,255,255,0.06); text-align: left; max-width: 420px; cursor: default; }
+  .settings .row { display: flex; align-items: center; gap: 10px; margin: 6px 0; font-size: 14px; }
+  .settings .row > span { width: 104px; font-weight: 600; }
+  .settings input[type=range] { flex: 1; accent-color: #fbbf24; }
+  .settings .chips { margin: 0; gap: 6px; flex: 1; justify-content: flex-start; }
+  .settings .chip { padding: 4px 10px; font-size: 13px; }
+  #endStats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 14px 0 4px; }
+  #endStats div { background: rgba(255,255,255,0.07); border-radius: 8px; padding: 8px 4px; font-size: 12px; opacity: 0.95; }
+  #endStats b { display: block; font-size: 22px; }
+  #fade { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; z-index: 30; }
+  #planeAim { width: 34px; height: 34px; margin: -17px 0 0 -17px; border: 2px solid rgba(120,255,140,0.95); border-radius: 50%; display: none; box-shadow: 0 0 4px #000; }
+  #planeAim i { position: absolute; left: 14px; top: 14px; width: 4px; height: 4px; border-radius: 50%; background: rgba(120,255,140,0.95); }
+  #planeAim::before, #planeAim::after { content: ""; position: absolute; background: rgba(120,255,140,0.95); }
+  #planeAim::before { left: -12px; top: 15px; width: 10px; height: 2px; box-shadow: 46px 0 0 rgba(120,255,140,0.95); }
+  #planeAim::after { top: -12px; left: 15px; width: 2px; height: 10px; }
+  #bombAim { width: 22px; height: 22px; margin: -11px 0 0 -11px; border: 2px dashed rgba(255,200,80,0.9); border-radius: 50%; display: none; }
+  #vehHud { left: 50%; bottom: 20px; transform: translateX(-50%); display: none; background: rgba(0,0,0,0.45); padding: 8px 16px; border-radius: 10px; text-align: center; min-width: 280px; font-weight: 600; }
+  #vehHud .bar { height: 10px; margin: 6px 0; background: rgba(0,0,0,0.5); border-radius: 5px; overflow: hidden; border: 1px solid rgba(255,255,255,0.35); }
+  #vHp { height: 100%; background: linear-gradient(90deg, #f59e0b, #fde047); width: 100%; }
+  #vInfo { font-size: 13px; font-weight: 500; opacity: 0.9; }
+  #bigmapWrap .mapClose { pointer-events: auto; cursor: pointer; padding: 12px 34px; font-size: 18px; font-weight: 800; color: #fff; background: rgba(20,28,40,0.92); border: 2px solid #e8c46a; border-radius: 12px; }
+  #bigmapWrap .mapHint { font-size: 13px; color: #cfd8e3; }
+  #bigmapWrap { pointer-events: auto; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 8px; background: rgba(0,0,0,0.45); z-index: 4; }
+  #bigmap { width: min(80vh, 80vw); height: min(80vh, 80vw); border: 3px solid #fff; border-radius: 10px; }
+
+  /* ---------- touch controls ---------- */
+  #touchUI { position: fixed; inset: 0; z-index: 3; display: none; touch-action: none; }
+  body.touch #touchUI { display: block; }
+  body.touch { touch-action: none; overscroll-behavior: none; -webkit-user-select: none; }
+  #touchUI .tb { position: absolute; border-radius: 50%; background: rgba(255,255,255,0.18); border: 2px solid rgba(255,255,255,0.45); color: #fff; font-weight: 800; font-size: 12px; display: flex; align-items: center; justify-content: center; text-align: center; text-shadow: 0 1px 2px #000; -webkit-tap-highlight-color: transparent; }
+  #touchUI .tb.down { background: rgba(251,191,36,0.45); border-color: #fbbf24; }
+  #touchUI .tb.on { background: rgba(251,191,36,0.45); border-color: #fbbf24; }
+  #touchUI .tb.off { opacity: 0.45; text-decoration: line-through; }
+  #touchUI .sm { width: 46px; height: 46px; font-size: 10px; border-radius: 12px; }
+  #tFire { right: 26px; bottom: 96px; width: 86px; height: 86px; font-size: 15px; background: rgba(239,68,68,0.35); }
+  #tAim { right: 128px; bottom: 140px; width: 58px; height: 58px; }
+  #tJump { right: 122px; bottom: 60px; width: 58px; height: 58px; }
+  #tReload { right: 34px; bottom: 196px; width: 50px; height: 50px; }
+  #tUse { right: 196px; bottom: 96px; width: 54px; height: 54px; background: rgba(59,130,246,0.35); }
+  #tSwap { right: 92px; bottom: 214px; width: 50px; height: 50px; }
+  #tSide { position: absolute; left: 10px; top: 120px; display: flex; flex-direction: column; gap: 6px; }
+  #tSide .tb { position: static; }
+  #tPlane { position: absolute; right: 26px; bottom: 196px; display: none; flex-direction: column; gap: 8px; }
+  #tPlane .tb { position: static; width: 56px; height: 44px; border-radius: 10px; }
+  #tRud { position: absolute; left: 50%; transform: translateX(-50%); bottom: 96px; display: none; gap: 120px; }
+  #tRud .tb { position: static; width: 52px; height: 44px; border-radius: 10px; }
+  #tStick { position: absolute; width: 120px; height: 120px; border-radius: 50%; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.35); display: none; pointer-events: none; }
+  #tKnob { position: absolute; left: 35px; top: 35px; width: 50px; height: 50px; border-radius: 50%; background: rgba(255,255,255,0.45); }
+  #tHint { position: absolute; left: 18px; bottom: 120px; color: rgba(255,255,255,0.6); font-size: 12px; pointer-events: none; }
+  #tPause { position: absolute; left: 50%; top: 100px; transform: translateX(-50%); width: 40px; height: 32px; border-radius: 8px !important; }
+  body[data-mode="plane"] #tPlane { display: flex; }
+  body[data-mode="plane"] #tRud { display: flex; }
+  body[data-mode="plane"] #tJump, body[data-mode="plane"] #tReload, body[data-mode="plane"] #tSwap, body[data-mode="plane"] #tSide { display: none; }
+  body[data-mode="gv"] #tReload, body[data-mode="gv"] #tSide, body[data-mode="turret"] #tSide, body[data-mode="turret"] #tSwap { display: none; }
+  body[data-mode="dead"] #touchUI { display: none; }
+  body.touch #slots { display: none !important; }
+  body.touch #fullBtn { display: inline-block; }
+  #fullBtn { display: none; }
+  @media (max-height: 500px) {
+    #minimap { width: 120px; height: 120px; } #compass { display: none; }
+    #vitals { width: 190px; bottom: 8px; padding: 5px 8px; gap: 6px; } #hpNum { font-size: 22px; min-width: 36px; }
+    #killBanner { top: 58%; } #killBanner .k2 { font-size: 17px; } #cine { display: none; }
+    #points { top: 8px; } #endStats b { font-size: 16px; }
+    #money { top: 140px; font-size: 18px; } #cashfeed { top: 166px; font-size: 12px; }
+    #points .pt { width: 26px; height: 26px; } #points .pt span { font-size: 12px; }
+    #teamstat { top: 40px; font-size: 11px; } #capture { top: 74px; width: 200px; font-size: 12px; }
+    #killfeed { font-size: 11px; top: 8px; max-width: 30vw; } #msg { top: 104px; font-size: 15px; }
+    #ammo { bottom: 10px; right: auto; left: 50%; transform: translateX(-50%); text-align: center; }
+    body.touch #ammo { bottom: 6px; } #wammo { font-size: 24px; } #wname { font-size: 12px; } #extras { font-size: 10px; }
+    #prompt { bottom: 70px; font-size: 13px; } #online { bottom: 52px; font-size: 11px; }
+    .screen .box { padding: 14px; max-height: 92vh; overflow: auto; } .screen h1 { font-size: 24px; } #start h1 { font-size: 30px; }
+    #start .howTo { display: none; } #vehHud, #planeHud { bottom: 6px; font-size: 11px; padding: 5px 10px; min-width: 0; }
+    #start .leftPanel { padding: 4vh 20px; gap: 6px; } #start .letterbox { height: 3vh; } #start .tagline, #start .vehTags { display: none; }
+    #tFire { right: 18px; bottom: 60px; width: 80px; height: 80px; }
+    #tAim { right: 112px; bottom: 128px; width: 52px; height: 52px; }
+    #tJump { right: 112px; bottom: 30px; width: 52px; height: 52px; }
+    #tUse { right: 180px; bottom: 78px; width: 50px; height: 50px; }
+    #tReload { right: 26px; bottom: 156px; width: 46px; height: 46px; font-size: 10px; }
+    #tSwap { right: 176px; bottom: 150px; width: 46px; height: 46px; font-size: 10px; }
+    #tSide { top: 96px; display: grid; grid-template-columns: 42px 42px; gap: 6px; }
+    #touchUI .sm { width: 42px; height: 38px; }
+    #tPlane { right: 112px; bottom: 30px; }
+    #tPlane .tb { width: 52px; height: 38px; font-size: 10px; }
+    body[data-mode="plane"] #tAim { display: none; }
+    #tRud { bottom: 70px; gap: 90px; }
+    #tHint { bottom: 70px; left: 50%; transform: translateX(-50%); }
+    #tPause { top: 64px; }
+  }
+</style>
+</head>
+<body>
+<div id="cine"></div>
+<canvas id="minimap" class="hud" width="200" height="200"></canvas>
+<canvas id="compass" class="hud" width="880" height="60"></canvas>
+<div id="points" class="hud"></div>
+<div id="teamstat" class="hud"></div>
+<div id="capture" class="hud"><div id="captureLabel"></div><div class="bar"><div id="captureFill"></div></div></div>
+<div id="money" class="hud">$800</div>
+<div id="cashfeed" class="hud"></div>
+<div id="killfeed" class="hud"></div>
+<div id="vitals" class="hud"><b id="hpNum">100</b><div class="bars"><div class="bar"><div id="hpFill"></div></div><div class="bar ar"><div id="arFill"></div></div></div><span id="arNum"></span></div>
+<div id="ammo" class="hud"><div id="wname"></div><div id="wammo"></div><div id="extras"></div></div>
+<div id="slots" class="hud"></div>
+<div id="prompt" class="hud"></div>
+<div id="msg" class="hud"></div>
+<div id="crosshair" class="hud"><i class="t"></i><i class="b"></i><i class="l"></i><i class="r"></i><i class="d"></i></div>
+<div id="killBanner" class="hud"><div class="k1"></div><div class="k2"></div><div class="k3"></div></div>
+<div id="protect" class="hud">Spawn shield active</div>
+<div id="hitmarker" class="hud"></div>
+<div id="fade"></div><div id="planeAim" class="hud"><i></i></div><div id="bombAim" class="hud"></div>
+<div id="scope" class="hud"></div>
+<div id="vignette" class="hud"></div>
+<div id="online" class="hud"></div>
+<div id="hitdir" class="hud"></div>
+<div id="scoreboard" class="hud"></div>
+<div id="bigmapWrap" class="hud"><canvas id="bigmap" width="640" height="640"></canvas><div class="mapClose" id="mapClose">Close map</div><div class="mapHint">Press M or tap anywhere to close</div></div>
+<div id="vehHud" class="hud"><div id="vName"></div><div class="bar"><div id="vHp"></div></div><div id="vInfo"></div></div>
+<div id="touchUI">
+  <div id="tStick"><div id="tKnob"></div></div>
+  <div id="tHint">Drag left side to move, right side to look</div>
+  <div class="tb" id="tFire">FIRE</div><div class="tb" id="tAim">AIM</div><div class="tb" id="tJump">JUMP</div>
+  <div class="tb" id="tReload">RELOAD</div><div class="tb" id="tUse">USE</div><div class="tb" id="tSwap">SWAP</div>
+  <div class="tb sm" id="tPause">II</div>
+  <div id="tSide"><div class="tb sm" id="tShop">SHOP</div><div class="tb sm" id="tBuild">BUILD</div><div class="tb sm" id="tCrouch" style="font-size:8.5px">CROUCH</div><div class="tb sm" id="tGren">GREN</div><div class="tb sm" id="tAir">AIR</div><div class="tb sm" id="tMap">MAP</div><div class="tb sm" id="tScore">SCORE</div><div class="tb sm" id="tMusic">MUSIC</div></div>
+  <div id="tPlane"><div class="tb" id="tThrUp">THR +</div><div class="tb" id="tThrDn">THR -</div><div class="tb" id="tBomb">BOMB</div></div>
+  <div id="tRud"><div class="tb" id="tRudL">◀ RUD</div><div class="tb" id="tRudR">RUD ▶</div></div>
+</div>
+<div id="planeHud" class="hud">
+  <div class="r"><div>SPEED<br><b id="pSpeed"></b></div><div>ALTITUDE<br><b id="pAlt"></b></div><div>THROTTLE<br><b id="pThr"></b></div><div>BOMBS<br><b id="pBombs"></b></div><div>HULL<br><b id="pHp"></b></div></div>
+  <div id="pTip"></div>
+</div>
+
+<div id="start" class="screen">
+  <div class="letterbox top"></div><div class="letterbox bottom"></div>
+  <div class="startWrap">
+    <div class="leftPanel">
+      <div class="brand">
+        <svg class="emblem" viewBox="0 0 200 220" aria-label="Blockfront emblem">
+      <defs>
+        <linearGradient id="emGold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fbe7a6"/><stop offset="0.5" stop-color="#d9ae4a"/><stop offset="1" stop-color="#8f6a1f"/></linearGradient>
+        <linearGradient id="emBody" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4d5d35"/><stop offset="1" stop-color="#232c18"/></linearGradient>
+        <linearGradient id="emShine" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="0.5" stop-color="#fff" stop-opacity="0.45"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+        <clipPath id="emClip"><path d="M100 8 L182 36 L178 118 C172 160 140 188 100 206 C60 188 28 160 22 118 L18 36 Z"/></clipPath>
+      </defs>
+      <path d="M100 8 L182 36 L178 118 C172 160 140 188 100 206 C60 188 28 160 22 118 L18 36 Z" fill="url(#emBody)" stroke="url(#emGold)" stroke-width="6"/>
+      <path d="M100 22 L168 45 L165 117 C160 150 134 174 100 190 C66 174 40 150 35 117 L32 45 Z" fill="none" stroke="#d9ae4a" stroke-opacity="0.55" stroke-width="2"/>
+      <g clip-path="url(#emClip)">
+        <path d="M18 70 L182 70 L182 92 L18 92 Z" fill="#000" opacity="0.18"/>
+        <g fill="#1a2110" opacity="0.9">
+          <path d="M44 150 L144 58 L150 64 L50 156 Z"/><path d="M138 52 L156 46 L160 50 L150 66 Z"/><path d="M42 146 L56 160 L46 170 L32 158 Z"/>
+          <path d="M156 150 L56 58 L50 64 L150 156 Z"/><path d="M62 52 L44 46 L40 50 L50 66 Z"/><path d="M158 146 L144 160 L154 170 L168 158 Z"/>
+        </g>
+        <rect class="shine" x="-60" y="0" width="50" height="220" fill="url(#emShine)" transform="skewX(-18)"/>
+      </g>
+      <g fill="url(#emGold)">
+        <path d="M100 58 L111.8 91.8 L147.6 92.6 L119.1 114.2 L129.4 148.4 L100 128 L70.6 148.4 L80.9 114.2 L52.4 92.6 L88.2 91.8 Z" stroke="#5b4311" stroke-width="2"/>
+        <path d="M70 38 L72.4 44.6 L79.4 44.8 L73.8 49 L75.8 55.8 L70 51.8 L64.2 55.8 L66.2 49 L60.6 44.8 L67.6 44.6 Z"/>
+        <path d="M100 30 L102.4 36.6 L109.4 36.8 L103.8 41 L105.8 47.8 L100 43.8 L94.2 47.8 L96.2 41 L90.6 36.8 L97.6 36.6 Z"/>
+        <path d="M130 38 L132.4 44.6 L139.4 44.8 L133.8 49 L135.8 55.8 L130 51.8 L124.2 55.8 L126.2 49 L120.6 44.8 L127.6 44.6 Z"/>
+      </g>
+      <g fill="#c9a24a">
+        <ellipse cx="52" cy="160" rx="9" ry="4" transform="rotate(-40 52 160)"/><ellipse cx="62" cy="171" rx="9" ry="4" transform="rotate(-30 62 171)"/><ellipse cx="74" cy="180" rx="9" ry="4" transform="rotate(-18 74 180)"/>
+        <ellipse cx="148" cy="160" rx="9" ry="4" transform="rotate(40 148 160)"/><ellipse cx="138" cy="171" rx="9" ry="4" transform="rotate(30 138 171)"/><ellipse cx="126" cy="180" rx="9" ry="4" transform="rotate(18 126 180)"/>
+      </g>
+      <path d="M14 176 L40 168 L160 168 L186 176 L172 186 L186 196 L150 190 L50 190 L14 196 L28 186 Z" fill="#7a1f1f" stroke="url(#emGold)" stroke-width="3"/>
+      <text x="100" y="184" text-anchor="middle" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif" font-weight="800" font-size="13" letter-spacing="3" fill="#fbe7a6">BLOCKFRONT</text>
+    </svg>
+        <div class="brandText">
+          <h1>BLOCKFRONT</h1>
+          <div class="sub">CONTROL POINT WARS</div>
+        </div>
+      </div>
+      <p class="tagline">Two armies, up to seven control points, one huge battlefield. Take every point to win.</p>
+      <div class="vehTags"><span>Jeeps</span><span>Tanks</span><span>Helicopters</span><span>Boats</span><span>Planes</span><span>Bikes</span></div>
+      <label class="fieldLabel" for="nameIn">Your name</label>
+      <input id="nameIn" maxlength="16" placeholder="Type your name" autocomplete="off">
+      <div class="fieldLabel">Team</div>
+      <div class="chips" id="teamPick"><div class="chip on" data-t="auto">Auto team</div><div class="chip" data-t="blue" style="color:#6ea3ff">Blue</div><div class="chip" data-t="red" style="color:#ff7070">Red</div><div class="chip four" data-t="green" style="color:#3ecf6a">Green</div><div class="chip four" data-t="yellow" style="color:#f5c542">Yellow</div></div>
+      <div class="fieldLabel" style="margin-top:12px;color:#e8c46a">Battle setup</div>
+      <div id="battleSetup"></div>
+      <div class="btnRow"><div class="btn big" id="hostBtn">Host a game</div><div class="btn big" id="joinBtn">Join a game</div></div>
+      <div class="btnRow"><div class="btn alt" id="playSolo">Play solo</div><div class="btn alt" id="fullBtn">Full screen</div></div>
+      <p class="small">Host a public game (anyone can find it) or a private one (only people with your code). Computer soldiers fill the empty spots, and the host's setup is used for everyone.</p>
+    </div>
+    <div class="rightSide">
+      <div class="card howTo">
+        <h3>How to play</h3>
+        <div class="keys">
+          <b>W A S D</b><span>Move (Shift run, Space jump)</span>
+          <b>Mouse</b><span>Shoot, right click to aim</span>
+          <b>1 to 9 / wheel</b><span>Switch weapons, R reload</span>
+          <b>E / F</b><span>Get in vehicles and turrets / switch seat</span>
+          <b>Space / Shift</b><span>Helicopter up / down</span>
+          <b>G / T</b><span>Grenade / airstrike</span>
+          <b>B / V</b><span>Shop / place what you built</span>
+          <b>Tab / M</b><span>Scoreboard / big map</span>
+          <b>C</b><span>Crouch</span>
+          <b>N</b><span>Music on or off</span>
+        </div>
+      </div>
+      <div class="card"><h3>Settings</h3><div class="settings" id="setStart"></div><div class="settings extraSettings"></div></div>
+    </div>
+  </div>
+  <div class="lobbyPanel" id="hostPanel">
+    <div class="lobbyBox">
+      <h2>Host a game</h2>
+      <div class="fieldLabel">Who can join</div>
+      <div class="chips" id="hostVis"><div class="chip on" data-v="pub">Public: shown in the game list</div><div class="chip" data-v="priv">Private: only with your code</div></div>
+      <label class="fieldLabel" for="gameNameIn">Game name</label>
+      <input id="gameNameIn" maxlength="24" autocomplete="off">
+      <p class="small" id="hostSummary"></p>
+      <div class="btnRow"><div class="btn alt" id="hostBack">Back</div><div class="btn big" id="hostGo">Start game</div></div>
+    </div>
+  </div>
+  <div class="lobbyPanel" id="joinPanel">
+    <div class="lobbyBox">
+      <h2>Join a game</h2>
+      <div class="fieldLabel">Have a code?</div>
+      <div class="codeRow"><input id="codeIn" maxlength="4" placeholder="CODE" autocomplete="off"><div class="btn big" id="codeGo">Join</div></div>
+      <div class="fieldLabel">Public games</div>
+      <div id="gameList"><p class="small">Looking for games...</p></div>
+      <p class="small err" id="joinErr"></p>
+      <div class="btnRow"><div class="btn alt" id="joinBack">Back</div><div class="btn alt" id="joinRefresh">Refresh</div></div>
+    </div>
+  </div>
+</div>
+<div id="connecting" class="screen"><div class="box"><h1>Connecting...</h1><p>Looking for a battle to join.</p></div></div>
+<div id="pause" class="screen"><div class="box"><h1 id="pauseTitle">Paused</h1><p id="pauseText">Click to jump back in.</p><p class="small">You are on the <b id="youTeam">Blue</b> team.</p><div class="settings" id="setPause"></div><div class="settings extraSettings"></div></div></div>
+<div id="death" class="screen"><div class="box"><h1 id="deathTitle">You're down!</h1><p id="deathBy"></p><p>Where do you want to deploy?</p><div class="chips" id="spawnPick"></div><div class="btn wait" id="deploy">Deploy</div><p class="small">Tip: buy armor, medkits and a medical station in the shop.</p></div></div>
+<div id="shop" class="screen"><div class="box"><h1>Supply Shop</h1><div id="shopMoney"></div><div id="shopGrid"></div><div class="btn" id="shopClose">Back to battle (B)</div></div></div>
+<div id="end" class="screen"><div class="box"><h1 id="endTitle"></h1><p id="endText"></p><div id="endStats"></div><div class="btn" id="again">Play again</div></div></div>
+
+<script>window.STANDALONE = true;</script>
+<script src="lib/three.min.js"></script>
+<script src="lib/cannon.min.js"></script>
+<script src="lib/peerjs.min.js"></script>
+<script src="js/core.js?v=12"></script>
+<script src="js/world.js?v=12"></script>
+<script src="js/bunker.js?v=12"></script>
+<script src="js/trenches.js?v=12"></script>
+<script src="js/tunnels.js?v=12"></script>
+<script src="js/chars.js?v=12"></script>
+<script src="js/fx.js?v=12"></script>
+<script src="js/models.js?v=12"></script>
+<script src="js/weapons.js?v=12"></script>
+<script src="js/vehicles.js?v=12"></script>
+<script src="js/gvehicles.js?v=12"></script>
+<script src="js/vmodels.js?v=12"></script>
+<script src="js/heliboat.js?v=12"></script>
+<script src="js/snowmap.js?v=12"></script>
+<script src="js/houston.js?v=12"></script>
+<script src="js/wake.js?v=12"></script>
+<script src="js/ai.js?v=12"></script>
+<script src="js/build.js?v=12"></script>
+<script src="js/relaynet.js?v=12"></script>
+<script src="js/peernet.js?v=12"></script>
+<script src="js/net.js?v=12"></script>
+<script src="js/player.js?v=12"></script>
+<script src="js/setup.js?v=12"></script>
+<script src="js/main.js?v=12"></script>
+<script src="js/lobby.js?v=12"></script>
+<script src="js/polish.js?v=12"></script>
+<script src="js/clown.js?v=12"></script>
+<script src="js/craters.js?v=12"></script>
+<script src="js/topview.js?v=12"></script>
+<script src="js/animals.js?v=12"></script>
+<script src="js/loot.js?v=12"></script>
+<script src="js/sticky.js?v=12"></script>
+<script src="js/nuke.js?v=12"></script>
+<script src="js/city.js?v=12"></script>
+<script src="js/sound.js?v=12"></script>
+<script src="js/controls.js?v=12"></script>
+<script src="js/touch.js?v=12"></script>
+<script src="js/intro.js?v=12"></script>
+</body>
+</html>
