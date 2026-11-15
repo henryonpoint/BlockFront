@@ -10,7 +10,7 @@ const TOWER_H = 9, TOWER_W = 3.4, TOWER_HP = 240, TOWER_REBUILD = 120;
   if (WAKE) return;
   seeded(9137, () => {
     const wood = new THREE.MeshLambertMaterial({ color: 0x8a6238 }), dark = new THREE.MeshLambertMaterial({ color: 0x5e4128 }), roofM = new THREE.MeshLambertMaterial({ color: 0x4a5a3a });
-    for (const P of points) {
+    for (const P of POINTS_DEF) {   // every point, whatever the battle setup, so every player builds the same towers
       // a spot 24 to 40 m from the flag on open, fairly flat ground
       let spot = null;
       for (let k = 0; k < 60 && !spot; k++) {

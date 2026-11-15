@@ -132,13 +132,15 @@ function buildWorld2() {
     // refresh every few seconds so someone who just joined still learns where everything is
     net.w2n = (net.w2n || 0) + 1; const full = net.w2n % 16 === 1;
     net.w2last = net.w2last || [];
-    o.GV = o.GV.map((e, i) => { const k = e === 0 ? '0' : e.join(','); if (!full && net.w2last[i] === k) return 0; net.w2last[i] = k; return e; });
+    net.w2same = net.w2same || [];
+    // a change is sent a few more times after it stops changing, so a missed update can't leave it wrong for long
+    o.GV = o.GV.map((e, i) => { const k = e === 0 ? '0' : e.join(','); if (net.w2last[i] === k) net.w2same[i] = (net.w2same[i] || 0) + 1; else { net.w2last[i] = k; net.w2same[i] = 0; } return !full && net.w2same[i] > 3 ? 0 : e; });
   }
   return o;
 }
 
 // ---------- connecting ----------
-const GAME_BUILD = 20;   // bump when vehicles or the world change, so mismatched versions never mix
+const GAME_BUILD = 21;   // bump when vehicles or the world change, so mismatched versions never mix
 // the version number on the start screen and pause menu, so everyone can check they are on the same one
 const GAME_DATE = 'Nov 15, 2026';
 setTimeout(() => { const v = document.getElementById('verTag'); if (v) v.textContent = `Version ${GAME_BUILD}  \u00b7  ${GAME_DATE}${window.STANDALONE ? '' : '  \u00b7  Claude'}`; const p = document.getElementById('verPause'); if (p) p.textContent = `Version ${GAME_BUILD}`; }, 0);
@@ -299,6 +301,7 @@ function dropRemote(id) {
   const c = r.char;
   scene.remove(c.model.root); const i = chars.indexOf(c); if (i >= 0) chars.splice(i, 1);
   if (r.planeIdx >= 0 && planes[r.planeIdx]) planes[r.planeIdx].remote = null;
+  if (c.planeGun && c.planeGun.gunnerRemote === c) c.planeGun.gunnerRemote = null;
   if (r.turretIdx >= 0 && turrets[r.turretIdx] && turrets[r.turretIdx].user === c) turrets[r.turretIdx].user = null;
   for (const b of r.builds.values()) removeBuild(b);
   net.remotes.delete(id);

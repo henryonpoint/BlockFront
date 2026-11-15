@@ -1016,7 +1016,7 @@ function leavePlaneGun() {
 }
 function updatePlaneGun(dt) {
   const pl = player.planeGun;
-  if (!pl.alive) { player.planeGun = null; return; }
+  if (!pl.alive) { pl.gunner = null; player.planeGun = null; return; }
   zoom = false; ads = false;
   player.pos.copy(pl.pos); player.pos.y -= 1.6; player.vel.copy(planeFwd(pl)).multiplyScalar(pl.speed);
   player.pitch = clamp(player.pitch, -0.8, 1.25);
