@@ -235,7 +235,7 @@ function wkIsles() {
 }
 function buildWakeExtras() {
   wkCarrier();
-  wkWarship(-175, 432, 70, false); wkWarship(205, 515, 110, true); wkWarship(-60, 545, 64, false); wkWarship(330, 420, 60, false);
+  // the warships are real ships now (ships.js): you can board them, walk their rooms and sail them
   wkIsland();
   wkIsles();
 }
