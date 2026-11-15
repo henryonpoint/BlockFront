@@ -62,7 +62,7 @@ function buildTurrets() {
     const B = BASES[t], s = teamSide(t), f = s > 0 ? 0 : Math.PI;
     makeTurret(B.x - 12, B.z - s * 22, 'launcher', f);
     makeTurret(B.x + 12, B.z - s * 22, 'mg', f);
-    if (RUNWAYS[t]) makeTurret(RUNWAYS[t].x, RUNWAYS[t].z - s * 16, 'launcher', f);
+    if (RUNWAYS[t] && !RUNWAYS[t].carrier) makeTurret(RUNWAYS[t].x, RUNWAYS[t].z - s * 16, 'launcher', f);
   }
 }
 function updateTurretVisual(t) { t.yawG.rotation.y = t.yaw - (t.user ? 0 : 0); t.pitchG.rotation.x = t.pitch; }
@@ -125,7 +125,7 @@ function resetPlane(pl, wait = 6) {
   pl.pos.set(pl.spawn.x, heightAt(pl.spawn.x, pl.spawn.z) + 1.6, pl.spawn.z);
   pl.quat.setFromEuler(new THREE.Euler(0, pl.spawn.yaw, 0, 'YXZ'));
   planeBodyVisible(pl, true); pl.model.g.visible = true; pl.model.bomb.visible = true;
-  if (DOGFIGHT) {   // straight into the air, flying towards the enemy
+  if (DOGFIGHT || (RUNWAYS[pl.team] && RUNWAYS[pl.team].carrier && !pl.parked)) {   // straight into the air (dogfights, and planes launched from a carrier), flying towards the enemy
     pl.onGround = false; pl.waitT = 0; pl.pos.set(pl.spawn.x, 130 + (pl.idx % 4) * 14, pl.spawn.z);
     pl.speed = 45 * (pl.spdMul || 1); pl.throttle = 1; pl.aiYaw = pl.spawn.yaw; pl.aiPitch = 0; pl.climbT = 0;
     pl.quat.setFromEuler(new THREE.Euler(0, pl.spawn.yaw, 0, 'YXZ'));
@@ -140,10 +140,10 @@ function buildPlanes() {
     }
     return;
   }
-  [[30, 6], [52, 30], [70, 55]].forEach(([off, wait]) => makePlane('blue', RUNWAYS.blue.x + off, RUNWAYS.blue.z, Math.PI / 2, wait));
+  [[30, 6], [52, 30], [70, 55]].forEach(([off, wait]) => makePlane('blue', RUNWAYS.blue.x + off, RUNWAYS.blue.z, RUNWAYS.blue.carrier ? 0 : Math.PI / 2, wait));
   [[-30, 6], [-52, 30], [-70, 55]].forEach(([off, wait]) => makePlane('red', RUNWAYS.red.x + off, RUNWAYS.red.z, -Math.PI / 2, wait));
   if (NORMANDY) {   // a big air battle over the beach: more fighters on both sides, up quickly
-    [[8, 1], [-14, 12]].forEach(([off, wait]) => makePlane('blue', RUNWAYS.blue.x + off, RUNWAYS.blue.z, Math.PI / 2, wait));
+    [[8, 1], [-14, 12]].forEach(([off, wait]) => makePlane('blue', RUNWAYS.blue.x + off, RUNWAYS.blue.z, 0, wait));
     [[-8, 1], [14, 12]].forEach(([off, wait]) => makePlane('red', RUNWAYS.red.x + off, RUNWAYS.red.z, -Math.PI / 2, wait));
   }
 }

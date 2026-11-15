@@ -144,7 +144,7 @@ function updateSpecials(dt) {
         if (waterDepth(tx, tz) > 0.5 || blockedAt(tx, tz, heightAt(tx, tz), 2, true)) { tx = clamp(v.pos.x + fx * 120, -EDGE + 20, EDGE - 20); tz = clamp(v.pos.z + fz * 120, -EDGE + 20, EDGE - 20); }
         v.pos.set(tx, heightAt(tx, tz), tz); v.lastGround = v.pos.y;
         for (const p of [from, v.pos]) { burst(p.clone().add(new THREE.Vector3(0, 1, 0)), 30, 0x6ae4ff, 12, 0.8, 0.2); playAt('laser', p, 1.2); }
-        if (drv.isPlayer) { showMessage('TIME JUMP!', 1.5); camShake = Math.max(camShake, 0.08); }
+        if (drv.isPlayer) { if (typeof unlock === 'function') unlock('timejump'); showMessage('TIME JUMP!', 1.5); camShake = Math.max(camShake, 0.08); }
       }
     }
     if (v.type === 'hoverboard') {
@@ -297,7 +297,7 @@ function simMiniRocket(v, dt, inp) {
   if (v.burn <= 0 && v.vel.y < 8) for (const c of occupants(v)) {
     if (c.isRemote) continue;
     leaveSeat(c);
-    if (c === player) { player.pos.copy(v.pos).add(new THREE.Vector3(1.5, 0, 0)); player.velY = 0; openChute(); showMessage(`${Math.round(v.pos.y - ground)} meters up! Steer your parachute down`, 3); }
+    if (c === player) { if (typeof unlock === 'function') unlock('rocket'); player.pos.copy(v.pos).add(new THREE.Vector3(1.5, 0, 0)); player.velY = 0; openChute(); showMessage(`${Math.round(v.pos.y - ground)} meters up! Steer your parachute down`, 3); }
     else { c.pos.copy(v.pos); }
   }
   if (v.vel.y < 0 && v.pos.y <= ground) { v.pos.y = ground; explosion(v.pos.clone(), 7, 30, drv || null, 120); damageVehicle(v, 99999, null); }

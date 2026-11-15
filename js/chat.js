@@ -118,7 +118,7 @@
     sent.push(now);
     const text = clean(raw);
     if (!text.replace(/\*/g, '').trim()) { addLine('', '', 'That message was blocked by the word filter.', true); return; }
-    stamp(net.chat, [text], 8);
+    stamp(net.chat, [text], 8); if (typeof achCount === 'function') achCount('chats');
     addLine(player.name, player.team, text);
   }
   inp.addEventListener('keydown', e => {

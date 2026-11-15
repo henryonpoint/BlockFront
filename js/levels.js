@@ -157,6 +157,18 @@ function buildNormandy() {
     addBlock(x, z, 2.2, 1.8 + vnoise(x * 0.3, z * 0.3) * 0.8, 9, LV.hedge);
   }
   buildLandingCraft();
+  // airfields: big arched hangars and a control tower beside each runway
+  for (const t of ['red']) {   // only the defenders have airfields; blue's planes come from the carrier
+    const r = RUNWAYS[t], side = t === 'blue' ? -1 : 1, hz = r.z + side * (r.wid / 2 + 22);
+    for (const dx of [-45, 0, 45]) {
+      const hx = r.x + dx; if (!lvFree(hx, hz, 0) && pathDist(hx, hz) < 8) continue;
+      const hy = heightAt(hx, hz), arch = new THREE.Mesh(new THREE.CylinderGeometry(11, 11, 30, 18, 1, false, 0, Math.PI), new THREE.MeshLambertMaterial({ color: t === 'blue' ? 0x7a8068 : 0x6e7066, side: THREE.DoubleSide }));
+      arch.rotation.set(0, 0, Math.PI / 2); arch.rotation.order = 'ZYX'; arch.position.set(hx, hy, hz); arch.rotation.set(Math.PI / 2, 0, Math.PI / 2); scene.add(arch);
+      addBlock(hx, hz - side * 0, 30, 1.0, 0.6, LV.hidden);
+      for (const s of [-1, 1]) addBlock(hx + s * 15, hz, 0.6, 9, 22, LV.concrete);   // end walls with the doors open towards the runway
+    }
+    const tx = r.x + 75, tz = hz; addBlock(tx, tz, 6, 12, 6, LV.concrete); addMesh(new THREE.BoxGeometry(7, 3, 7), new THREE.MeshLambertMaterial({ color: 0x223040 }), tx, heightAt(tx, tz) + 13.5, tz);   // control tower with its glass room
+  }
   // French villages inland
   village(PD.F, 8, 20, 40); village(PD.G, 8, 20, 40); village({ x: -120, z: -60 }, 5, 12, 30); village({ x: 140, z: -40 }, 5, 12, 30);
   // wrecked tanks and landing craft on the sand
@@ -196,7 +208,7 @@ function updateLevel(dt) {
   }
   if (!DAM || !player.alive || player.gv || player.vehicle || player.parachute) return;
   if (player.pos.z > -54 && player.pos.z < 60 && Math.abs(player.pos.x) < 150 && player.velY < -9 && player.pos.y - heightAt(player.pos.x, player.pos.z) > 8 && typeof openChute === 'function') {
-    openChute(); showMessage('Bungee! Your parachute opened', 2);
+    openChute(); showMessage('Bungee! Your parachute opened', 2); if (typeof unlock === 'function') unlock('bungee');
   }
 }
 
@@ -204,7 +216,7 @@ function updateLevel(dt) {
 // Six flat-bottomed landing boats run in from the sea, drop their front ramp on the sand, let the soldiers out,
 // then back off and come round again. The boats follow the clock (not each player's game time), so every player
 // sees them in the same place. Blue soldiers, and blue players who pick the beach, ride in until the ramp opens.
-const LCVP = { boats: [], period: 40, lanes: Array.from({ length: 20 }, (_, i) => -342 + i * 36), now: () => Date.now() };   // twenty landing boats
+const LCVP = { boats: [], period: 40, lanes: Array.from({ length: 16 }, (_, i) => -270 + i * 36), now: () => Date.now() };   // twenty landing boats
 function lcvpModel() {
   const P = new Part(), hull = 0x56604a, dark = 0x3a4232;
   P.box(3.4, 0.4, 9, dark, 0, 0.2, 0);                                            // flat bottom
@@ -387,7 +399,7 @@ function updateLeader(dt) {
   LEADER.g.rotation.y = Math.atan2(player.pos.x - LEADER.at.x, player.pos.z - LEADER.at.z);
   if (!player.alive || player.team !== 'blue' || gameOver) return;
   if (player.pos.distanceTo(LEADER.at) < 2.6) {
-    LEADER.found = true;
+    LEADER.found = true; if (typeof unlock === 'function') unlock('warend');
     if (!net.active || net.isHost) leaderFound('blue', player.name); else netRequest(['hf']);
   }
 }

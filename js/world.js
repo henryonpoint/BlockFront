@@ -266,7 +266,7 @@ function buildTerrain() {
   for (const t of TEAMS) {
     if (WAKE && t === 'blue') continue;   // the carrier deck is already flat
     addFlatCircle(BASES[t].x, BASES[t].z, 34, 22);
-    const r = RUNWAYS[t]; if (r) addFlatRect(r.x, r.z, r.len / 2 + (SNOW ? 140 : 8), r.wid / 2 + (SNOW ? 24 : 6), SNOW ? 40 : 22);
+    const r = RUNWAYS[t]; if (r && !r.carrier) addFlatRect(r.x, r.z, r.len / 2 + (SNOW ? 140 : 8), r.wid / 2 + (SNOW ? 24 : 6), SNOW ? 40 : 22);
   }
   if (!WAKE && !DAM) chooseBunkerSites();
   if (typeof chooseNestSites === 'function') chooseNestSites();
@@ -525,7 +525,7 @@ function buildBase(team) {
   fl.userData.static = false;
   baseFlags.push(fl);
   // hangar near runway
-  const r = RUNWAYS[team];
+  const r = RUNWAYS[team] && !RUNWAYS[team].carrier ? RUNWAYS[team] : null;
   if (r) hangar(r.x - s * 30, r.z - s * 28); else hangar(B.x - Math.sign(B.x) * 30, B.z + s * 26);
   // supplies
   for (let i = 0; i < 3; i++) addCrateStack(B.x + 10 + i * 2.5, B.z + s * 14, 2);

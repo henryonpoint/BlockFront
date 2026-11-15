@@ -903,10 +903,10 @@ function renderSpawnChoices() {
     box.appendChild(b);
   }
 }
-function readyPlanes() { return planes.filter(pl => pl.team === player.team && pl.alive && !pl.pilot && !pl.remote && pl.onGround && pl.speed < 5); }
+function readyPlanes() { const air = RUNWAYS[player.team] && RUNWAYS[player.team].carrier; return planes.filter(pl => pl.team === player.team && pl.alive && !pl.pilot && !pl.remote && (air ? true : pl.onGround && pl.speed < 5)); }   // carrier planes are taken over in the air
 function boardPlane(pl) {
   if (!pl.homeTeam) pl.homeTeam = pl.team; pl.team = player.team;   // a stolen plane flies for your team
-  player.vehicle = pl; pl.pilot = player; pl.throttle = 0; pl.waitT = 999; zoom = false; ads = false; cancelPlace();
+  player.vehicle = pl; pl.pilot = player; pl.throttle = pl.onGround ? 0 : 1; pl.waitT = 999; zoom = false; ads = false; cancelPlace();
   player.pos.copy(pl.pos); player.pos.y -= 1.6;
   showMessage(IS_TOUCH ? 'Hold THR + to speed up, then pull the stick down to lift off' : 'Hold Shift to speed up, then press S to lift off', 4);
 }
