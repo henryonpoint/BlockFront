@@ -184,7 +184,7 @@ function interact() {
     } else {
       player.pos.copy(pl.pos).add(new THREE.Vector3(0, 2.5, 0)); openChute(); player.velY = 6;
     }
-    pl.pilot = null; player.vehicle = null; pl.waitT = 15; if (_cockpit) { _cockpit.visible = false; pl.model.g.remove(_cockpit); } if (pl.model.canopy) pl.model.canopy.visible = true; updateNoseMarker(null); pl.aimYaw = undefined;
+    pl.pilot = null; player.vehicle = null; pl.waitT = 15; planeBodyVisible(pl, true); if (pl.model.bomb) pl.model.bomb.visible = pl.bombs > 0; if (_cockpit) { _cockpit.visible = false; pl.model.g.remove(_cockpit); } if (pl.model.canopy) pl.model.canopy.visible = true; updateNoseMarker(null); pl.aimYaw = undefined;
     const f = planeFwd(pl); player.yaw = Math.atan2(-f.x, -f.z); player.pitch = 0;
     return;
   }
@@ -355,6 +355,7 @@ function cockpitCamera(pl) {
   pl.model.g.position.copy(pl.pos); pl.model.g.quaternion.copy(pl.quat);
   camera.position.copy(new THREE.Vector3(0, 1.6, -0.3).applyQuaternion(pl.quat).add(pl.pos));
   if (pl.model.canopy) pl.model.canopy.visible = false;
+  if (pl.model.prop.visible) planeBodyVisible(pl, false);
   if (pl.aimYaw === undefined) { const e = new THREE.Euler().setFromQuaternion(pl.quat, 'YXZ'); pl.aimYaw = e.y; pl.aimPitch = 0; }
   if (pl.onGround) pl.aimYaw = pl.groundYaw + clamp(wrapAngle(pl.aimYaw - pl.groundYaw), -1.2, 1.2);
   const roll = new THREE.Euler().setFromQuaternion(pl.quat, 'YXZ').z;
@@ -363,6 +364,24 @@ function cockpitCamera(pl) {
 }
 // in the cockpit: a small ring showing where the guns point (the nose), which chases the crosshair as the plane turns
 let _noseEl = null;
+// red diamonds around enemy aircraft while you fly, with how far away they are, so they are easy to find
+const _airTags = [];
+function updateAirTargets() {
+  const flying = player.vehicle || (player.gv && player.gv.T.heli && player.seat === 0);
+  let n = 0;
+  if (flying) {
+    camera.updateMatrixWorld();
+    const list = planes.filter(p => p.alive && p.team !== player.team && !p.onGround).map(p => p.pos).concat(gvehicles.filter(v => v.alive && v.T.heli && v.team !== player.team && v.airborne).map(v => v.pos));
+    for (const pos of list) {
+      const d = pos.distanceTo(camera.position); if (d > 900 || d < 8) continue;
+      const p = pos.clone().project(camera); if (p.z > 1 || Math.abs(p.x) > 1 || Math.abs(p.y) > 1) continue;
+      let el = _airTags[n]; if (!el) { el = document.createElement('div'); el.className = 'hud'; el.style.cssText = 'position:fixed;pointer-events:none;font:700 11px system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#ff5a4a;text-align:center;text-shadow:0 1px 2px #000;transform:translate(-50%,-50%)'; document.body.appendChild(el); _airTags.push(el); }
+      el.innerHTML = '<div style="width:22px;height:22px;margin:0 auto;border:2px solid #ff5a4a;transform:rotate(45deg)"></div>' + Math.round(d) + ' m';
+      el.style.left = ((p.x + 1) / 2 * innerWidth) + 'px'; el.style.top = ((1 - p.y) / 2 * innerHeight + 8) + 'px'; el.style.display = 'block'; n++;
+    }
+  }
+  for (let i = n; i < _airTags.length; i++) _airTags[i].style.display = 'none';
+}
 function updateNoseMarker(pl) {
   if (!_noseEl) { _noseEl = document.createElement('div'); _noseEl.className = 'hud'; _noseEl.style.cssText = 'position:fixed;width:26px;height:26px;margin:-13px 0 0 -13px;border:2px solid #ffd54f;border-radius:50%;pointer-events:none;z-index:5;display:none;box-shadow:0 0 4px rgba(0,0,0,.6)'; document.body.appendChild(_noseEl); }
   if (!pl) { _noseEl.style.display = 'none'; return; }
@@ -844,7 +863,11 @@ function updateHUD(dt) {
       : pl.onGround ? (pl.speed < 24 ? 'Hold Shift to speed up (C to slow down)' : ck ? 'Look up (or press S) to lift off!' : 'Press S to lift off!')
       : pl.pullUp ? 'PULL UP! Ground ahead' : ck ? 'Mouse: steer where you look   Shift/C throttle   Click guns   Right click bomb   V outside view   F bail out' : 'W/S pitch   A/D roll   Q/E rudder   Shift/C throttle   Space guns   X bomb   V cockpit   F bail out';
     $('pTip').style.color = pl.pullUp ? '#ff6b5a' : '';
-  } else ph.style.display = 'none';
+    if (!pl._tipT) pl._tipT = simTime;
+    $('pTip').style.display = pl.pullUp || pl.onGround || simTime - pl._tipT < 8 ? '' : 'none';   // the long hint goes away once you are flying
+    document.body.classList.toggle('cockpitView', ck);
+  } else { ph.style.display = 'none'; document.body.classList.remove('cockpitView'); }
+  updateAirTargets();
   $('crosshair').style.display = player.vehicle ? (planeView === 'cockpit' ? 'block' : 'none') : $('crosshair').style.display;
   if (!player.vehicle && _cockpit && _cockpit.visible) { _cockpit.visible = false; updateNoseMarker(null); }
   drawMinimap();
@@ -1013,6 +1036,7 @@ function updatePlayerInVehicle(dt) {
     if (v.T.heli && S.role === 'drive' && heliView === 'cockpit') {
       // in the pilot's seat: looking out through the big nose window, mouse up and down aims the guns
       camera.position.copy(new THREE.Vector3(0, 1.95, -2.0).applyQuaternion(vehicleQuat(v)).add(v.pos));
+      if (v.model.rotor) v.model.rotor.visible = false; v._rotorHidden = true;
       camera.rotation.set(-cp * 0.9 + v.pitch * 0.5, v.yaw, -v.roll * 0.4, 'YXZ');
       const fov = (SET.fov || 75) + 10; if (Math.abs(camera.fov - fov) > 0.1) { camera.fov = fov; camera.updateProjectionMatrix(); }
       if (player.body3p) player.body3p.root.visible = false;

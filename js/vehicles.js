@@ -124,7 +124,7 @@ function resetPlane(pl, wait = 6) {
   pl.groundYaw = pl.aiYaw = pl.spawn.yaw; pl.aiPitch = 0; pl.aiBank = 0; pl.wp = null;
   pl.pos.set(pl.spawn.x, heightAt(pl.spawn.x, pl.spawn.z) + 1.6, pl.spawn.z);
   pl.quat.setFromEuler(new THREE.Euler(0, pl.spawn.yaw, 0, 'YXZ'));
-  pl.model.g.visible = true; pl.model.bomb.visible = true;
+  planeBodyVisible(pl, true); pl.model.g.visible = true; pl.model.bomb.visible = true;
   pl.model.g.position.copy(pl.pos); pl.model.g.quaternion.copy(pl.quat);
 }
 function buildPlanes() {
@@ -211,21 +211,19 @@ let planeView = 'chase';
 let _cockpit = null;
 function cockpitModel() {
   if (_cockpit) return _cockpit;
-  const P = new Part(), frame = 0x2a2d31, dash = 0x1d1f22;   // the pilot sits high, eyes at (0, 1.6, -0.3), so the view stays open
-  P.box(1.1, 0.16, 0.34, dash, 0, 1.0, -1.3);                                     // a low, slim dashboard
-  P.box(1.14, 0.04, 0.4, frame, 0, 1.09, -1.32);
-  for (const [x, y] of [[-0.33, 1.02], [-0.11, 1.03], [0.11, 1.03], [0.33, 1.02]]) {
-    P.cyl(0.055, 0.055, 0.025, 0xf2f2ee, x, y, -1.12, Math.PI / 2, 0, 0, 1, 14);  // dials
-    P.box(0.009, 0.04, 0.01, 0xd8262a, x, y + 0.014, -1.105);                     // needles
-  }
-  P.box(0.025, 0.36, 0.025, frame, -0.62, 1.22, -1.55, 0, 0, -0.35); P.box(0.025, 0.36, 0.025, frame, 0.62, 1.22, -1.55, 0, 0, 0.35);   // thin windscreen posts, low and wide
+  // a glass cockpit: only a thin frame low down and two slim posts, so almost the whole screen is sky and ground
+  const P = new Part(), frame = 0x2a2d31;
+  P.box(1.5, 0.05, 0.12, frame, 0, 0.5, -1.9);                                   // a thin bar along the bottom of the windscreen
+  P.box(0.02, 0.5, 0.02, frame, -0.95, 1.2, -1.85, 0, 0, -0.45); P.box(0.02, 0.5, 0.02, frame, 0.95, 1.2, -1.85, 0, 0, 0.45);   // posts far out to the sides
   const g = new THREE.Group(); g.add(new THREE.Mesh(P.build(), new THREE.MeshLambertMaterial({ vertexColors: true })));
   g.visible = false; _cockpit = g; return g;
 }
+// the plane's own body is hidden from its pilot in cockpit view (it only blocked the view)
+function planeBodyVisible(pl, on) { for (const o of pl.model.g.children) if (o !== _cockpit) o.visible = on; if (!on && pl.model.bomb) pl.model.bomb.visible = false; }
 function setPlaneView(v) {
   planeView = v; const pl = player.vehicle;
   const c = cockpitModel();
-  if (pl) { pl.model.g.add(c); c.visible = v === 'cockpit'; const e = new THREE.Euler().setFromQuaternion(pl.quat, 'YXZ'); pl.aimYaw = e.y; pl.aimPitch = clamp(e.x, -0.6, 0.6); }
+  if (pl) { pl.model.g.add(c); c.visible = v === 'cockpit'; planeBodyVisible(pl, v !== 'cockpit'); const e = new THREE.Euler().setFromQuaternion(pl.quat, 'YXZ'); pl.aimYaw = e.y; pl.aimPitch = clamp(e.x, -0.6, 0.6); }
   else c.visible = false;
   try { localStorage.setItem('bf_planeView', v); } catch (e) { }
 }

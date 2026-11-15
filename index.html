@@ -95,6 +95,9 @@
   #planeHud { left: 50%; bottom: 20px; transform: translateX(-50%); display: none; background: rgba(0,0,0,0.45); padding: 10px 18px; border-radius: 10px; font-size: 14px; text-align: center; }
   #planeHud div.r { display: flex; gap: 18px; }
   #planeHud b { font-size: 18px; }
+  body.cockpitView #planeHud { left: 16px; bottom: 96px; transform: none; padding: 6px 10px; font-size: 11px; background: rgba(0,0,0,0.35); }
+  body.cockpitView #planeHud b { font-size: 14px; }
+  body.cockpitView #planeHud div.r { gap: 10px; }
   #pTip { color: #fde047; font-weight: 700; margin-top: 4px; }
   .screen { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(8,14,26,0.78); z-index: 10; }
   .screen .box { text-align: center; max-width: 560px; max-height: 92vh; overflow: auto; box-sizing: border-box; padding: 26px; background: rgba(20,28,44,0.92); border-radius: 14px; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
@@ -446,49 +449,49 @@
 <script src="lib/three.min.js"></script>
 <script src="lib/cannon.min.js"></script>
 <script src="lib/peerjs.min.js"></script>
-<script src="js/core.js?v=24"></script>
-<script src="js/world.js?v=24"></script>
-<script src="js/bunker.js?v=24"></script>
-<script src="js/trenches.js?v=24"></script>
-<script src="js/tunnels.js?v=24"></script>
-<script src="js/chars.js?v=24"></script>
-<script src="js/fx.js?v=24"></script>
-<script src="js/models.js?v=24"></script>
-<script src="js/weapons.js?v=24"></script>
-<script src="js/vehicles.js?v=24"></script>
-<script src="js/gvehicles.js?v=24"></script>
-<script src="js/vmodels.js?v=24"></script>
-<script src="js/heliboat.js?v=24"></script>
-<script src="js/specials.js?v=24"></script>
-<script src="js/snowmap.js?v=24"></script>
-<script src="js/houston.js?v=24"></script>
-<script src="js/suburbs.js?v=24"></script>
-<script src="js/wake.js?v=24"></script>
-<script src="js/ai.js?v=24"></script>
-<script src="js/build.js?v=24"></script>
-<script src="js/relaynet.js?v=24"></script>
-<script src="js/peernet.js?v=24"></script>
-<script src="js/net.js?v=24"></script>
-<script src="js/player.js?v=24"></script>
-<script src="js/setup.js?v=24"></script>
-<script src="js/main.js?v=24"></script>
-<script src="js/lobby.js?v=24"></script>
-<script src="js/polish.js?v=24"></script>
-<script src="js/clown.js?v=24"></script>
-<script src="js/craters.js?v=24"></script>
-<script src="js/topview.js?v=24"></script>
-<script src="js/animals.js?v=24"></script>
-<script src="js/loot.js?v=24"></script>
-<script src="js/sticky.js?v=24"></script>
-<script src="js/nuke.js?v=24"></script>
-<script src="js/city.js?v=24"></script>
-<script src="js/towers.js?v=24"></script>
-<script src="js/treasure.js?v=24"></script>
-<script src="js/sound.js?v=24"></script>
-<script src="js/controls.js?v=24"></script>
-<script src="js/chat.js?v=24"></script>
-<script src="js/console.js?v=24"></script>
-<script src="js/touch.js?v=24"></script>
-<script src="js/intro.js?v=24"></script>
+<script src="js/core.js?v=25"></script>
+<script src="js/world.js?v=25"></script>
+<script src="js/bunker.js?v=25"></script>
+<script src="js/trenches.js?v=25"></script>
+<script src="js/tunnels.js?v=25"></script>
+<script src="js/chars.js?v=25"></script>
+<script src="js/fx.js?v=25"></script>
+<script src="js/models.js?v=25"></script>
+<script src="js/weapons.js?v=25"></script>
+<script src="js/vehicles.js?v=25"></script>
+<script src="js/gvehicles.js?v=25"></script>
+<script src="js/vmodels.js?v=25"></script>
+<script src="js/heliboat.js?v=25"></script>
+<script src="js/specials.js?v=25"></script>
+<script src="js/snowmap.js?v=25"></script>
+<script src="js/houston.js?v=25"></script>
+<script src="js/suburbs.js?v=25"></script>
+<script src="js/wake.js?v=25"></script>
+<script src="js/ai.js?v=25"></script>
+<script src="js/build.js?v=25"></script>
+<script src="js/relaynet.js?v=25"></script>
+<script src="js/peernet.js?v=25"></script>
+<script src="js/net.js?v=25"></script>
+<script src="js/player.js?v=25"></script>
+<script src="js/setup.js?v=25"></script>
+<script src="js/main.js?v=25"></script>
+<script src="js/lobby.js?v=25"></script>
+<script src="js/polish.js?v=25"></script>
+<script src="js/clown.js?v=25"></script>
+<script src="js/craters.js?v=25"></script>
+<script src="js/topview.js?v=25"></script>
+<script src="js/animals.js?v=25"></script>
+<script src="js/loot.js?v=25"></script>
+<script src="js/sticky.js?v=25"></script>
+<script src="js/nuke.js?v=25"></script>
+<script src="js/city.js?v=25"></script>
+<script src="js/towers.js?v=25"></script>
+<script src="js/treasure.js?v=25"></script>
+<script src="js/sound.js?v=25"></script>
+<script src="js/controls.js?v=25"></script>
+<script src="js/chat.js?v=25"></script>
+<script src="js/console.js?v=25"></script>
+<script src="js/touch.js?v=25"></script>
+<script src="js/intro.js?v=25"></script>
 </body>
 </html>
