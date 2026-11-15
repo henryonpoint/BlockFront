@@ -196,37 +196,33 @@ $('again').addEventListener('click', () => location.reload());
 let last = performance.now(), simTime = 0;
 const now0 = () => performance.now() / 1000;
 let balanceT = 2;
+// each part of a frame runs on its own: if one part hits an error, the rest of the battle still moves
+function guard(name, fn) { try { fn(); } catch (e) { loopError(name, e); } }
 function step(dt) {
   simTime += dt;
   soundBudget = 8;
-  netUpdate(dt);
-  updatePlayer(dt);
+  guard('net', () => netUpdate(dt));
+  guard('player', () => updatePlayer(dt));
   const host = !net.active || net.isHost;
-  for (const c of chars) { if (c.isPlayer || c.isRemote) continue; if (host) updateNPC(c, dt); else updateNPCProxy(c, dt); }
-  updateGroundVehicles(dt);
-  updateOccupants();
-  updatePlanes(dt);
-  suppressFx = true; updateProjectiles(dt); suppressFx = false;
-  updateBuilds(dt);
-  updateBullets(dt);
-  if (typeof updateClown === 'function') updateClown(dt);
-  if (typeof updateCraters === 'function') updateCraters(dt);
-  if (typeof updateTopView === 'function') updateTopView(dt);
-  if (typeof updateAnimals === 'function') updateAnimals(dt);
-  if (typeof updateLoot === 'function') updateLoot(dt);
-  if (typeof updateStickies === 'function') updateStickies(dt);
-  if (typeof updateNukes === 'function') updateNukes(dt);
-  if (typeof updateCity === 'function') updateCity(dt);
-  if (HOUSTON && typeof updateHouston === 'function') updateHouston(dt);
-  if (WAKE && typeof updateWake === 'function') updateWake(dt);
-  balanceT -= dt; if (balanceT <= 0) { balanceT = 2; balanceTeams(); }
+  for (const c of chars) { if (c.isPlayer || c.isRemote) continue; try { if (host) updateNPC(c, dt); else updateNPCProxy(c, dt); } catch (e) { loopError('soldier', e); } }
+  guard('vehicles', () => updateGroundVehicles(dt));
+  guard('occupants', () => updateOccupants());
+  guard('planes', () => updatePlanes(dt));
+  guard('projectiles', () => { suppressFx = true; try { updateProjectiles(dt); } finally { suppressFx = false; } });
+  guard('builds', () => updateBuilds(dt));
+  guard('bullets', () => updateBullets(dt));
+  for (const [n, f] of [['clown', 'updateClown'], ['craters', 'updateCraters'], ['topview', 'updateTopView'], ['animals', 'updateAnimals'], ['loot', 'updateLoot'], ['stickies', 'updateStickies'], ['nukes', 'updateNukes'], ['city', 'updateCity']])
+    if (typeof window[f] === 'function') guard(n, () => window[f](dt));
+  if (HOUSTON && typeof updateHouston === 'function') guard('houston', () => updateHouston(dt));
+  if (WAKE && typeof updateWake === 'function') guard('wake', () => updateWake(dt));
+  balanceT -= dt; if (balanceT <= 0) { balanceT = 2; guard('balance', () => balanceTeams()); }
   const ce = console.error, cw = console.warn; console.error = console.warn = () => { };
   // one physics update per frame, never more: catching up with extra updates on a slow frame made the next frame slower still, until the game locked up
-  try { world.step(Math.min(dt, 1 / 30)); } finally { console.error = ce; console.warn = cw; }
-  for (const p of props) if (!p.exploded) { p.mesh.position.copy(p.body.position); p.mesh.quaternion.copy(p.body.quaternion); if (p.body.position.y < -30) { p.exploded = true; scene.remove(p.mesh); world.removeBody(p.body); } }
-  updateRagdolls(dt);
-  if (host) updatePointsLogic(dt);
-  updatePointsVisual();
+  try { world.step(Math.min(dt, 1 / 30)); } catch (e) { console.error = ce; loopError('physics', e); } finally { console.error = ce; console.warn = cw; }
+  guard('props', () => { for (const p of props) if (!p.exploded) { p.mesh.position.copy(p.body.position); p.mesh.quaternion.copy(p.body.quaternion); if (p.body.position.y < -30) { p.exploded = true; scene.remove(p.mesh); world.removeBody(p.body); } } });
+  guard('ragdolls', () => updateRagdolls(dt));
+  if (host) guard('points', () => updatePointsLogic(dt));
+  guard('pointsVisual', () => updatePointsVisual());
   for (const t of turrets) if (!t.user) { t.yawG.rotation.y = t.yaw; t.pitchG.rotation.x = t.pitch * 0.9; }
 }
 function render(dt) {
@@ -300,15 +296,23 @@ function endMenuCinema() {
   if (menuHeli) resetVehicle(menuHeli);
   if (camera.fov !== (SET.fov || 75)) { camera.fov = SET.fov || 75; camera.updateProjectionMatrix(); }
 }
+// one bad frame must never stop the game: the next frame is always asked for first, and any error
+// inside a frame is caught, noted, and the game carries on
+const LOOP_ERR = { n: 0, last: '' };
+function loopError(where, e) {
+  LOOP_ERR.n++; const msg = where + ': ' + (e && e.message ? e.message : e);
+  const vp = document.getElementById('verPause'); if (vp) { vp.textContent = `Version ${GAME_BUILD}  \u00b7  ${LOOP_ERR.n} problem${LOOP_ERR.n === 1 ? '' : 's'} caught (${msg.slice(0, 60)})`; }
+  if (msg !== LOOP_ERR.last || LOOP_ERR.n % 100 === 1) { LOOP_ERR.last = msg; console.error('[Blockfront] ' + msg, e && e.stack ? e.stack : ''); }
+}
 function loop(now) {
+  requestAnimationFrame(loop);
   const dt = Math.min((now - last) / 1000, 0.05);
   last = now;
-  if (started && (playing || net.active || uiOpen === 'death' || uiOpen === 'topview')) step(dt);
-  else if (!started) {
-    menuCinema(now, dt);
-  }
-  render(dt);
-  requestAnimationFrame(loop);
+  try {
+    if (started && (playing || net.active || uiOpen === 'death' || uiOpen === 'topview')) step(dt);
+    else if (!started) menuCinema(now, dt);
+  } catch (e) { loopError('step', e); }
+  try { render(dt); } catch (e) { loopError('render', e); }
 }
 requestAnimationFrame(loop);
 addEventListener('resize', () => {

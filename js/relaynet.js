@@ -20,7 +20,7 @@ function _mqPacket(head, ...parts) {
   return o;
 }
 function mqttLink(url, clientId, will, onMsg, onState) {
-  let ws = null, buf = new Uint8Array(0), up = false, dead = false, pingT = null, pid = 1;
+  let ws = null, buf = new Uint8Array(0), up = false, dead = false, pingT = null, pid = 1, lastRx = 0;
   const subs = new Set();
   function send(u8) { try { if (ws && ws.readyState === 1) { ws.send(u8); return true; } } catch (e) { } return false; }
   function subscribe(topic) {
@@ -39,7 +39,7 @@ function mqttLink(url, clientId, will, onMsg, onState) {
       buf = buf.slice(i + len);
       const type = head >> 4;
       if (type === 2) {                                   // CONNACK
-        if (body[1] === 0) { up = true; for (const s of subs) { pid = pid % 60000 + 1; send(_mqPacket(0x82, new Uint8Array([pid >> 8, pid & 255]), _mqStr(s), new Uint8Array([0]))); } onState(true); }
+        if (body[1] === 0) { up = true; lastRx = Date.now(); for (const s of subs) { pid = pid % 60000 + 1; send(_mqPacket(0x82, new Uint8Array([pid >> 8, pid & 255]), _mqStr(s), new Uint8Array([0]))); } onState(true); }
         else { dead = true; try { ws.close(); } catch (e) { } }
       } else if (type === 3) {                            // PUBLISH
         const tl = (body[0] << 8) | body[1], topic = _td.decode(body.subarray(2, 2 + tl));
@@ -59,14 +59,20 @@ function mqttLink(url, clientId, will, onMsg, onState) {
       if (will) parts.push(_mqStr(will.topic), _mqStr(will.text));
       send(_mqPacket(0x10, ...parts));
     };
-    ws.onmessage = e => { const d = new Uint8Array(e.data); const n = new Uint8Array(buf.length + d.length); n.set(buf); n.set(d, buf.length); buf = n; parse(); };
+    ws.onmessage = e => { lastRx = Date.now(); const d = new Uint8Array(e.data); const n = new Uint8Array(buf.length + d.length); n.set(buf); n.set(d, buf.length); buf = n; parse(); };
     ws.onclose = () => {
       clearTimeout(t0); const was = up; up = false; buf = new Uint8Array(0); onState(false, was);
       if (!dead) setTimeout(open, was ? 800 : 4000);     // keep trying quietly
     };
     ws.onerror = () => { };
   }
-  pingT = setInterval(() => { if (up) send(new Uint8Array([0xC0, 0])); }, 15000);
+  // keep the line busy and notice a dead one fast: a connection can look open after wifi drops or a laptop
+  // sleeps, and without this the game would sit frozen for up to a minute before noticing
+  pingT = setInterval(() => {
+    if (!up) return;
+    send(new Uint8Array([0xC0, 0]));
+    if (Date.now() - lastRx > 7000) { try { ws.close(); } catch (e) { } }
+  }, 2500);
   open();
   return { subscribe, publish, bufferedAmount, isUp: () => up, close() { dead = true; clearInterval(pingT); try { ws && ws.close(); } catch (e) { } } };
 }

@@ -128,7 +128,7 @@ function buildWorld2() {
 }
 
 // ---------- connecting ----------
-const GAME_BUILD = 13;   // bump when vehicles or the world change, so mismatched versions never mix
+const GAME_BUILD = 14;   // bump when vehicles or the world change, so mismatched versions never mix
 // the version number on the start screen and pause menu, so everyone can check they are on the same one
 const GAME_DATE = 'Nov 15, 2026';
 setTimeout(() => { const v = document.getElementById('verTag'); if (v) v.textContent = `Version ${GAME_BUILD}  \u00b7  ${GAME_DATE}${window.STANDALONE ? '' : '  \u00b7  Claude'}`; const p = document.getElementById('verPause'); if (p) p.textContent = `Version ${GAME_BUILD}`; }, 0);
@@ -379,9 +379,14 @@ function netUpdate(dt) {
       const now = performance.now();
       if (net.snapAt[k]) net.snapGap[k] = lerp(net.snapGap[k], clamp(now - net.snapAt[k], 40, 1500), 0.2);
       net.snapAt[k] = now;
-      applySnapshot(hp.presence, dt);
+      try { applySnapshot(hp.presence, dt); } catch (e) { if (typeof loopError === 'function') loopError('snapshot', e); }
     }
-    smoothProxies(dt);
+    try { smoothProxies(dt); } catch (e) { if (typeof loopError === 'function') loopError('smooth', e); }
+    // if the host goes quiet (their connection hiccups or their tab is hidden), say so instead of looking frozen
+    const quiet = started && net.snapAt[0] && performance.now() - Math.max(net.snapAt[0], net.snapAt[1]) > 2500;
+    let nw = document.getElementById('netWait');
+    if (quiet && !nw) { nw = document.createElement('div'); nw.id = 'netWait'; nw.className = 'hud'; nw.style.cssText = 'position:fixed;top:120px;left:50%;transform:translateX(-50%);background:rgba(8,12,20,.8);color:#ffd54f;font:700 14px system-ui,sans-serif;padding:8px 16px;border-radius:10px;z-index:6;pointer-events:none'; nw.textContent = 'Waiting for the host... (their connection hiccupped)'; document.body.appendChild(nw); }
+    if (nw) nw.style.display = quiet ? 'block' : 'none';
   }
   // publish: me about 12 times a second, the battle (host only) about 8 times a second
   net.sendT -= dt;
@@ -518,7 +523,7 @@ function applySnapshot(P, dt) {
 // little ahead if an update is late). That removes the stop-start jerking of soldiers, vehicles and planes.
 function pushSnap(o, x, y, z, a, q) {
   const s = o.snaps || (o.snaps = []), t = performance.now(), last = s[s.length - 1];
-  if (last && Math.abs(last.x - x) + Math.abs(last.y - y) + Math.abs(last.z - z) > 40) s.length = 0;   // a teleport or respawn: start over
+  if (last && (Math.abs(last.x - x) + Math.abs(last.y - y) + Math.abs(last.z - z) > 40 || t - last.t > 1200)) s.length = 0;   // a teleport, a respawn or a long gap: start over
   s.push({ t, x, y, z, a, q: q ? q.clone() : null }); if (s.length > 6) s.shift();
 }
 const _sq = new THREE.Quaternion();
