@@ -302,7 +302,7 @@ function buildTerrain() {
     // far below the mountain top: a pale snowfield lost in the haze
     const outer = new THREE.Mesh(new THREE.RingGeometry(HALF * 0.95, 1400, 48, 1), new THREE.MeshBasicMaterial({ color: 0xd9e0e8 }));
     outer.rotation.x = -Math.PI / 2; outer.position.y = -95; scene.add(outer);
-  } else if (WAKE) {
+  } else if (WAKE || NORMANDY) {
     // nothing: the ocean runs to the horizon
   } else {
     const outer = new THREE.Mesh(new THREE.RingGeometry(HALF * 1.35, 1400, 48, 1), new THREE.MeshLambertMaterial({ color: DESERT ? 0xc9a46c : 0x8f9a86 }));

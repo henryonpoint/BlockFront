@@ -157,6 +157,7 @@ function buildNormandy() {
     if (!lvFree(x, z, 2) || Math.random() < 0.15) continue;
     addBlock(x, z, 2.2, 1.8 + vnoise(x * 0.3, z * 0.3) * 0.8, 9, LV.hedge);
   }
+  buildLandingCraft();
   // French villages inland
   village(PD.F, 8, 20, 40); village(PD.G, 8, 20, 40); village({ x: -120, z: -60 }, 5, 12, 30); village({ x: 140, z: -40 }, 5, 12, 30);
   // wrecked tanks and landing craft on the sand
@@ -187,8 +188,83 @@ function buildDam() {
 }
 // the bungee jump: drop off the dam into the gorge and a parachute opens for you
 function updateLevel(dt) {
+  if (NORMANDY) {
+    updateLandingCraft();
+    if (player.inBoat && player.alive) { rideBoat(player); player.velY = 0; player.yaw = player.yaw; }
+  }
   if (!DAM || !player.alive || player.gv || player.vehicle || player.parachute) return;
   if (player.pos.z > -54 && player.pos.z < 60 && Math.abs(player.pos.x) < 150 && player.velY < -9 && player.pos.y - heightAt(player.pos.x, player.pos.z) > 8 && typeof openChute === 'function') {
     openChute(); showMessage('Bungee! Your parachute opened', 2);
   }
+}
+
+// ---------- Normandy: the landing craft ----------
+// Six flat-bottomed landing boats run in from the sea, drop their front ramp on the sand, let the soldiers out,
+// then back off and come round again. The boats follow the clock (not each player's game time), so every player
+// sees them in the same place. Blue soldiers, and blue players who pick the beach, ride in until the ramp opens.
+const LCVP = { boats: [], period: 40, lanes: [-300, -180, -60, 60, 180, 300], now: () => Date.now() };
+function lcvpModel() {
+  const P = new Part(), hull = 0x56604a, dark = 0x3a4232;
+  P.box(3.4, 0.4, 9, dark, 0, 0.2, 0);                                            // flat bottom
+  for (const s of [-1, 1]) P.box(0.18, 1.9, 9, hull, s * 1.62, 1.15, 0);           // high sides
+  P.box(3.4, 1.9, 0.18, hull, 0, 1.15, 4.4);                                     // back wall
+  P.box(1.2, 0.9, 1.2, dark, 0.8, 2.3, 3.6);                                     // the coxswain's spot
+  for (const s of [-1, 1]) P.box(0.1, 0.5, 0.1, 0x222222, s * 1.3, 2.3, 3.2);
+  const g = new THREE.Group(), m = new THREE.Mesh(P.build(), VEH_MAT); m.castShadow = true; g.add(m);
+  const rampPivot = new THREE.Group(); rampPivot.position.set(0, 0.3, -4.5); g.add(rampPivot);
+  const RP = new Part(); RP.box(3.3, 1.9, 0.2, hull, 0, 0.95, 0); for (let i = 0; i < 5; i++) RP.box(3.0, 0.06, 0.06, dark, 0, 0.3 + i * 0.35, -0.12);
+  const ramp = new THREE.Mesh(RP.build(), VEH_MAT); rampPivot.add(ramp); g.rampPivot = rampPivot;
+  scene.add(g); return g;
+}
+function lcvpState(i, t) {   // where boat i is at clock time t: z position, ramp angle (0 up, 1 down), and the stage
+  const P = LCVP.period, ph = ((t / 1000 + i * (P / LCVP.boats.length)) % P + P) % P, beachZ = 352, farZ = 560;
+  if (ph < 16) return { z: lerp(farZ, beachZ, ph / 16), ramp: 0, stage: 'in' };
+  if (ph < 17.5) return { z: beachZ, ramp: (ph - 16) / 1.5, stage: 'drop' };
+  if (ph < 23) return { z: beachZ, ramp: 1, stage: 'open' };
+  if (ph < 24.5) return { z: beachZ, ramp: 1 - (ph - 23) / 1.5, stage: 'close' };
+  return { z: lerp(beachZ, farZ, (ph - 24.5) / 15.5), ramp: 0, stage: 'out' };
+}
+function buildLandingCraft() { installLandingHooks(); for (const x of LCVP.lanes) { const g = lcvpModel(); g.position.set(x, WATER_Y - 0.3, 560); LCVP.boats.push({ g, x, st: null }); } }
+function updateLandingCraft() {
+  const t = LCVP.now();
+  LCVP.boats.forEach((b, i) => {
+    const s = lcvpState(i, t); b.st = s;
+    b.g.position.set(b.x, WATER_Y - 0.3 + Math.sin(t / 700 + i) * 0.12, s.z); b.g.rotation.z = Math.sin(t / 900 + i) * 0.03;
+    b.g.rampPivot.rotation.x = -s.ramp * 1.45;   // the ramp swings down onto the sand
+    if (s.stage === 'drop' && !b.splashed) { b.splashed = true; if (b.g.position.distanceTo(camera.position) < 120) playAt('thump', b.g.position, 1); burst(new THREE.Vector3(b.x, WATER_Y + 0.4, s.z - 6), 12, 0xdfe8ee, 5, 0.6, 0.15); }
+    if (s.stage !== 'drop') b.splashed = false;
+  });
+}
+// the next boat that is still coming in, and a standing spot inside it
+function lcvpBoardingSpot() {
+  const t = LCVP.now(); let best = -1, bt = Infinity;
+  LCVP.boats.forEach((b, i) => { const s = lcvpState(i, t); if (s.stage !== 'in' || s.z < 380) return; const left = (s.z - 352) / ((560 - 352) / 16); if (left < bt) { bt = left; best = i; } });
+  if (best < 0) return null;
+  return { boat: best, dx: rand(-1.1, 1.1), dz: rand(-3, 3.2) };
+}
+function rideBoat(c) {   // keep a rider standing in its boat; let go once the ramp is down
+  const b = LCVP.boats[c.inBoat.boat]; if (!b || !b.st) { c.inBoat = null; return false; }
+  if (b.st.stage === 'open' || b.st.stage === 'close' || b.st.stage === 'out') {
+    c.inBoat = null;
+    if (c.isPlayer) { player.pos.set(b.x + c.inBoatDx, heightAt(b.x, 344), 344); showMessage('Ramp down! GO GO GO!', 2); }
+    return false;
+  }
+  const y = b.g.position.y + 0.45;
+  c.pos.set(b.x + c.inBoat.dx, y, b.st.z + c.inBoat.dz); c.inBoatDx = c.inBoat.dx;
+  return true;
+}
+function installLandingHooks() {   // installed when the beach is built (the soldier code loads after this file)
+const _updNpcL = updateNPC;
+updateNPC = function (n, dt) {
+  if (n.inBoat && n.alive) { if (rideBoat(n)) { n.heading = Math.PI; animateNPC(n, dt, 0, false); return; } }
+  return _updNpcL.call(this, n, dt);
+};
+const _spawnL = spawnChar;
+spawnChar = function (c, pref) {
+  const r = _spawnL.apply(this, arguments);
+  if (NORMANDY && c.team === 'blue' && c.pos.z > 330 && (!net.active || net.isHost || c.isPlayer)) {   // landed by the sea: board the next boat instead
+    const s = lcvpBoardingSpot(); if (s) { c.inBoat = s; if (c.isPlayer) showMessage('In the landing boat... hold on! The ramp drops at the beach', 3); }
+  }
+  return r;
+};
 }

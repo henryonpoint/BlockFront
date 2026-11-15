@@ -50,12 +50,12 @@ detonateNuke = function (at, owner, ghost, mega) {
   try {
     _detZ.call(this, at, owner, ghost);
     if (mega) {   // a giant mushroom cloud, a mega crater, and everything for hundreds of meters is flattened
-      const fx = nukeFx[nukeFx.length - 1]; if (fx && fx.kind === 'cloud') { fx.cloud.scale.setScalar(4.5); fx.mega = true; }
+      const fx = nukeFx[nukeFx.length - 1]; if (fx && fx.kind === 'cloud') { fx.cloud.scale.setScalar(8); fx.mega = true; }
       if (typeof makeCrater === 'function') makeCrater(at, NUKE_R * 3, 'mega');
       if (!ghost || !net.active || net.isHost) {
-        for (const c of chars) if (c.alive && c.pos.distanceTo(at) < 330) kill(c, owner && owner.team && c !== owner ? owner : null, new THREE.Vector3(c.pos.x - at.x, 4, c.pos.z - at.z).normalize(), 18);
-        for (const v of gvehicles) if (v.alive && v.pos.distanceTo(at) < 330) damageVehicle(v, 99999, owner);
-        for (const pl of planes) if (pl.alive && pl.pos.distanceTo(at) < 400) destroyPlane(pl, owner);
+        for (const c of chars) if (c.alive && c !== owner && c.pos.distanceTo(at) < 1650) kill(c, owner && owner.team && c !== owner ? owner : null, new THREE.Vector3(c.pos.x - at.x, 4, c.pos.z - at.z).normalize(), 18);
+        for (const v of gvehicles) if (v.alive && v.pos.distanceTo(at) < 1650 && !(owner && v === owner.gv)) damageVehicle(v, 99999, owner);
+        for (const pl of planes) if (pl.alive && pl.pos.distanceTo(at) < 1650 && !(owner && pl.pilot === owner)) destroyPlane(pl, owner);   // five times the power: the whole battlefield, except the bomber that dropped it
       }
     }
     if (mega && (!net.active || net.isHost)) {
@@ -67,7 +67,7 @@ detonateNuke = function (at, owner, ghost, mega) {
 function megaFlash() {
   const f = document.createElement('div'); f.style.cssText = 'position:fixed;inset:0;background:#fff;z-index:40;pointer-events:none;transition:opacity 2.5s';
   document.body.appendChild(f); requestAnimationFrame(() => setTimeout(() => { f.style.opacity = '0'; }, 120)); setTimeout(() => f.remove(), 2800);
-  showMessage('MEGA NUKE! Every enemy soldier on the map is down', 4); camShake = Math.max(camShake, 0.15);
+  showMessage('MEGA NUKE! The whole battlefield is wiped out', 4); camShake = Math.max(camShake, 0.15);
 }
 
 // ---------- zombies move and bite (host or solo) ----------

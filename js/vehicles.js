@@ -130,6 +130,10 @@ function resetPlane(pl, wait = 6) {
 function buildPlanes() {
   [[30, 6], [52, 30], [70, 55]].forEach(([off, wait]) => makePlane('blue', RUNWAYS.blue.x + off, RUNWAYS.blue.z, Math.PI / 2, wait));
   [[-30, 6], [-52, 30], [-70, 55]].forEach(([off, wait]) => makePlane('red', RUNWAYS.red.x + off, RUNWAYS.red.z, -Math.PI / 2, wait));
+  if (NORMANDY) {   // a big air battle over the beach: more fighters on both sides, up quickly
+    [[8, 1], [-14, 12]].forEach(([off, wait]) => makePlane('blue', RUNWAYS.blue.x + off, RUNWAYS.blue.z, Math.PI / 2, wait));
+    [[-8, 1], [14, 12]].forEach(([off, wait]) => makePlane('red', RUNWAYS.red.x + off, RUNWAYS.red.z, -Math.PI / 2, wait));
+  }
 }
 function aimPlaneGun(pl, yaw, pitch) {
   if (!pl.model.gunYaw) return;
@@ -201,7 +205,24 @@ function planeBomb(pl, shooter) {
   playAt('thump', pl.pos, 0.7);
   if (pl.pilot === player) showMessage(pl.bombs > 0 ? `Bomb away! ${pl.bombs} left` : `Bomb away! Next bomb loads in ${pl.bombRegenT || 25} seconds`, 2);
 }
+// guided missile from a modern fighter: locks onto the enemy aircraft in the red diamond nearest the nose
+function missileTarget(pl) {
+  const f = planeFwd(pl); let best = null, bs = Infinity;
+  const list = planes.filter(p => p !== pl && p.alive && p.team !== pl.team && !p.onGround).concat(gvehicles.filter(v => v.alive && v.T.heli && v.team !== pl.team && v.airborne));
+  for (const t of list) { const v = t.pos.clone().sub(pl.pos), d = v.length(); if (d > 900 || d < 15) continue; const ang = Math.acos(clamp(v.dot(f) / d, -1, 1)); if (ang > 0.6) continue; const sc = ang * 400 + d * 0.3; if (sc < bs) { bs = sc; best = t; } }
+  return best;
+}
+function planeMissile(pl) {
+  if ((pl.missileT || 0) > 0) return;
+  pl.missileT = 1.4;
+  const t = missileTarget(pl), f = planeFwd(pl), side = (pl.mSide = -(pl.mSide || 1));
+  const right = new THREE.Vector3(1, 0, 0).applyQuaternion(pl.quat), from = pl.pos.clone().addScaledVector(right, side * 2.6).add(new THREE.Vector3(0, -0.4, 0)).addScaledVector(f, 2);
+  spawnRocket(from, t ? t.pos.clone().sub(from).normalize() : f, player, { speed: 160, homing: true, dmg: 420, radius: 6 });
+  const pr = projectiles[projectiles.length - 1]; if (pr) { pr.target = t || null; pr.life = 6; }
+  showMessage(t ? 'Missile away: locked on!' : 'Missile away (no lock)', 1.2);
+}
 function planeTick(pl, dt) {
+  if (pl.missileT > 0) pl.missileT -= dt;
   pl.model.prop.rotation.z += (5 + pl.speed) * dt;
   if (pl.hp < pl.maxHp * 0.45) { pl.smokeT -= dt; if (pl.smokeT <= 0) { pl.smokeT = 0.05; smokePuff(pl.pos.clone(), pl.hp < pl.maxHp * 0.2 ? 0x222222 : 0x777777, 0.6, 1.6, 0.2); } }
   if (pl.bombs < (pl.maxBombs || 1)) { pl.bombRegen += dt; if (pl.bombRegen > (pl.bombRegenT || 25)) { pl.bombRegen = 0; pl.bombs++; pl.model.bomb.visible = true; if (pl.pilot === player) showMessage('Bomb loaded', 1.5); } }
@@ -339,7 +360,8 @@ function updatePlayerPlane(pl, dt) {
     if (!planeGroundCheck(pl)) return;
   }
   if ((mouse.left || keys.Space) && pl.gunT <= 0) planeGuns(pl, player, true);
-  if ((mouse.right || keys.KeyX) && !pl.onGround) planeBomb(pl, player);
+  const jet = pl.kind === 'f18' || pl.kind === 'f22';
+  if ((mouse.right || keys.KeyX) && !pl.onGround) { if (jet) planeMissile(pl); else planeBomb(pl, player); }   // modern fighters fire guided missiles
   planeTick(pl, dt);
   if (planeView === 'cockpit' && typeof cockpitCamera === 'function') cockpitCamera(pl);
 }

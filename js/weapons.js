@@ -445,8 +445,8 @@ function updateProjectiles(dt) {
     pr.life -= dt; pr.age = (pr.age || 0) + dt;
     if (pr.type === 'rocket') {
       if (pr.homing) {
-        let best = null, bd = 260;
-        for (const pl of planes) {
+        let best = pr.target && pr.target.alive ? pr.target : null, bd = best ? best.pos.distanceTo(pr.mesh.position) : 260;   // a guided missile keeps its lock
+        if (!best) for (const pl of planes) {
           if (!pl.alive || pl.team === pr.owner.team) continue;
           const to = pl.pos.clone().sub(pr.mesh.position); const d = to.length();
           if (d < bd && to.normalize().dot(_fwd.copy(pr.vel).normalize()) > 0.5) { bd = d; best = pl; }
@@ -456,7 +456,7 @@ function updateProjectiles(dt) {
           const want = best.pos.clone().sub(pr.mesh.position).normalize().multiplyScalar(sp);
           pr.vel.lerp(want, Math.min(1, dt * 2.6)).setLength(sp);
           pr.mesh.lookAt(pr.mesh.position.clone().add(pr.vel));
-          if (bd < 4.5) { const at = pr.mesh.position.clone(); removeProjectile(pr); explosion(at, pr.radius, 30, pr.owner, pr.dmg, pr.ghost); continue; }
+          if (bd < (pr.target ? 7 : 4.5)) { const at = pr.mesh.position.clone(); removeProjectile(pr); if (pr.target && !pr.ghost) { if (pr.target.T) damageVehicle(pr.target, pr.dmg * 2, pr.owner); else damagePlane(pr.target, pr.dmg, pr.owner); } explosion(at, pr.radius, 30, pr.owner, pr.dmg, pr.ghost); continue; }
         }
       }
       const step = pr.vel.clone().multiplyScalar(dt), len = step.length(), dir = step.clone().normalize();

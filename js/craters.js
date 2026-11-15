@@ -19,7 +19,7 @@ function makeCrater(at, blast, huge) {
   if (at.y > ground + (huge ? 12 : 3)) return;                                   // went off in the air
   if (waterDepth(at.x, at.z) > 0 || (typeof undergroundAt === 'function' && undergroundAt(at.x, at.z, at.y - 1))) return;
   if (SNOW && at.y < ICE_Y + 0.4 && LAKES.some(L => Math.hypot(at.x - L.x, at.z - L.z) < L.r)) return;   // frozen lakes stay flat
-  const r = huge === 'mega' ? 75 : huge ? 22 : clamp(blast * 0.42, 4, 9), depth = huge === 'mega' ? 15 : huge ? 5 : clamp(blast * 0.12, 1, 2.4);   // the mega nuke leaves a giant bowl
+  const r = huge === 'mega' ? 140 : huge ? 22 : clamp(blast * 0.42, 4, 9), depth = huge === 'mega' ? 24 : huge ? 5 : clamp(blast * 0.12, 1, 2.4);   // the mega nuke leaves a giant bowl
   const geo = terrainMesh.geometry, pos = geo.attributes.position, col = geo.attributes.color, nor = geo.attributes.normal;
   const i0 = Math.max(1, Math.floor((at.x - r * 1.5 + HALF) / CELL)), i1 = Math.min(GRID - 1, Math.ceil((at.x + r * 1.5 + HALF) / CELL));
   const j0 = Math.max(1, Math.floor((at.z - r * 1.5 + HALF) / CELL)), j1 = Math.min(GRID - 1, Math.ceil((at.z + r * 1.5 + HALF) / CELL));

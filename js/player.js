@@ -370,7 +370,8 @@ function cockpitCamera(pl) {
   pl.model.g.position.copy(pl.pos); pl.model.g.quaternion.copy(pl.quat);
   camera.position.copy(new THREE.Vector3(0, 1.6, -0.3).applyQuaternion(pl.quat).add(pl.pos));
   if (pl.model.canopy) pl.model.canopy.visible = false;
-  if (pl.model.prop.visible) planeBodyVisible(pl, false);
+  const bodyOn = typeof cockpitFull !== 'undefined' && cockpitFull; if (pl.model.prop.visible !== bodyOn) planeBodyVisible(pl, bodyOn);   // the full cockpit sits inside the plane; the open view hides it
+  if (pl.model.canopy) pl.model.canopy.visible = false;
   if (pl.aimYaw === undefined) { const e = new THREE.Euler().setFromQuaternion(pl.quat, 'YXZ'); pl.aimYaw = e.y; pl.aimPitch = 0; }
   if (pl.onGround) pl.aimYaw = pl.groundYaw + clamp(wrapAngle(pl.aimYaw - pl.groundYaw), -1.2, 1.2);
   const roll = new THREE.Euler().setFromQuaternion(pl.quat, 'YXZ').z;
@@ -382,7 +383,7 @@ let _noseEl = null;
 // red diamonds around enemy aircraft while you fly, with how far away they are, so they are easy to find
 const _airTags = [];
 function updateAirTargets() {
-  const flying = player.vehicle || (player.gv && player.gv.T.heli && player.seat === 0);
+  const flying = player.vehicle && (player.vehicle.kind === 'f18' || player.vehicle.kind === 'f22');   // target diamonds come with the modern jets' radar
   let n = 0;
   if (flying) {
     camera.updateMatrixWorld();
@@ -876,7 +877,7 @@ function updateHUD(dt) {
     const ck = planeView === 'cockpit';
     $('pTip').textContent = IS_TOUCH ? (pl.onGround ? (pl.speed < 24 ? 'Hold THR + to speed up' : 'Pull the stick DOWN to lift off!') : 'Stick: pitch and roll   FIRE guns   BOMB   USE bails out')
       : pl.onGround ? (pl.speed < 24 ? 'Hold Shift to speed up (C to slow down)' : ck ? 'Look up (or press S) to lift off!' : 'Press S to lift off!')
-      : pl.pullUp ? 'PULL UP! Ground ahead' : ck ? 'Mouse: steer where you look   Shift/C throttle   Click guns   Right click bomb   V outside view   F bail out' : 'W/S pitch   A/D roll   Q/E rudder   Shift/C throttle   Space guns   X bomb   V cockpit   F bail out';
+      : pl.pullUp ? 'PULL UP! Ground ahead' : ck ? `Mouse: steer where you look   Shift/C throttle   Click guns   Right click ${pl.kind === 'f18' || pl.kind === 'f22' ? 'guided missile' : 'bomb'}   V views   F bail out` : `W/S pitch   A/D roll   Q/E rudder   Shift/C throttle   Space guns   X ${pl.kind === 'f18' || pl.kind === 'f22' ? 'missile' : 'bomb'}   V cockpit   F bail out`;
     $('pTip').style.color = pl.pullUp ? '#ff6b5a' : '';
     if (!pl._tipT) pl._tipT = simTime;
     $('pTip').style.display = pl.pullUp || pl.onGround || simTime - pl._tipT < 8 ? '' : 'none';   // the long hint goes away once you are flying
