@@ -101,6 +101,7 @@ function buildLevelExtras() {
   if (GERMANY) buildGermany();
   if (NORMANDY) buildNormandy();
   if (DAM) buildDam();
+  if (GERMANY || NORMANDY) buildIntensity();
 }
 function buildGermany() {
   // the old town: blocks of tall houses along a cobbled street grid; about a third are bombed-out ruins
@@ -187,6 +188,8 @@ function buildDam() {
 // the bungee jump: drop off the dam into the gorge and a parachute opens for you
 function updateLevel(dt) {
   if (GERMANY) { updateBombers(dt); updateLeader(dt); }
+  if ((GERMANY || NORMANDY) && started) updateBarrage(dt);
+  if ((GERMANY || NORMANDY) && started && !BARRAGE.told && player.alive) { BARRAGE.told = true; showMessage(NORMANDY ? 'June 6, 1944: D-Day. Blue storms the beach, red holds the bunkers' : 'Berlin, April 1945: the last battle in Europe. Somewhere a bunker hides Hitler', 6); }
   if (NORMANDY) {
     updateLandingCraft();
     if (player.inBoat && player.alive) { rideBoat(player); player.velY = 0; player.yaw = player.yaw; }
@@ -339,7 +342,7 @@ function updateBombers(dt) {
   if (!BOMBERS.meshes.length) for (let j = 0; j < 5; j++) BOMBERS.meshes.push(b17Model());
   const now = Date.now() / 1000, k = Math.floor(now / BOMBERS.period), t = now - k * BOMBERS.period, w = bomberWave(k);
   const host = !net.active || net.isHost;
-  if (k !== BOMBERS.wave) { BOMBERS.wave = k; BOMBERS.dropped = new Set(); }
+  if (k !== BOMBERS.wave) { BOMBERS.wave = k; BOMBERS.dropped = new Set(); if (SFX.siren && started) SFX.siren(0.7); }   // air raid sirens as each wave comes in
   let near = Infinity;
   BOMBERS.meshes.forEach((m, j) => {
     const p = bomberPos(w, j, t); m.visible = t < 42; m.position.copy(p); m.rotation.set(0, Math.atan2(-w.dir.x, -w.dir.z), 0);
@@ -393,4 +396,63 @@ function leaderFound(team, name) {
   LEADER.found = true;
   showMessage(`${name} found Hitler hiding in his bunker. The war in Europe is over!`, 8);
   if (typeof endGame === 'function') endGame('blue');
+}
+
+// ===================== making the battles intense =====================
+// Shells: every couple of seconds one lands somewhere in the battle zones, with a whistle first. Like the boats and
+// bombers, it follows the clock and a seed, so every player sees the same shell land in the same place.
+const BARRAGE = { slot: -1, pending: [], smoke: [], smokeT: 0, shipFlash: [] };
+function barrageZones() {
+  if (NORMANDY) return [
+    { x0: -440, x1: 440, z0: 255, z1: 338, from: 'german' },     // German artillery and mortars falling on the beach
+    { x0: -480, x1: 480, z0: 140, z1: 215, from: 'navy' },       // the warships shelling the bunkers on the bluffs
+    { x0: -440, x1: 440, z0: 255, z1: 338, from: 'german' },
+  ];
+  return [{ x0: -190, x1: 190, z0: -190, z1: 190, from: 'artillery' }];   // Berlin: artillery pounding the city
+}
+function updateBarrage(dt) {
+  const every = NORMANDY ? 1.7 : 3.2, now = Date.now() / 1000, slot = Math.floor(now / every);
+  if (slot !== BARRAGE.slot) {
+    BARRAGE.slot = slot;
+    const zs = barrageZones(), z = zs[slot % zs.length];
+    const at = new THREE.Vector3(lerp(z.x0, z.x1, seeded01(slot * 3.17)), 0, lerp(z.z0, z.z1, seeded01(slot * 7.71)));
+    if (waterDepth(at.x, at.z) > 0.5) at.z -= 20;
+    at.y = heightAt(at.x, at.z);
+    BARRAGE.pending.push({ at, t: now + 1.3 });
+    const d = at.distanceTo(camera.position);
+    if (d < 160 && typeof tn === 'function' && typeof actx !== 'undefined' && actx) tn('sine', 1400, 380, 1.25, 0.05 * (1 - d / 160));   // the incoming whistle
+    if (z.from === 'navy') { const sh = BARRAGE.ships[Math.floor(seeded01(slot) * BARRAGE.ships.length)]; if (sh) { sh.flash.visible = true; sh.flashT = 0.15; } }
+  }
+  const host = !net.active || net.isHost;
+  for (let i = BARRAGE.pending.length - 1; i >= 0; i--) {
+    const p = BARRAGE.pending[i]; if (now < p.t) continue;
+    BARRAGE.pending.splice(i, 1);
+    explosion(p.at.clone().setY(p.at.y + 0.5), 7, 35, null, 110, !host);
+    if (typeof makeCrater === 'function') makeCrater(p.at, 7);
+  }
+  for (const sh of BARRAGE.ships || []) if (sh.flashT > 0) { sh.flashT -= dt; if (sh.flashT <= 0) sh.flash.visible = false; }
+  // smoke rising from burning wrecks and buildings
+  BARRAGE.smokeT -= dt;
+  if (BARRAGE.smokeT <= 0) { BARRAGE.smokeT = 0.12; for (const s of BARRAGE.smoke) if (s.distanceTo(camera.position) < 450) { smokePuff(s.clone().add(new THREE.Vector3(rand(-1, 1), 0, rand(-1, 1))), Math.random() < 0.2 ? 0xff7a2a : 0x2a2a2a, rand(1.2, 2.2), 4, 3); } }
+}
+function buildIntensity() {
+  // fires that keep burning
+  const spots = NORMANDY ? [[-380, 300], [-210, 320], [-90, 280], [70, 305], [230, 290], [400, 315], [-300, 190], [120, 185], [330, 200]]
+    : [[-60, 40], [45, -115], [110, 60], [-135, 70], [20, 130], [-100, -20], [140, -140], [-160, 140]];
+  for (const [x, z] of spots) BARRAGE.smoke.push(new THREE.Vector3(x, heightAt(x, z) + (GERMANY ? 9 : 1), z));
+  if (NORMANDY) {
+    // warships out at sea, their big guns flashing as they fire on the bluffs
+    BARRAGE.ships = [];
+    for (const x of [-520, -170, 180, 520]) {
+      const g = new THREE.Group(), P = new Part(), grey = 0x6a7076, dark = 0x4a5056;
+      P.box(14, 5, 90, grey, 0, 2.5, 0); P.box(10, 6, 26, dark, 0, 8, -4); P.box(5, 10, 8, dark, 0, 15, -4);   // hull, superstructure, bridge
+      P.cyl(1.4, 1.8, 14, dark, 0, 14, 10); for (const z of [-30, -18, 22, 34]) { P.box(6, 2.6, 7, dark, 0, 6.3, z); P.box(0.8, 0.8, 9, dark, 0, 6.6, z - (z < 0 ? 6 : -6)); }   // funnel, gun turrets
+      const m = new THREE.Mesh(P.build(), VEH_MAT); g.add(m);
+      const flash = new THREE.Mesh(new THREE.SphereGeometry(4, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffd080 })); flash.position.set(-9, 7, -36); flash.visible = false; g.add(flash);
+      g.position.set(x, WATER_Y - 1, 760); g.rotation.y = Math.PI / 2; scene.add(g);
+      BARRAGE.ships.push({ g, flash, flashT: 0 });
+    }
+    // German machine guns in front of the bunkers, for the defenders to man
+    for (let x = -480; x <= 480; x += 120) { const z = 206; if (lvFree(x, z, 4) && typeof makeTurret === 'function') makeTurret(x, z, 'mg', Math.PI); }   // facing the sea
+  }
 }
