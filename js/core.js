@@ -265,6 +265,15 @@ const POINTS_DEF = NORMANDY ? [
 ] : WAKE ? [
   { n: 'A', x: -318, z: -120 }, { n: 'B', x: -308, z: 90 }, { n: 'C', x: -170, z: 252 },
   { n: 'D', x: 170, z: 252 }, { n: 'E', x: 308, z: 90 }, { n: 'F', x: 318, z: -150 }, { n: 'G', x: 0, z: -20 },
+] : GERMANY ? [   // Berlin: the control points sit at the landmarks
+  { n: 'A', x: -245, z: 30 }, { n: 'B', x: 250, z: -30 }, { n: 'C', x: 0, z: -30 },
+  { n: 'D', x: -125, z: -75 }, { n: 'E', x: 95, z: 95 }, { n: 'F', x: -95, z: 95 }, { n: 'G', x: 150, z: -150 },
+] : AFGHAN ? [   // Desert Combat: strung out along the valley and the riverbed
+  { n: 'A', x: -300, z: 280 }, { n: 'B', x: 260, z: 320 }, { n: 'C', x: 40, z: 70 },
+  { n: 'D', x: -260, z: -300 }, { n: 'E', x: 300, z: -260 }, { n: 'F', x: -430, z: 60 }, { n: 'G', x: 430, z: -60 },
+] : DESERT ? [   // Desert: a diamond across the dunes, a fort on the middle mesa, and the oasis town round point G
+  { n: 'A', x: -150, z: 300 }, { n: 'B', x: 370, z: 210 }, { n: 'C', x: 0, z: 10 },
+  { n: 'D', x: 150, z: -300 }, { n: 'E', x: -370, z: -210 }, { n: 'F', x: -330, z: -20 }, { n: 'G', x: 330, z: 20 },
 ] : SNOW ? [
   { n: 'A', x: -400, z: 270 }, { n: 'B', x: 70, z: 300 }, { n: 'C', x: 0, z: 0 },
   { n: 'D', x: -70, z: -300 }, { n: 'E', x: 400, z: -270 }, { n: 'F', x: -320, z: -140 }, { n: 'G', x: 320, z: 140 },
@@ -273,6 +282,8 @@ const POINTS_DEF = NORMANDY ? [
   { n: 'D', x: -300, z: -250 }, { n: 'E', x: 300, z: -250 }, { n: 'F', x: -430, z: 0 }, { n: 'G', x: 430, z: 0 },
 ];
 const PD = Object.fromEntries(POINTS_DEF.map(p => [p.n, p]));
+// where each map's town stands (null: no town)
+const TOWN_AT = DOGFIGHT || GERMANY || SNOW || HOUSTON || WAKE || DAM || NORMANDY ? null : AFGHAN ? { x: -170, z: 175 } : DESERT ? { x: PD.G.x, z: PD.G.z } : { x: 0, z: 0 };
 const BASES = NORMANDY ? { blue: { x: 0, z: 318 }, red: { x: 0, z: -450 } } : DAM ? { blue: { x: 0, z: 455 }, red: { x: 0, z: -455 } } : WAKE ? { blue: { x: 50, z: 470 }, red: { x: -322, z: -262 } } : SNOW ? { blue: { x: -250, z: 460 }, red: { x: 250, z: -460 } } : { blue: { x: 0, z: 450 }, red: { x: 0, z: -450 } };
 if (FOUR) { BASES.green = { x: -440, z: -420 }; BASES.yellow = { x: 440, z: 420 }; }
 // which way a team's base faces: +1 looks north (towards -z), -1 looks south
@@ -305,6 +316,15 @@ const PATHS = NORMANDY ? [
   [BASES.blue, PD.A], [BASES.blue, PD.B], [BASES.blue, PD.C], [PD.A, PD.C], [PD.B, PD.C],
   [PD.C, PD.D], [PD.C, PD.E], [PD.D, BASES.red], [PD.E, BASES.red], [PD.C, BASES.red],
   [PD.A, PD.F], [PD.F, PD.D], [PD.B, PD.G], [PD.G, PD.E], [PD.C, PD.F], [PD.C, PD.G],
+] : GERMANY ? [
+  [BASES.blue, PD.F], [BASES.blue, PD.E], [PD.F, PD.A], [PD.F, PD.C], [PD.E, PD.C], [PD.E, PD.B], [PD.A, PD.D], [PD.C, PD.D],
+  [PD.C, PD.G], [PD.B, PD.G], [PD.D, BASES.red], [PD.G, BASES.red], [PD.A, { x: -330, z: 0 }],
+] : AFGHAN ? [
+  [BASES.blue, PD.A], [BASES.blue, PD.B], [PD.A, PD.F], [PD.A, { x: -170, z: 160 }], [{ x: -170, z: 160 }, PD.C], [PD.B, PD.C], [PD.B, PD.G],
+  [PD.C, { x: 60, z: -120 }], [{ x: 60, z: -120 }, PD.D], [{ x: 60, z: -120 }, PD.E], [PD.F, PD.D], [PD.G, PD.E], [PD.D, BASES.red], [PD.E, BASES.red],
+] : DESERT ? [
+  [BASES.blue, PD.A], [BASES.blue, PD.B], [PD.A, PD.F], [PD.B, PD.G], [PD.A, { x: -60, z: 140 }], [{ x: -60, z: 140 }, PD.C], [PD.B, PD.C],
+  [PD.C, PD.D], [PD.C, { x: 60, z: -140 }], [{ x: 60, z: -140 }, PD.E], [PD.F, PD.E], [PD.G, PD.D], [PD.D, BASES.red], [PD.E, BASES.red],
 ] : SNOW ? [
   [BASES.blue, PD.A], [BASES.blue, PD.B], [PD.A, PD.F], [PD.B, PD.C], [PD.B, PD.G], [PD.F, PD.C], [PD.G, PD.C],
   [PD.C, PD.D], [PD.F, PD.D], [PD.G, PD.E], [PD.D, BASES.red], [PD.E, BASES.red], [PD.A, PD.B], [PD.D, PD.E],

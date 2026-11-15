@@ -215,7 +215,7 @@ function terrainColor(x, z, h, slope) {
   const pd = pathDist(x, z);
   if (pd < 5) c.lerp(new THREE.Color(0.56, 0.45, 0.31).offsetHSL(0, 0, (n - 0.5) * 0.06), smooth(5, 2, pd));
   for (const t of [BASES.blue, BASES.red]) { const d = Math.hypot(x - t.x, z - t.z); if (d < 30) c.lerp(new THREE.Color(0.58, 0.58, 0.55), smooth(30, 26, d)); }
-  if (Math.hypot(x, z) < 15) c.lerp(new THREE.Color(0.62, 0.6, 0.55), smooth(15, 12, Math.hypot(x, z)));
+  if (townDist(x, z) < 15) c.lerp(new THREE.Color(0.62, 0.6, 0.55), smooth(15, 12, townDist(x, z)));
   if (h < 0.4 && LAKES.some(L => Math.hypot(x - L.x, z - L.z) < L.r + 30)) c.lerp(new THREE.Color(0.86, 0.8, 0.56), smooth(0.4, -0.6, h));
   if (slope > 0.55 || h > 20) {
     const strata = 0.5 + 0.5 * Math.sin(h * 0.9 + vnoise(x * 0.06, z * 0.06) * 6), rn = vnoise(x * 0.11 + 3, z * 0.11);
@@ -251,6 +251,7 @@ function shadeY(g, lo = 0.65, hi = 1.1) {
   for (let i = 0; i < pos.count; i++) { const t = lo + (hi - lo) * (pos.getY(i) - b.min.y) / Math.max(0.001, b.max.y - b.min.y); col[i * 3] = col[i * 3 + 1] = col[i * 3 + 2] = t; }
   g.setAttribute('color', new THREE.BufferAttribute(col, 3)); return g;
 }
+function townDist(x, z) { return TOWN_AT ? Math.hypot(x - TOWN_AT.x, z - TOWN_AT.z) : Infinity; }   // how far from the middle of the map's town
 function buildTerrain() {
   // flatten important places
   for (const p of POINTS_DEF) if (!(DAM && p.n === 'C')) addFlatCircle(p.x, p.z, DAM && p.n === 'D' ? 12 : 17, 18);   // the dam's middle point stays on the crest
@@ -261,8 +262,8 @@ function buildTerrain() {
   } else if (DAM || NORMANDY) {
     // no big centre square here
   } else if (!WAKE) {
-  addFlatCircle(0, 0, 58, 25);
-  for (const p of [PD.F, PD.G, PD.A]) addFlatCircle(p.x, p.z, 36, 20);
+  if (TOWN_AT) addFlatCircle(TOWN_AT.x, TOWN_AT.z, 58, 25);
+  if (!DESERT && !GERMANY) for (const p of [PD.F, PD.G, PD.A]) addFlatCircle(p.x, p.z, 36, 20);
   }
   for (const t of TEAMS) {
     if (WAKE && t === 'blue') continue;   // the carrier deck is already flat
@@ -537,6 +538,8 @@ function buildBase(team) {
 const baseFlags = [];
 
 function buildTown() {
+  // the town is built round TOWN_AT: every spot below is relative to its middle
+  const OX = TOWN_AT.x, OZ = TOWN_AT.z;
   // roads already painted; houses on lots away from roads
   const lots = [];
   for (const gx of [-47, -31, 31, 47]) for (const gz of [-47, -31, 31, 47]) lots.push([gx, gz]);
@@ -544,27 +547,27 @@ function buildTown() {
   for (const gz of [-47, -31, 31, 47]) for (const gx of [-14, 14]) lots.push([gx, gz]);
   let towerDone = false;
   for (const [lx, lz] of lots) {
-    const x = lx + rand(-1.5, 1.5), z = lz + rand(-1.5, 1.5);
+    const x = OX + lx + rand(-1.5, 1.5), z = OZ + lz + rand(-1.5, 1.5);
     if (pathDist(x, z) < 9.5) continue;
     if (!towerDone && Math.abs(lx) === 31 && Math.abs(lz) === 31) { tower(x, z); towerDone = true; continue; }
     const big = Math.random() < 0.25;
     house(x, z, rand(7, 10), rand(6, 9), big ? rand(7.5, 9) : rand(4, 6), { flat: big });
   }
   // fountain on the plaza
-  const fy = heightAt(6, -6);
-  addMesh(new THREE.CylinderGeometry(2.4, 2.6, 0.9, 16), MATS.concrete, 6, fy + 0.45, -6);
-  addMesh(new THREE.CylinderGeometry(2.1, 2.1, 0.1, 16), MATS.water, 6, fy + 0.85, -6, false);
-  addMesh(new THREE.CylinderGeometry(0.4, 0.5, 2.2, 8), MATS.concrete, 6, fy + 1.4, -6);
-  addCircle(6, -6, 2.5, fy + 0.9);
+  const fy = heightAt(OX + 6, OZ - 6);
+  addMesh(new THREE.CylinderGeometry(2.4, 2.6, 0.9, 16), MATS.concrete, OX + 6, fy + 0.45, OZ - 6);
+  addMesh(new THREE.CylinderGeometry(2.1, 2.1, 0.1, 16), MATS.water, OX + 6, fy + 0.85, OZ - 6, false);
+  addMesh(new THREE.CylinderGeometry(0.4, 0.5, 2.2, 8), MATS.concrete, OX + 6, fy + 1.4, OZ - 6);
+  addCircle(OX + 6, OZ - 6, 2.5, fy + 0.9);
   // market stalls and lamps
   const sc = [0xd84315, 0x1e88e5, 0x43a047, 0xfdd835, 0x8e24aa];
-  [[-17, 8], [-17, -8], [17, 8], [17, -8], [8, 18], [-8, -18]].forEach(([x, z], i) => { if (pathDist(x, z) > 4) stall(x, z, sc[i % sc.length]); });
-  for (const t of [-55, -40, -25, 25, 40, 55]) { lamp(4.5, t); lamp(-4.5, t + 7); lamp(t, 4.5); lamp(t + 7, -4.5); }
+  [[-17, 8], [-17, -8], [17, 8], [17, -8], [8, 18], [-8, -18]].forEach(([x, z], i) => { x += OX; z += OZ; if (pathDist(x, z) > 4) stall(x, z, sc[i % sc.length]); });
+  for (const t of [-55, -40, -25, 25, 40, 55]) { lamp(OX + 4.5, OZ + t); lamp(OX - 4.5, OZ + t + 7); lamp(OX + t, OZ + 4.5); lamp(OX + t + 7, OZ - 4.5); }
   // parked cars and benches
   [[3.5, 22, false, 0xc62828], [-3.5, -26, false, 0x1565c0], [24, 3.5, true, 0xf9a825], [-30, -3.5, true, 0x2e7d32], [3.5, -40, false, 0x6d4c41], [-38, 3.5, true, 0xeeeeee]]
-    .forEach(([x, z, ax, c]) => addCar(x, z, ax, c));
-  for (let i = 0; i < 4; i++) addCrateStack(rand(-12, 12), rand(-12, 12), 1 + (Math.random() * 2 | 0));
-  addBarrel(-9, 10); addBarrel(10, 9); addDrum(-10, 11);
+    .forEach(([x, z, ax, c]) => addCar(OX + x, OZ + z, ax, c));
+  for (let i = 0; i < 4; i++) addCrateStack(OX + rand(-12, 12), OZ + rand(-12, 12), 1 + (Math.random() * 2 | 0));
+  addBarrel(OX - 9, OZ + 10); addBarrel(OX + 10, OZ + 9); addDrum(OX - 10, OZ + 11);
 }
 const settlements = [
   { x: PD.A.x + 35, z: PD.A.z + 35, r: 48 }, { x: PD.E.x + 25, z: PD.E.z - 25, r: 48 }, { x: PD.F.x, z: PD.F.z, r: 46 },
@@ -631,7 +634,8 @@ function buildFarm() {
   village(PD.F, 8, 20, 40);
   addCar(PD.F.x + 20, PD.F.z + 4, false, 0x1565c0); addCar(PD.F.x - 22, PD.F.z - 6, true, 0xc62828);
   // hill fort at G: stone walls with gaps and towers
-  const G = PD.G, stone = new THREE.MeshLambertMaterial({ color: 0x8d8a82, map: texRepeat(TEX.concrete, 4, 1) });
+  const G = DESERT ? PD.C : PD.G, stone = new THREE.MeshLambertMaterial(   /* the desert's fort stands on the middle mesa; its town is round G */
+   { color: 0x8d8a82, map: texRepeat(TEX.concrete, 4, 1) });
   for (const [dx, dz, w, d] of [[-14, -26, 20, 2], [14, -26, 20, 2], [-14, 26, 20, 2], [14, 26, 20, 2], [-26, -14, 2, 20], [-26, 14, 2, 20], [26, -14, 2, 20], [26, 14, 2, 20]]) {
     if (pathDist(G.x + dx, G.z + dz) < 6) continue;
     addBlock(G.x + dx, G.z + dz, w, 3, d, stone);
@@ -641,7 +645,7 @@ function buildFarm() {
   let made = 0;
   for (let i = 0; i < 200 && made < 14; i++) {
     const x = rand(-EDGE + 40, EDGE - 40), z = rand(-EDGE + 60, EDGE - 60);
-    if (!okLot(x, z, 14) || Math.hypot(x, z) < 80 || heightAt(x, z) < 1 || heightAt(x, z) > 18) continue;
+    if (!okLot(x, z, 14) || townDist(x, z) < 80 || heightAt(x, z) < 1 || heightAt(x, z) > 18) continue;
     if (settlements.some(s => Math.hypot(x - s.x, z - s.z) < s.r + 10) || Math.abs(Math.abs(z) - 450) < 60) continue;
     if (groundMin(x, z, 6, 6) < heightAt(x, z) - 2) continue;
     house(x, z, rand(7, 10), rand(6, 8), rand(4, 6)); if (Math.random() < 0.5) addHay(x + 8, z + rand(-4, 4));
@@ -667,7 +671,7 @@ function buildNature() {
       if (Math.hypot(x - BASES[t].x, z - BASES[t].z) < 46) return false;
       if (inRunwayZone(x, z)) return false;
     }
-    if (Math.hypot(x, z) < 64) return false;
+    if (townDist(x, z) < 64) return false;
     for (const s of settlements) if (Math.hypot(x - s.x, z - s.z) < s.r) return false;
     if (HOUSTON && typeof hoodAt === 'function' && (hoodAt(x, z) || storeAt(x, z))) return false;   // the suburbs plant their own trees
     if ((NORMANDY && z > 222) || (GERMANY && Math.hypot(x, z) < 190) || (DAM && z > -70 && z < 130 && Math.abs(x) < 150)) return false;   // no trees on the beach, in the old town or in the gorge
@@ -759,7 +763,7 @@ function buildNature() {
     const x = rand(-EDGE, EDGE), z = rand(-EDGE, EDGE), h = heightAt(x, z);
     if (h < 0.5 || h > 20 || pathDist(x, z) < 3) continue;
     let ok = true; for (const t of TEAMS) if (Math.hypot(x - BASES[t].x, z - BASES[t].z) < 32) ok = false;
-    if (Math.hypot(x, z) < 16) ok = false;
+    if (townDist(x, z) < 16) ok = false;
     if (HOUSTON && typeof storeAt === 'function' && storeAt(x, z)) ok = false;
     if (!ok) continue;
     if (Math.random() < 0.18) flowers.push({ x, z, y: h, s: 1, r: rand(0, 6) }); else tufts.push({ x, z, y: h, s: rand(0.7, 1.4), r: rand(0, 6) });
@@ -954,7 +958,7 @@ function buildWorld() {
   buildTerrain();
   if (!WAKE && !DAM) buildBunkers();
   if (typeof buildNests === 'function') buildNests();
-  if (!SNOW && !HOUSTON && !WAKE && !DAM) { if (!GERMANY) buildTown(); if (!NORMANDY && !AFGHAN) buildFarm(); }
+  if (!SNOW && !HOUSTON && !WAKE && !DAM) { if (TOWN_AT) buildTown(); if (!NORMANDY && !AFGHAN) buildFarm(); }
   TEAMS.forEach(t => { if (!(WAKE && t === 'blue')) buildBase(t); });
   buildPoints();
   if (!NO_TUNNELS) buildTunnels();

@@ -460,7 +460,7 @@ function buildDesertExtras() {
   const rock = new THREE.MeshLambertMaterial({ color: 0xb8714a });
   for (let i = 0; i < 18; i++) {
     const x = rand(-EDGE + 30, EDGE - 30), z = rand(-EDGE + 30, EDGE - 30);
-    if (pathDist(x, z) < 18 || Math.hypot(x, z) < 90) continue;
+    if (pathDist(x, z) < 18 || townDist(x, z) < 90 || Math.hypot(x, z) < 50) continue;
     let near = false; for (const q2 of POINTS_DEF) if (Math.hypot(x - q2.x, z - q2.z) < 50) near = true; if (near) continue;
     const h = rand(9, 20), w = rand(3, 6);
     if (i % 3 === 0) { addBlock(x - w, z, w, h, w, rock); addBlock(x + w, z, w, h, w, rock); addBlock(x, z, w * 3, w * 0.9, w, rock, { y: heightAt(x, z) + h - w * 0.9 }); }   // an arch
