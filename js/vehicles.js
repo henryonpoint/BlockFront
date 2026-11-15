@@ -269,47 +269,99 @@ function planeTick(pl, dt) {
 let planeView = 'chase';
 let _cockpit = null;
 let cockpitFull = false;   // the third view: the full cockpit, with dashboard, dials, gunsight and canopy frame
+// each kind of plane has its own cockpit, built like the real one. tub: floor, walls, seat, stick and the nose ahead
+// (shown in both cockpit views); full: the dashboard, sights and canopy frame (the full cockpit view only)
+const _cockpits = {};
+function cockpitStyle(pl) { const k = pl && pl.kind; return k === 'triplane' || k === 'biplane' ? k : k === 'f18' || k === 'f22' || k === 'stealth' ? k : 'prop'; }
 function cockpitModel() {
-  if (_cockpit) return _cockpit;
-  const g = new THREE.Group();   // the open view has nothing in the way; the full cockpit lives in g.full
-  // a low, slim cockpit: a short dashboard under the windscreen, thin frames, so most of the view is sky
-  const P = new Part(), frame = 0x2a2e33, dash = 0x1b1d20, trim = 0x3c4248;
-  P.box(1.1, 0.26, 0.26, dash, 0, 0.92, -1.0); P.box(1.12, 0.04, 0.34, frame, 0, 1.06, -1.03);     // low dashboard with a padded lip
-  for (const [x, y] of [[-0.38, 0.95], [-0.13, 0.97], [0.13, 0.97], [0.38, 0.95]]) {
-    P.cyl(0.055, 0.055, 0.02, 0xf2f2ee, x, y, -0.86, Math.PI / 2, 0, 0, 1, 16);
-    P.cyl(0.062, 0.062, 0.015, 0x111111, x, y, -0.865, Math.PI / 2, 0, 0, 1, 16);
-    P.box(0.008, 0.04, 0.01, 0xd8262a, x, y + 0.014, -0.848);
+  const st = cockpitStyle(player.vehicle || (_cockpit && { kind: _cockpit.userData.style }));
+  if (_cockpit && _cockpit.userData.style === st) return _cockpit;
+  if (_cockpit) { _cockpit.visible = false; if (_cockpit.parent) _cockpit.parent.remove(_cockpit); }
+  _cockpit = _cockpits[st] || (_cockpits[st] = buildCockpit(st));
+  _cockpit.full.visible = cockpitFull; return _cockpit;
+}
+function buildCockpit(st) {
+  const g = new THREE.Group(); g.userData.cockpit = true; g.userData.style = st;
+  const T = new Part(), P = new Part(), G = new Part();   // tub, full cockpit, glowing screens and lamps
+  const glassMat = new THREE.MeshPhongMaterial({ color: st === 'f22' ? 0xd8c078 : 0x9fd8ff, transparent: true, opacity: st === 'f22' ? 0.1 : 0.16, shininess: 120, depthWrite: false });
+  const glass = [];   // [w, h, x, y, z, rx]
+  const dial = (Q, x, y, z, r, face = 0xf2f2ee, rim = 0x111111) => { Q.cyl(r, r, 0.02, face, x, y, z, Math.PI / 2, 0, 0, 1, 14); Q.cyl(r * 1.15, r * 1.15, 0.015, rim, x, y, z - 0.006, Math.PI / 2, 0, 0, 1, 14); Q.box(r * 0.14, r * 0.8, 0.01, 0xd8262a, x, y + r * 0.3, z + 0.012); };
+  const screen = (x, y, z, w, h, col) => { P.box(w + 0.04, h + 0.04, 0.03, 0x111316, x, y, z - 0.02); G.box(w, h, 0.01, 0x0a1a12, x, y, z); for (let i = 0; i < 4; i++) G.box(w * (0.4 + (i % 3) * 0.15), 0.012, 0.012, col, x - w * 0.15, y + h * 0.3 - i * h * 0.18, z + 0.008); G.box(w * 0.2, h * 0.2, 0.012, col, x + w * 0.25, y - h * 0.15, z + 0.008); };
+  const ww1 = st === 'triplane' || st === 'biplane', jet = st === 'f18' || st === 'f22';
+  if (ww1) {
+    // an open cockpit: doped linen sides, a padded leather rim, a little wooden panel, twin guns on the nose and a
+    // ring sight, the top wing overhead held up by struts
+    const linen = st === 'triplane' ? 0xb8221a : 0x8c7a4c, wood = 0x6b4a2a, leather = 0x3a2416, brass = 0xc8a040, wing = st === 'triplane' ? 0xc42a20 : 0xd9ceb0;
+    T.box(1.1, 0.05, 2.2, wood, 0, 0.5, -0.3); for (const s of [-1, 1]) { T.box(0.05, 0.6, 2.4, linen, s * 0.58, 0.78, -0.3); T.box(0.16, 0.1, 1.6, leather, s * 0.55, 1.1, -0.1); }
+    T.box(1.2, 0.1, 0.16, leather, 0, 1.1, -0.95); T.box(1.2, 0.1, 0.16, leather, 0, 1.1, 0.75);                         // padded rim round the opening
+    T.box(0.55, 0.08, 0.5, 0x8a6a40, 0, 0.62, 0.35); T.box(0.55, 0.55, 0.08, 0x8a6a40, 0, 0.9, 0.62);                     // wicker seat
+    T.box(0.04, 0.45, 0.04, 0x2a2a2a, 0, 0.78, -0.4); T.box(0.2, 0.04, 0.05, 0x2a2a2a, 0, 1.0, -0.4);                      // stick with a spade grip
+    T.box(0.7, 0.05, 0.08, wood, 0, 0.56, -1.3);                                                                     // rudder bar
+    T.cyl(0.62, 0.68, 2.6, linen, 0, 0.55, -2.3, -Math.PI / 2, 0, 0, 1, 14); T.cyl(0.7, 0.7, 0.5, 0x7a7c80, 0, 0.55, -3.7, Math.PI / 2, 0, 0, 1, 16);   // fuselage and engine cowl ahead
+    for (const x of [-0.18, 0.18]) { T.cyl(0.06, 0.06, 1.3, 0x1a1a1a, x, 1.17, -1.6, Math.PI / 2, 0, 0, 1, 8); T.box(0.12, 0.12, 0.35, 0x2a2a2a, x, 1.15, -0.95); }   // twin guns
+    T.add(new THREE.TorusGeometry(0.11, 0.008, 4, 16), 0x1a1a1a, 0, 1.36, -1.15); T.box(0.01, 0.12, 0.01, 0x1a1a1a, 0, 1.3, -1.15); T.box(0.02, 0.05, 0.02, 0x1a1a1a, 0, 1.3, -2.2);   // ring and bead sight
+    T.box(7.4, 0.08, 1.3, wing, 0, st === 'triplane' ? 2.05 : 2.25, -0.95);                                           // top wing overhead
+    for (const s of [-1, 1]) { T.box(0.05, 1.2, 0.05, 0x2b2c2a, s * 0.45, 1.55, -1.35); T.box(0.05, 1.2, 0.05, 0x2b2c2a, s * 0.45, 1.55, -0.55); }   // cabane struts
+    P.box(0.9, 0.3, 0.05, wood, 0, 0.92, -0.85); for (const [x, y] of [[-0.25, 0.94], [0, 0.97], [0.25, 0.94]]) dial(P, x, y, -0.82, 0.05, 0xf0e6c8, brass);   // little wooden panel, brass dials
+    glass.push([0.5, 0.18, 0, 1.24, -1.05, -0.5]);                                                                     // tiny windscreen
+  } else if (st === 'prop') {
+    // a WW2 fighter: green-grey interior, a black panel crowded with round dials, a reflector gunsight, a heavily framed canopy
+    const zinc = 0x5a6a52, blk = 0x1a1a1a, frame = 0x3a4038, paint = 0x55606a;
+    T.box(1.2, 0.05, 2.4, 0x3a3e38, 0, 0.5, -0.35); for (const s of [-1, 1]) { T.box(0.05, 0.6, 2.4, zinc, s * 0.62, 0.8, -0.35); T.box(0.2, 0.06, 1.0, zinc, s * 0.5, 0.92, 0.1); T.box(0.05, 0.14, 0.05, 0xd8c040, s * 0.48, 1.0, -0.2); }
+    T.box(1.22, 0.5, 0.06, zinc, 0, 0.78, -1.5); T.box(0.6, 0.1, 0.55, 0x4a3a2a, 0, 0.6, 0.35); T.box(0.7, 0.85, 0.08, 0x2a2e2a, 0, 1.05, 0.66);   // seat with an armour plate
+    T.box(0.04, 0.42, 0.04, blk, 0, 0.76, -0.45); T.box(0.1, 0.14, 0.08, blk, 0, 1.0, -0.45); T.box(0.03, 0.03, 0.06, 0xc02020, 0.04, 1.06, -0.47);   // stick with a red gun button
+    T.cyl(0.38, 0.66, 3.2, paint, 0, 0.52, -3.0, -Math.PI / 2, 0, 0, 1, 16); for (const s of [-1, 1]) for (let i = 0; i < 4; i++) T.box(0.1, 0.06, 0.14, 0x2a2622, s * 0.5, 0.75, -2.0 - i * 0.3);   // long nose, exhaust stubs
+    P.box(1.1, 0.34, 0.05, blk, 0, 0.92, -0.86); P.box(1.14, 0.05, 0.3, 0x2a2a2a, 0, 1.1, -0.98);                       // black panel, glare shield
+    for (const [x, y] of [[-0.42, 1.0], [-0.26, 1.0], [-0.1, 1.0], [0.1, 1.0], [0.26, 1.0], [0.42, 1.0], [-0.34, 0.86], [-0.17, 0.86], [0.17, 0.86], [0.34, 0.86], [0, 0.85]]) dial(P, x, y, -0.83, 0.05);
+    P.box(0.06, 0.12, 0.08, blk, 0, 1.17, -1.0); glass.push([0.16, 0.13, 0, 1.3, -1.0, -0.4]);                          // reflector gunsight
+    for (const s of [-1, 1]) { P.box(0.04, 0.55, 0.04, frame, s * 0.42, 1.35, -1.12, -0.5, 0, s * 0.35); P.box(0.04, 0.04, 1.8, frame, s * 0.6, 1.12, -0.2); }
+    P.box(0.04, 0.5, 0.04, frame, 0, 1.36, -1.18, -0.55, 0, 0);                                                         // centre windscreen post
+    for (const z of [-0.65, -0.05, 0.5]) P.add(new THREE.TorusGeometry(0.6, 0.02, 5, 20, Math.PI), frame, 0, 1.12, z);   // canopy bars over your head
+    P.box(0.04, 0.04, 1.4, frame, 0, 1.72, -0.1);
+    glass.push([0.82, 0.5, 0, 1.33, -1.15, -0.55]);
+  } else if (jet) {
+    // a modern jet: dark grey, glass screens, a head-up display, a bubble canopy with almost no frame
+    const F22 = st === 'f22', grey = 0x2a2e33, cons = 0x1e2125, frame = 0x1c1e22;
+    T.box(1.2, 0.05, 2.4, 0x202326, 0, 0.5, -0.35);
+    for (const s of [-1, 1]) {
+      T.box(0.05, 0.55, 2.4, grey, s * 0.62, 0.78, -0.35); T.box(0.26, 0.06, 1.2, cons, s * 0.48, 0.92, 0.05);
+      for (let i = 0; i < 6; i++) T.box(0.05, 0.02, 0.05, [0xd8d8d8, 0xd8c040, 0x808080][i % 3], s * (0.42 + (i % 2) * 0.08), 0.955, -0.4 + Math.floor(i / 2) * 0.2);
+    }
+    T.box(1.22, 0.5, 0.06, grey, 0, 0.78, -1.5);
+    T.box(0.6, 0.12, 0.55, 0x2a2a2a, 0, 0.62, 0.35); T.box(0.62, 0.95, 0.12, 0x2a2a2a, 0, 1.08, 0.66); T.box(0.3, 0.06, 0.05, 0xd8c040, 0, 1.58, 0.6);   // ejection seat with its yellow handle
+    if (F22) { T.box(0.05, 0.16, 0.05, 0x111111, 0.48, 1.02, -0.25); T.box(0.07, 0.08, 0.08, 0x111111, 0.48, 1.12, -0.27); }   // side stick on the right console
+    else { T.box(0.04, 0.42, 0.04, 0x111111, 0, 0.76, -0.45); T.box(0.09, 0.14, 0.08, 0x111111, 0, 1.0, -0.45); }      // centre stick
+    T.box(0.08, 0.12, 0.2, 0x111111, -0.48, 1.0, -0.05);                                                              // throttle
+    T.cyl(0.08, 0.6, 3.6, F22 ? 0x6e747c : 0x8d96a0, 0, 0.52, -3.3, -Math.PI / 2, 0, 0, 1, F22 ? 6 : 16);           // the long pointed nose
+    P.box(1.1, 0.36, 0.06, 0x16181b, 0, 0.9, -0.86); P.box(1.14, 0.05, 0.32, frame, 0, 1.1, -0.98);                    // panel, glare shield
+    if (F22) { screen(0, 0.9, -0.82, 0.42, 0.3, 0x7dffb0); screen(-0.38, 0.92, -0.82, 0.22, 0.22, 0xffc060); screen(0.38, 0.92, -0.82, 0.22, 0.22, 0x7dd0ff); }   // big touch screens
+    else { screen(-0.32, 0.92, -0.82, 0.22, 0.22, 0x7dffb0); screen(0.32, 0.92, -0.82, 0.22, 0.22, 0x7dffb0); screen(0, 0.86, -0.82, 0.24, 0.2, 0xffc060); P.box(0.3, 0.1, 0.04, 0x16181b, 0, 1.03, -0.86); for (let i = 0; i < 5; i++) G.box(0.035, 0.03, 0.01, 0x7dffb0, -0.1 + i * 0.05, 1.03, -0.835); }   // three screens, up-front keypad
+    P.box(0.03, 0.12, 0.03, frame, -0.1, 1.17, -1.0); P.box(0.03, 0.12, 0.03, frame, 0.1, 1.17, -1.0); glass.push([0.26, 0.2, 0, 1.3, -1.0, -0.3]);   // head-up display glass
+    if (!F22) for (const s of [-1, 1]) P.box(0.03, 0.5, 0.03, frame, s * 0.46, 1.32, -1.25, -0.6, 0, s * 0.3);           // slim windscreen bow (the F-22's canopy has none)
+    for (const s of [-1, 1]) P.box(0.03, 0.03, 1.8, frame, s * 0.6, 1.1, -0.25);
+    P.add(new THREE.TorusGeometry(0.62, 0.016, 5, 24, Math.PI), frame, 0, 1.1, 0.6);                                   // canopy frame far behind your head
+  } else {
+    // the stealth bomber: a wide two-seat flight deck under a roof, small angled windows, screens and two sticks
+    const grey = 0x2e3236, frame = 0x1c1e22;
+    T.box(2.4, 0.05, 2.4, 0x222428, 0.55, 0.5, -0.35); for (const x of [-0.65, 1.75]) T.box(0.05, 0.6, 2.4, grey, x, 0.8, -0.35);
+    for (const x of [0, 1.1]) { T.box(0.6, 0.12, 0.55, 0x2a2a2a, x, 0.62, 0.35); T.box(0.62, 0.95, 0.12, 0x2a2a2a, x, 1.08, 0.66); T.box(0.04, 0.4, 0.04, 0x111111, x, 0.76, -0.45); T.box(0.09, 0.14, 0.08, 0x111111, x, 0.98, -0.45); }
+    T.box(0.3, 0.2, 1.0, 0x1e2125, 0.55, 0.62, -0.2); for (let i = 0; i < 4; i++) T.box(0.05, 0.12, 0.05, 0x111111, 0.45 + i * 0.07, 0.78, -0.4);   // centre console with four throttles
+    T.box(2.4, 0.5, 0.06, grey, 0.55, 0.78, -1.5); T.box(6, 0.12, 3, 0x3c4047, 0.55, 0.6, -3.2, 0.12, 0, 0);          // the wide flat wing ahead, sloping away
+    P.box(2.3, 0.4, 0.06, 0x16181b, 0.55, 0.9, -0.86); P.box(2.36, 0.05, 0.32, frame, 0.55, 1.12, -0.98);
+    for (const x of [-0.3, 0.2, 0.9, 1.4]) screen(x, 0.92, -0.82, 0.3, 0.24, x < 0.5 ? 0x7dffb0 : 0xffc060);
+    P.box(2.4, 0.06, 2.0, grey, 0.55, 1.95, -0.2); for (let i = 0; i < 8; i++) G.box(0.04, 0.02, 0.04, i % 3 ? 0x7dffb0 : 0xffc060, -0.2 + i * 0.2, 1.915, -0.5);   // the roof with its overhead switches
+    for (const x of [-0.62, 0.42, 0.78, 1.72]) P.box(0.035, 0.85, 0.035, frame, x, 1.55, -1.1, -0.55, 0, 0);            // slim posts between the windows, none in front of your sight
+    glass.push([2.3, 0.7, 0.55, 1.55, -1.12, -0.55]);
   }
-  P.box(0.2, 0.13, 0.02, 0x163a22, 0, 0.86, -0.86);                                               // a small screen
-  P.box(0.025, 0.08, 0.025, frame, 0, 1.1, -1.06); P.box(0.15, 0.1, 0.008, 0x9fd8ff, 0, 1.18, -1.07, -0.35, 0, 0);   // head-up glass
-  for (const s of [-1, 1]) {
-    P.box(0.022, 0.5, 0.022, frame, s * 0.48, 1.32, -1.22, -0.45, 0, s * 0.3);                   // slim windscreen posts
-    P.box(0.025, 0.025, 1.6, frame, s * 0.6, 1.1, -0.25);                                          // canopy rails
-    P.box(0.12, 0.16, 1.4, trim, s * 0.66, 0.98, -0.15);                                           // low side walls
-    P.box(0.05, 0.08, 0.16, 0x222222, s * 0.6, 1.08, 0.05);                                        // throttle and switches
-  }
-  P.add(new THREE.TorusGeometry(0.62, 0.014, 5, 24, Math.PI), frame, 0, 1.1, 0.4);                // one canopy hoop, behind your head
-  // the tub: a floor, side walls and consoles, the seat, stick and pedals, so looking down shows the cockpit, not the ground
-  const T = new Part();   // the tub is shown in both cockpit views
-  const floor = 0x22262a, wall = 0x30353a, cons = 0x1c1f22, seat = 0x3a2e24, paint = 0x55606a;
-  T.box(1.24, 0.06, 2.4, floor, 0, 0.52, -0.35);                                                  // floor
-  for (const s of [-1, 1]) {
-    T.box(0.06, 0.56, 2.4, wall, s * 0.64, 0.8, -0.35);                                           // side walls, up to the canopy rail
-    T.box(0.22, 0.06, 1.1, cons, s * 0.52, 0.9, 0.05);                                            // side consoles
-    for (let i = 0; i < 4; i++) T.box(0.04, 0.03, 0.04, i % 2 ? 0xd8c040 : 0xd83a2a, s * 0.48, 0.94, -0.3 + i * 0.18);   // switches
-    T.box(0.05, 0.3, 0.05, 0x111111, s * 0.18, 0.6, -1.25); T.box(0.18, 0.04, 0.24, 0x2a2a2a, s * 0.18, 0.56, -1.3);     // rudder pedals
-  }
-  T.box(1.26, 0.5, 0.06, wall, 0, 0.78, -1.5);                                                     // closes the space under the dashboard
-  T.box(0.6, 0.1, 0.55, seat, 0, 0.6, 0.35); T.box(0.6, 0.7, 0.1, seat, 0, 0.95, 0.66);            // the seat
-  T.box(0.04, 0.4, 0.04, 0x111111, 0, 0.75, -0.45); T.box(0.08, 0.12, 0.08, 0x222222, 0, 0.98, -0.45);   // the stick
-  // ahead of the windscreen: the top of the nose, so there is something to judge the horizon by
-  T.cyl(0.32, 0.62, 2.8, paint, 0, 0.5, -2.9, -Math.PI / 2, 0, 0, 1, 16);   // a rounded nose that tapers away below your sight line
-  const full = new THREE.Mesh(P.build(), new THREE.MeshLambertMaterial({ vertexColors: true })); full.visible = false; g.add(full); g.full = full;
-  const tub = new THREE.Mesh(T.build(), new THREE.MeshLambertMaterial({ vertexColors: true })); g.add(tub); g.tub = tub;
-  g.visible = false; _cockpit = g; return g;
+  const mat = new THREE.MeshLambertMaterial({ vertexColors: true });
+  const tub = new THREE.Mesh(T.build(), mat); g.add(tub); g.tub = tub;
+  const full = new THREE.Group(); g.add(full); g.full = full; full.visible = false;
+  full.add(new THREE.Mesh(P.build(), mat)); if (G.pos.length) full.add(new THREE.Mesh(G.build(), new THREE.MeshBasicMaterial({ vertexColors: true })));
+  for (const [w, h, x, y, z, rx] of glass) { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), glassMat); m.position.set(x, y, z); m.rotation.x = rx; m.renderOrder = 6; full.add(m); }
+  g.visible = false; return g;
 }
 // the plane's own body is hidden from its pilot in cockpit view (it only blocked the view)
-function planeBodyVisible(pl, on) { for (const o of pl.model.g.children) if (o !== _cockpit) o.visible = on; if (!on && pl.model.bomb) pl.model.bomb.visible = false; }
+function planeBodyVisible(pl, on) { for (const o of pl.model.g.children) if (!o.userData.cockpit) o.visible = on; if (!on && pl.model.bomb) pl.model.bomb.visible = false; }
 function setPlaneView(v) {
   planeView = v; const pl = player.vehicle;
   const c = cockpitModel();
