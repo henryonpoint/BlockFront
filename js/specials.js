@@ -212,6 +212,17 @@ function jetModel(team, kind) {
   const gunYaw = new THREE.Group(); gunYaw.position.set(0, 0.6, 2.5); g.add(gunYaw); const gunPitch = new THREE.Group(); gunYaw.add(gunPitch);
   g.traverse(o => { if (o.isMesh) o.receiveShadow = true; });
   scene.add(g);
+  if (kind === 'f18' || kind === 'f22') {   // afterburner flames, shown while the afterburner is on
+    const ab = new THREE.Group(); ab.visible = false; g.add(ab);
+    const fm = new THREE.MeshBasicMaterial({ color: 0xff9a3a, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false });
+    const cm = new THREE.MeshBasicMaterial({ color: 0x8fd0ff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
+    for (const sd of [-1, 1]) {
+      const x = sd * (kind === 'f22' ? 0.48 : 0.45), z = kind === 'f22' ? 5.2 : 5.4;
+      const outer = new THREE.Mesh(new THREE.ConeGeometry(0.4, 3.2, 10), fm); outer.rotation.x = Math.PI / 2; outer.position.set(x, 0, z + 1.6); ab.add(outer);
+      const inner = new THREE.Mesh(new THREE.ConeGeometry(0.22, 1.6, 8), cm); inner.rotation.x = Math.PI / 2; inner.position.set(x, 0, z + 0.8); ab.add(inner);
+    }
+    g.userData.ab = ab;
+  }
   return { g, prop, bomb, canopy, gunYaw, gunPitch };
 }
 // World War 1 fighters: a red triplane (three stacked wings, like the famous Red Baron's) and a two-winged biplane

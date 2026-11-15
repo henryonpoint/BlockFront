@@ -244,11 +244,11 @@ function missileTarget(pl) {
 function planeMissile(pl) {
   if ((pl.missileT || 0) > 0) return;
   pl.missileT = 1.4;
-  const t = missileTarget(pl), f = planeFwd(pl), side = (pl.mSide = -(pl.mSide || 1));
+  const t = pl.locked ? pl.lockTgt : null, f = planeFwd(pl), side = (pl.mSide = -(pl.mSide || 1));
   const right = new THREE.Vector3(1, 0, 0).applyQuaternion(pl.quat), from = pl.pos.clone().addScaledVector(right, side * 2.6).add(new THREE.Vector3(0, -0.4, 0)).addScaledVector(f, 2);
   spawnRocket(from, t ? t.pos.clone().sub(from).normalize() : f, player, { speed: 160, homing: true, dmg: 420, radius: 6 });
   const pr = projectiles[projectiles.length - 1]; if (pr) { pr.target = t || null; pr.life = 6; }
-  showMessage(t ? 'Missile away: locked on!' : 'Missile away (no lock)', 1.2);
+  showMessage(t ? 'FOX TWO! Missile locked on and tracking' : 'Missile away (no lock: keep an enemy near your nose to lock on)', 1.6);
 }
 function planeTick(pl, dt) {
   if (pl.missileT > 0) pl.missileT -= dt;
@@ -352,9 +352,24 @@ function updatePlayerPlane(pl, dt) {
   const yawIn = (keys.KeyQ ? 1 : 0) - (keys.KeyE ? 1 : 0);
   pl.inP = lerp(pl.inP, pitchIn, Math.min(1, dt * 5)); pl.inR = lerp(pl.inR, rollIn, Math.min(1, dt * 5)); pl.inY = lerp(pl.inY, yawIn, Math.min(1, dt * 5));
   const fwd = planeFwd(pl);
-  pl.speed += (pl.throttle * 52 * (pl.spdMul || 1) - pl.speed) * dt * 0.4;
+  // afterburner (modern jets): keep holding Shift at full throttle; it uses a boost bar that fills back up
+  const jetAB = pl.kind === 'f18' || pl.kind === 'f22';
+  if (pl.abFuel === undefined) pl.abFuel = 1;
+  pl.ab = jetAB && (keys.ShiftLeft || keys.ShiftRight) && pl.throttle >= 0.99 && pl.abFuel > 0.02 && !pl.onGround;
+  pl.abFuel = clamp(pl.abFuel + (pl.ab ? -dt / 6 : dt / 14), 0, 1);
+  if (pl.model.g.userData.ab) { pl.model.g.userData.ab.visible = pl.ab; if (pl.ab) pl.model.g.userData.ab.scale.set(1, 1, 0.8 + Math.random() * 0.5); }
+  if (pl.ab) camShake = Math.max(camShake, 0.01);
+  // missile lock: keep an enemy near your nose and it locks on (a beep while locking, a steady tone once locked)
+  if (jetAB && typeof missileTarget === 'function') {
+    const t = missileTarget(pl);
+    if (t && t === pl.lockTgt) pl.lockT += dt; else { pl.lockTgt = t; pl.lockT = 0; }
+    pl.locked = !!t && pl.lockT >= 1.2;
+    pl.beepT = (pl.beepT || 0) - dt;
+    if (t && pl.beepT <= 0 && typeof tn === 'function' && typeof actx !== 'undefined' && actx) { pl.beepT = pl.locked ? 0.12 : 0.3; tn('square', pl.locked ? 1650 : 1100, pl.locked ? 1650 : 1100, pl.locked ? 0.1 : 0.06, 0.03); }
+  }
+  pl.speed += (pl.throttle * 52 * (pl.spdMul || 1) * (pl.ab ? 1.6 : 1) - pl.speed) * dt * (pl.ab ? 0.8 : 0.4);
   if (!pl.onGround) pl.speed -= fwd.y * 10 * dt;
-  pl.speed = clamp(pl.speed, 0, 70 * (pl.spdMul || 1));
+  pl.speed = clamp(pl.speed, 0, 70 * (pl.spdMul || 1) * (pl.ab ? 1.6 : 1));
   if (pl.onGround) {
     if (pl.throttle < 0.05 || down) pl.speed = Math.max(0, pl.speed - 14 * dt);
     pl.groundYaw += (-pl.inR + pl.inY) * 0.9 * dt * clamp(pl.speed / 10, 0.3, 1);

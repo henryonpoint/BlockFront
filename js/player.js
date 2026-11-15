@@ -393,8 +393,8 @@ function updateAirTargets() {
       const d = it.pos.distanceTo(camera.position); if (d > 900 || d < 8) continue;
       const p = it.pos.clone().project(camera); if (p.z > 1 || Math.abs(p.x) > 1 || Math.abs(p.y) > 1) continue;
       let el = _airTags[n]; if (!el) { el = document.createElement('div'); el.className = 'hud'; el.style.cssText = 'position:fixed;pointer-events:none;font:700 11px system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#ff5a4a;text-align:center;text-shadow:0 1px 2px #000;transform:translate(-50%,-50%)'; document.body.appendChild(el); _airTags.push(el); }
-      const locked = lock && it.pl === lock.t;
-      el.innerHTML = `<div style="width:22px;height:22px;margin:0 auto;border:2px solid ${locked ? '#ffd54f' : '#ff5a4a'};transform:rotate(45deg)"></div>${locked ? 'LOCKED ' : ''}${Math.round(d)} m`;
+      const mLock = me.lockTgt && (it.pl === me.lockTgt || it.pos === me.lockTgt.pos), locked = (lock && it.pl === lock.t) || (mLock && me.locked);
+      el.innerHTML = `<div style="width:22px;height:22px;margin:0 auto;border:2px solid ${locked ? '#ffd54f' : '#ff5a4a'};transform:rotate(45deg)"></div>${mLock ? (me.locked ? 'MISSILE LOCK ' : 'LOCKING... ') : locked ? 'LOCKED ' : ''}${Math.round(d)} m`;
       el.style.color = locked ? '#ffd54f' : '#ff5a4a';
       el.style.left = ((p.x + 1) / 2 * innerWidth) + 'px'; el.style.top = ((1 - p.y) / 2 * innerHeight + 8) + 'px'; el.style.display = 'block'; n++;
       if (it.pl && d < 600) {   // the lead circle: aim here and the bullets meet the plane
@@ -884,7 +884,7 @@ function updateHUD(dt) {
   if (player.vehicle) {
     const pl = player.vehicle; ph.style.display = 'block';
     $('pSpeed').textContent = Math.round(pl.speed * 3.6) + ' km/h'; $('pAlt').textContent = Math.round(pl.pos.y - heightAt(pl.pos.x, pl.pos.z)) + ' m';
-    $('pThr').textContent = Math.round(pl.throttle * 100) + '%'; $('pBombs').textContent = pl.bombs; $('pHp').textContent = Math.max(0, Math.round(pl.hp / pl.maxHp * 100)) + '%';
+    $('pThr').textContent = Math.round(pl.throttle * 100) + '%' + (pl.ab ? ' AB' : pl.abFuel !== undefined && (pl.kind === 'f18' || pl.kind === 'f22') ? ` (boost ${Math.round(pl.abFuel * 100)}%)` : ''); $('pBombs').textContent = pl.bombs; $('pHp').textContent = Math.max(0, Math.round(pl.hp / pl.maxHp * 100)) + '%';
     const ck = planeView === 'cockpit';
     $('pTip').textContent = IS_TOUCH ? (pl.onGround ? (pl.speed < 24 ? 'Hold THR + to speed up' : 'Pull the stick DOWN to lift off!') : 'Stick: pitch and roll   FIRE guns   BOMB   USE bails out')
       : pl.onGround ? (pl.speed < 24 ? 'Hold Shift to speed up (C to slow down)' : ck ? 'Look up (or press S) to lift off!' : 'Press S to lift off!')
