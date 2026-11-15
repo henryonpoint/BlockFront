@@ -38,8 +38,9 @@ function muzzleWorld() {
 function aimDir(spread) {
   return new THREE.Vector3((Math.random() - 0.5) * 2 * spread, (Math.random() - 0.5) * 2 * spread, -1).normalize().applyQuaternion(camera.quaternion);
 }
-function fireWeapon() {
+function fireWeapon(burstShot) {
   const w = curW(), a = player.ammo[w.id];
+  if (w.type === 'melee') { cooldown = w.rate; saberSwing(w); return; }
   if (w.type === 'mortar') { cooldown = 0.4; mouse.left = false; openMortarView(); return; }   // the mortar aims from above
   if (a.mag <= 0) { if (a.reserve > 0) startReload(); else { SFX.click(); cooldown = 0.3; } return; }
   a.mag--; player.protUntil = 0;
@@ -63,6 +64,7 @@ function fireWeapon() {
     bloom = Math.min(1.6, bloom + w.recoil * (ads ? 2 : 4));
     player.pitch = clamp(player.pitch + w.recoil * (ads ? 0.1 : 0.16), -1.5, 1.5);
     player.yaw += rand(-1, 1) * w.recoil * 0.05;
+    if (w.burst && !burstShot) for (let k = 1; k < w.burst; k++) setTimeout(() => { if (curW() === w && player.alive && !switching && player.ammo[w.id].mag > 0) fireWeapon(true); }, k * 75);   // M16: three-round burst
   } else if (w.type === 'rocket') {
     spawnRocket(origin, aimDir(0), player, { speed: 46, homing: true, dmg: 150, radius: 7 });
     w.model.warhead.visible = false;
@@ -72,6 +74,22 @@ function fireWeapon() {
     spawnBall(origin, aimDir(0).multiplyScalar(26).add(new THREE.Vector3(0, 3, 0)), player, { type: 'grenade', r: 0.12, mass: 0.8, fuse: 2.0, color: 0x2e7d32, radius: 6.5, dmg: 120, power: 30 });
   }
   if (a.mag === 0 && a.reserve > 0) setTimeout(() => { if (curW() === w) startReload(); }, 200);
+}
+// lightsaber: a swing that hits everything in a short arc in front of you
+function saberSwing(w) {
+  w.model.swingT = 1; w.model.swingDir = -(w.model.swingDir || 1);
+  if (SFX.saber) SFX.saber();
+  const hitChars = new Set(); let any = false;
+  for (let i = -3; i <= 3; i++) for (const up of [-0.25, 0, 0.2]) {
+    const d = aimDir(0); d.applyAxisAngle(new THREE.Vector3(0, 1, 0), i * 0.22); d.y += up; d.normalize();
+    const hit = rayHit(camera.position, d, w.range, player.team);
+    if (!hit) continue;
+    const key = hit.char || hit.gv || hit.prop || hit.plane || hit.civ || hit.animal || hit.clown || hit.build;
+    if (!key || hitChars.has(key)) continue; hitChars.add(key);
+    if (applyHit(hit, d, w, player)) any = true;
+    burst(hit.point, 6, 0x66c8ff, 4, 0.3, 0.05);
+  }
+  if (any) { showHitmarker(false); SFX.hit(); }
 }
 function toggleCrouch(force) {
   player.crouch = force !== undefined ? force : !player.crouch;
@@ -443,6 +461,12 @@ function updateViewmodel(dt, moving) {
   if (m.fl.visible) { m.fl.scale.setScalar(0.8 + Math.random() * 0.6); m.fl.rotation.z = Math.random() * 6.28; }
   if (m.spin) { spinSpeed += ((mouse.left && !switching ? 30 : 0) - spinSpeed) * Math.min(1, dt * 3); m.spin.rotation.z += spinSpeed * dt; }
   if (m.drum) m.drum.rotation.y += (cooldown > 0 ? 12 : 0) * dt;
+  if (m.pivot) {   // lightsaber swing and hum
+    if (m.swingT > 0) m.swingT = Math.max(0, m.swingT - dt * 4);
+    const s = Math.sin((1 - m.swingT) * Math.PI) * (m.swingT > 0 ? 1 : 0), dir = m.swingDir || 1;
+    m.pivot.rotation.set(-0.5 - s * 1.1, s * 0.6 * dir, -0.35 + s * 1.6 * dir);
+    m.glow.material.opacity = 0.38 + Math.random() * 0.14;
+  }
   if (m.pump) { const t = cooldown > 0 ? Math.sin(Math.min(1, (W.rate - cooldown) / W.rate * 1.6) * Math.PI) : 0; m.pump.position.z = -0.42 + t * 0.12; m.lh.position.z = -0.42 + t * 0.12; }
 }
 

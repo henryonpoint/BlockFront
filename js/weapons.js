@@ -193,6 +193,64 @@ const BUILD = {
     vhand(g, 0, -0.12, 0.05, -0.25); vhand(g, -0.02, -0.08, -0.28, 0, -0.45);
     return { g, ...vmuzzle(g, 0, 0, -0.5, 0.09, 0x66f0ff), pos: [0.18, -0.17, -0.42], sight: 0.13 };
   },
+  m16() {   // classic M16: carry handle, triangle handguard, black furniture
+    const g = new THREE.Group();
+    vbox(g, 0.058, 0.07, 0.3, VM.metal, 0, 0.035, -0.08); vbox(g, 0.052, 0.06, 0.2, VM.dark2, 0, -0.025, -0.03);
+    vbox(g, 0.02, 0.06, 0.2, VM.metal, 0, 0.1, -0.06); vbox(g, 0.05, 0.02, 0.2, VM.metal, 0, 0.13, -0.06);   // carry handle
+    vbox(g, 0.008, 0.03, 0.02, VM.black, 0, 0.15, 0.03);                                                      // rear sight
+    vcyl(g, 0.04, 0.03, 0.3, VM.black, 0, 0.03, -0.38);                                                        // round handguard
+    for (let i = 0; i < 6; i++) vbox(g, 0.082, 0.006, 0.012, VM.dark2, 0, 0.03, -0.26 - i * 0.045);
+    vbox(g, 0.012, 0.09, 0.012, VM.black, 0, 0.09, -0.56); vbox(g, 0.004, 0.02, 0.004, VM.dot, 0, 0.14, -0.56);  // front sight post
+    vcyl(g, 0.012, 0.012, 0.18, VM.steel, 0, 0.033, -0.62); vcyl(g, 0.02, 0.016, 0.06, VM.black, 0, 0.033, -0.73);
+    vbox(g, 0.044, 0.15, 0.07, VM.metal, 0, -0.1, -0.08, 0.15);                                                // curved magazine
+    vbox(g, 0.045, 0.13, 0.06, VM.rubber, 0, -0.09, 0.07, -0.3);
+    vbox(g, 0.055, 0.08, 0.28, VM.black, 0, -0.005, 0.2); vbox(g, 0.058, 0.1, 0.02, VM.rubber, 0, -0.01, 0.34);  // fixed stock
+    vhand(g, 0, -0.12, 0.08, -0.3); vhand(g, -0.02, -0.06, -0.36, 0, -0.45);
+    return { g, ...vmuzzle(g, 0, 0.033, -0.77, 0.12), pos: [0.17, -0.18, -0.4], sight: 0.14 };
+  },
+  fifty() {   // a huge .50 cal anti-material rifle with a big muzzle brake and scope
+    const g = new THREE.Group();
+    vbox(g, 0.08, 0.11, 0.5, VM.metal, 0, 0.0, -0.05); vbox(g, 0.075, 0.07, 0.4, VM.dark2, 0, 0.01, -0.45);
+    for (let i = 0; i < 6; i++) for (const s of [-1, 1]) vbox(g, 0.004, 0.035, 0.04, VM.black, s * 0.038, 0.01, -0.3 - i * 0.05);
+    vcyl(g, 0.026, 0.024, 0.55, VM.steel, 0, 0.02, -0.75);
+    vbox(g, 0.1, 0.06, 0.14, VM.black, 0, 0.02, -1.05); for (const s of [-1, 1]) vbox(g, 0.012, 0.05, 0.1, VM.steel, s * 0.056, 0.02, -1.05);   // brake
+    vcyl(g, 0.04, 0.04, 0.36, VM.black, 0, 0.11, -0.05); vcyl(g, 0.055, 0.045, 0.1, VM.black, 0, 0.11, -0.26); vcyl(g, 0.05, 0.05, 0.005, VM.lens, 0, 0.11, -0.312);
+    vbox(g, 0.06, 0.12, 0.1, VM.metal, 0, -0.11, -0.1);                                                          // big magazine
+    vbox(g, 0.045, 0.13, 0.06, VM.rubber, 0, -0.1, 0.12, -0.3);
+    vbox(g, 0.07, 0.11, 0.26, VM.metal, 0, -0.01, 0.32); vbox(g, 0.072, 0.13, 0.03, VM.rubber, 0, -0.02, 0.46);
+    for (const s of [-1, 1]) vcyl(g, 0.009, 0.009, 0.3, VM.dark2, s * 0.035, -0.07, -0.55);
+    vhand(g, 0, -0.12, 0.12, -0.3); vhand(g, -0.02, -0.07, -0.38, 0, -0.45);
+    return { g, ...vmuzzle(g, 0, 0.02, -1.13, 0.2), pos: [0.17, -0.17, -0.38], sight: 0.11 };
+  },
+  golden() {   // the golden gun: a slim gold pistol with a long barrel
+    const g = new THREE.Group(), gold = new THREE.MeshPhongMaterial({ color: 0xe8b830, shininess: 120, specular: 0xfff0a0, emissive: 0x2a1c00 });
+    vbox(g, 0.042, 0.05, 0.22, gold, 0, 0.04, -0.06); vcyl(g, 0.014, 0.014, 0.2, gold, 0, 0.045, -0.26);
+    vcyl(g, 0.02, 0.02, 0.02, gold, 0, 0.045, -0.36); vbox(g, 0.044, 0.15, 0.06, gold, 0, -0.08, 0.04, -0.2);
+    vbox(g, 0.008, 0.03, 0.06, gold, 0, -0.025, -0.03); vbox(g, 0.008, 0.016, 0.012, gold, 0, 0.072, -0.14);
+    vhand(g, 0, -0.1, 0.05, -0.25);
+    const m = { g, ...vmuzzle(g, 0, 0.045, -0.38, 0.08, 0xffd040), pos: [0.2, -0.17, -0.42], sight: 0.075 };
+    return m;
+  },
+  blaster() {   // a red laser blaster pistol
+    const g = new THREE.Group(), red = new THREE.MeshBasicMaterial({ color: 0xff3a30 });
+    vbox(g, 0.05, 0.07, 0.24, VM.dark2, 0, 0.04, -0.07); vbox(g, 0.054, 0.014, 0.2, red, 0, 0.06, -0.07);
+    vcyl(g, 0.022, 0.03, 0.12, VM.white, 0, 0.04, -0.24); vcyl(g, 0.016, 0.016, 0.03, red, 0, 0.04, -0.31);
+    for (let i = 0; i < 3; i++) vcyl(g, 0.034, 0.034, 0.01, VM.steel, 0, 0.04, -0.2 - i * 0.03);
+    vbox(g, 0.044, 0.14, 0.06, VM.rubber, 0, -0.07, 0.04, -0.25); vcy(g, 0.016, 0.07, red, 0.035, 0.03, 0.02);
+    vhand(g, 0, -0.1, 0.05, -0.25);
+    return { g, ...vmuzzle(g, 0, 0.04, -0.33, 0.07, 0xff4030), pos: [0.2, -0.17, -0.42], sight: 0.08 };
+  },
+  saber() {   // a lightsaber: metal hilt and a glowing blade on a pivot so it can swing
+    const g = new THREE.Group(), pivot = new THREE.Group(); g.add(pivot);
+    vcy(pivot, 0.024, 0.26, VM.steel, 0, 0, 0); for (let i = 0; i < 5; i++) vcy(pivot, 0.027, 0.012, VM.black, 0, -0.08 + i * 0.03, 0);
+    vcy(pivot, 0.03, 0.04, VM.metal, 0, 0.14, 0); vbox(pivot, 0.012, 0.03, 0.012, VM.dot, 0.026, 0.02, 0);
+    const blade = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.02, 1.0, 10), new THREE.MeshBasicMaterial({ color: 0xeafcff })); blade.position.y = 0.66; pivot.add(blade);
+    const glow = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.045, 1.04, 12), new THREE.MeshBasicMaterial({ color: 0x3aa0ff, transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false })); glow.position.y = 0.66; pivot.add(glow);
+    pivot.rotation.set(-0.5, 0, -0.35);
+    vhand(pivot, 0, -0.04, 0.0, -Math.PI / 2);
+    const f = vmuzzle(g, 0, 0, -0.3, 0.01);
+    return { g, ...f, pivot, glow, pos: [0.2, -0.3, -0.42], sight: 0.2, swingT: 0 };
+  },
 };
 
 const WEAPONS = [
@@ -206,6 +264,11 @@ const WEAPONS = [
   { id: 'gl', name: 'Grenade Launcher', build: 'grenade', type: 'grenade', rate: 0.6, recoil: 0.1, sfx: 'thump', mag: 6, reserve: 24, reloadT: 2.4, price: 700 },
   { id: 'laser', name: 'Laser Rifle', build: 'laser', type: 'hit', auto: true, laser: true, rate: 0.05, spread: 0, dmg: 9, force: 2.5, pellets: 1, recoil: 0.004, sfx: 'laser', mag: 120, reserve: 360, reloadT: 2, price: 1500, tracer: 0x22e6ff },
   { id: 'mortar', name: 'Mortar', build: 'mortar', type: 'mortar', rate: 1.1, recoil: 0, sfx: 'thump', mag: 4, reserve: 16, reloadT: 2.6, price: 1100 },
+  { id: 'm16', name: 'M16', build: 'm16', type: 'hit', burst: 3, rate: 0.36, spread: 0.009, dmg: 30, force: 6, pellets: 1, recoil: 0.035, sfx: 'rifle', mag: 30, reserve: 180, reloadT: 1.9, price: 800, tracer: 0xffe9a0 },
+  { id: 'fifty', name: '.50 Cal Rifle', build: 'fifty', type: 'hit', rate: 1.7, spread: 0.03, dmg: 300, force: 45, pellets: 1, recoil: 0.32, sfx: 'sniper', mag: 5, reserve: 25, reloadT: 3.0, price: 2000, zoom: true, tracer: 0xffffff },
+  { id: 'golden', name: 'Golden Gun', build: 'golden', type: 'hit', rate: 0.6, spread: 0.004, dmg: 99999, force: 30, pellets: 1, recoil: 0.12, sfx: 'pistol', mag: 1, reserve: Infinity, reloadT: 1.5, price: 5000, tracer: 0xffd040 },
+  { id: 'blaster', name: 'Laser Blaster', build: 'blaster', type: 'hit', laser: true, rate: 0.16, spread: 0.004, dmg: 32, force: 3, pellets: 1, recoil: 0.02, sfx: 'laser', mag: 24, reserve: 240, reloadT: 1.4, price: 900, tracer: 0xff3a30 },
+  { id: 'saber', name: 'Lightsaber', build: 'saber', type: 'melee', rate: 0.45, dmg: 160, force: 14, range: 3.6, recoil: 0, sfx: 'click', mag: 1, reserve: Infinity, reloadT: 0.1, price: 1500 },
 ];
 const vmHolder = new THREE.Group(); vmHolder.scale.setScalar(0.8); vmScene.add(vmHolder);
 WEAPONS.forEach(w => { w.model = BUILD[w.build](); w.model.g.visible = false; vmHolder.add(w.model.g); });

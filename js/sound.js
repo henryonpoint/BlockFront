@@ -35,6 +35,7 @@ function shot(v, crack, body, bodyDur, low, lowF) {
 function yelp(v) { const f = 420 + Math.random() * 260; tn('triangle', f, f * 1.35, 0.12, 0.09 * v); tn('triangle', f * 1.35, f * 0.8, 0.45, 0.08 * v, 0.11); tn('sawtooth', f * 0.5, f * 0.42, 0.5, 0.025 * v, 0.02); }
 Object.assign(SFX, {
   yell: (v = 1) => yelp(v),
+  saber: (v = 1) => { tn('sawtooth', 140, 90, 0.35, 0.09 * v); tn('sine', 420, 180, 0.3, 0.12 * v); nz('bandpass', 900, 0.3, 0.12 * v, 2); },
   pistol: (v = 1) => shot(v, 3500, 2600, 0.2, 0.35, 150),
   rifle: (v = 1) => shot(v * 0.85, 4200, 2900, 0.17, 0.4, 130),
   smg: (v = 1) => shot(v * 0.65, 5000, 3600, 0.1, 0.25, 160),
