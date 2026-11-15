@@ -73,7 +73,7 @@ function buildPresence() {
   const p = player, o = {
     v: 2, id: net.myId, jt: net.jt, ig: 1, n: (p.name || 'Soldier').slice(0, 16), t: teamIdx(p.team),
     s: [r10(p.pos.x), r10(p.pos.y), r10(p.pos.z), Math.round(p.yaw * 100), Math.round(p.pitch * 100)],
-    a: p.alive ? 1 : 0, w: p.cur, k: p.kills, d: p.deaths, m: 0, c: p.crouch ? 1 : 0, cf: [WORLD.map, WORLD.mode],
+    a: p.alive ? 1 : 0, w: p.cur, k: p.kills, d: p.deaths, m: 0, c: p.crouch ? 1 : 0, pc: p.parachute && !p.gv && !p.vehicle ? 1 : 0, cf: [WORLD.map, WORLD.mode],
   };
   if (p.turret) { o.m = 1; o.ti = turrets.indexOf(p.turret); o.s[3] = Math.round(p.turret.yaw * 100); o.s[4] = Math.round(p.turret.pitch * 100); }
   if (p.gv) {
@@ -128,7 +128,7 @@ function buildWorld2() {
 }
 
 // ---------- connecting ----------
-const GAME_BUILD = 14;   // bump when vehicles or the world change, so mismatched versions never mix
+const GAME_BUILD = 15;   // bump when vehicles or the world change, so mismatched versions never mix
 // the version number on the start screen and pause menu, so everyone can check they are on the same one
 const GAME_DATE = 'Nov 15, 2026';
 setTimeout(() => { const v = document.getElementById('verTag'); if (v) v.textContent = `Version ${GAME_BUILD}  \u00b7  ${GAME_DATE}${window.STANDALONE ? '' : '  \u00b7  Claude'}`; const p = document.getElementById('verPause'); if (p) p.textContent = `Version ${GAME_BUILD}`; }, 0);
@@ -347,7 +347,7 @@ function netUpdate(dt) {
       if (c.pos.distanceTo(c.netPos) > 8) c.pos.copy(c.netPos); else c.pos.lerp(c.netPos, Math.min(1, dt * 12));
       const sp = before.distanceTo(c.pos) / Math.max(dt, 0.001);
       c.vel.copy(c.pos).sub(before).divideScalar(Math.max(dt, 0.001));
-      c.heading = (c.turret ? s[3] / 100 : s[3] / 100) + Math.PI; c.aimPitch = -s[4] / 100 * -1; c.crouch = !!P.c;
+      c.heading = (c.turret ? s[3] / 100 : s[3] / 100) + Math.PI; c.aimPitch = -s[4] / 100 * -1; c.crouch = !!P.c; c.parachute = !!P.pc;
       animateNPC(c, dt, sp > 0.5 ? Math.min(sp, 8) : 0, true);
       if (c.turret) { c.model.gun.visible = false; }
     }

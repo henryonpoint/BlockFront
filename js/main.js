@@ -213,7 +213,7 @@ function step(dt) {
   guard('projectiles', () => { suppressFx = true; try { updateProjectiles(dt); } finally { suppressFx = false; } });
   guard('builds', () => updateBuilds(dt));
   guard('bullets', () => updateBullets(dt));
-  for (const [n, f] of [['clown', 'updateClown'], ['craters', 'updateCraters'], ['topview', 'updateTopView'], ['animals', 'updateAnimals'], ['loot', 'updateLoot'], ['stickies', 'updateStickies'], ['nukes', 'updateNukes'], ['city', 'updateCity']])
+  for (const [n, f] of [['chutes', 'updateChutes'], ['clown', 'updateClown'], ['craters', 'updateCraters'], ['topview', 'updateTopView'], ['animals', 'updateAnimals'], ['loot', 'updateLoot'], ['stickies', 'updateStickies'], ['nukes', 'updateNukes'], ['city', 'updateCity']])
     if (typeof window[f] === 'function') guard(n, () => window[f](dt));
   if (HOUSTON && typeof updateHouston === 'function') guard('houston', () => updateHouston(dt));
   if (WAKE && typeof updateWake === 'function') guard('wake', () => updateWake(dt));

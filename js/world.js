@@ -662,6 +662,7 @@ function buildNature() {
     }
     if (Math.hypot(x, z) < 64) return false;
     for (const s of settlements) if (Math.hypot(x - s.x, z - s.z) < s.r) return false;
+    if (HOUSTON && typeof hoodAt === 'function' && (hoodAt(x, z) || storeAt(x, z))) return false;   // the suburbs plant their own trees
     if (pathDist(x, z) < clear) return false;
     const h = heightAt(x, z);
     return h > 0.6 && h < 30;
@@ -751,6 +752,7 @@ function buildNature() {
     if (h < 0.5 || h > 20 || pathDist(x, z) < 3) continue;
     let ok = true; for (const t of TEAMS) if (Math.hypot(x - BASES[t].x, z - BASES[t].z) < 32) ok = false;
     if (Math.hypot(x, z) < 16) ok = false;
+    if (HOUSTON && typeof storeAt === 'function' && storeAt(x, z)) ok = false;
     if (!ok) continue;
     if (Math.random() < 0.18) flowers.push({ x, z, y: h, s: 1, r: rand(0, 6) }); else tufts.push({ x, z, y: h, s: rand(0.7, 1.4), r: rand(0, 6) });
   }

@@ -137,7 +137,13 @@ function nearestInteract() {
 }
 function interact() {
   if (!player.alive) return;
-  if (player.gv) { leaveSeat(player); player.velY = 0; player.body3p.root.visible = false; return; }
+  if (player.gv) {
+    // jumping out of a flying helicopter: drop clear of it and pop the parachute
+    const v = player.gv, high = v.T.heli && v.pos.y - groundAt(v.pos.x, v.pos.z, v.pos.y) > 5;
+    leaveSeat(player); player.velY = 0; player.body3p.root.visible = false;
+    if (high) { const right = new THREE.Vector3(Math.cos(v.yaw), 0, -Math.sin(v.yaw)); player.pos.copy(v.pos).addScaledVector(right, v.T.wid / 2 + 1.6); player.pos.y = v.pos.y - 1.2; player.yaw = v.yaw + Math.PI; openChute(); }
+    return;
+  }
   if (player.vehicle) {
     const pl = player.vehicle;
     if (pl.onGround && pl.speed < 12) {
@@ -145,8 +151,7 @@ function interact() {
       player.pos.copy(pl.pos).addScaledVector(right, 4); player.pos.y = heightAt(player.pos.x, player.pos.z);
       pl.throttle = 0;
     } else {
-      player.pos.copy(pl.pos).add(new THREE.Vector3(0, 2.5, 0)); player.velY = 6; player.parachute = true;
-      showMessage('Ejected! Parachute open', 1.5);
+      player.pos.copy(pl.pos).add(new THREE.Vector3(0, 2.5, 0)); openChute(); player.velY = 6;
     }
     pl.pilot = null; player.vehicle = null; pl.waitT = 15;
     const f = planeFwd(pl); player.yaw = Math.atan2(-f.x, -f.z); player.pitch = 0;
@@ -222,6 +227,8 @@ function updatePlayer(dt) {
   const moving = mv.lengthSq() > 0;
   if (moving) mv.normalize().multiplyScalar(speed);
   if (!player.onGround && !moving) mv.copy(player.vel).setY(0).multiplyScalar(0.98);
+  // under a parachute: W glides forward, A/D/S steer, and with no keys you drift slowly the way you face
+  if (player.parachute) { if (moving) mv.normalize().multiplyScalar(keys.KeyW ? 9 : 5); else mv.copy(fwd).multiplyScalar(2.5); }
   player.vel.set(mv.x, player.velY, mv.z);
   const prevX = player.pos.x, prevZ = player.pos.z, wasUnder = !!undergroundAt(prevX, prevZ, player.pos.y);
   player.pos.x += (mv.x + player.push.x) * dt; player.pos.z += (mv.z + player.push.z) * dt;
@@ -229,7 +236,7 @@ function updatePlayer(dt) {
   if (moving && player.onGround) bobT += dt * speed * 1.4;
   if (keys.Space && player.onGround) { if (player.crouch) { toggleCrouch(false); keys.Space = false; } else { player.velY = 7.5; player.onGround = false; } }
   player.velY -= 20 * dt;
-  if (player.parachute) player.velY = Math.max(player.velY, -7);
+  if (player.parachute) player.velY = Math.max(player.velY, -6);
   player.pos.y += player.velY * dt;
   let floor = pushOut(player.pos, 0.4, player.pos.y);
   // deep water: swim at the surface with your head out, instead of walking along the bottom
@@ -252,7 +259,10 @@ function updatePlayer(dt) {
   player.pos.x = clamp(player.pos.x, -EDGE, EDGE); player.pos.z = clamp(player.pos.z, -EDGE, EDGE);
   if (moving) pushProps(player.pos, mv.x, mv.z, 0.4);
   parachuteMesh.visible = player.parachute;
-  if (player.parachute) { parachuteMesh.position.copy(player.pos).add(new THREE.Vector3(0, 6, 0)); parachuteMesh.rotation.y = player.yaw; }
+  if (player.parachute) {
+    player.chuteT = Math.min(1, (player.chuteT || 0) + dt * 1.8);
+    poseChute(parachuteMesh, player.pos, player.yaw, player.chuteT, keys.KeyW ? 1 : 0, (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0));
+  }
 
   // ----- weapons -----
   cooldown -= dt;
@@ -276,11 +286,36 @@ function updatePlayer(dt) {
   const baseFov = SET.fov || 75, targetFov = zoom ? 20 : ads ? baseFov * 0.69 : sprinting ? baseFov + 7 : baseFov;
   if (Math.abs(camera.fov - targetFov) > 0.1) { camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 15); camera.updateProjectionMatrix(); }
 }
-const parachuteMesh = (() => {
-  const g = new THREE.Group();
-  const c = new THREE.Mesh(new THREE.SphereGeometry(3.5, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2.4), new THREE.MeshLambertMaterial({ color: 0x2f6fe0, side: THREE.DoubleSide }));
-  c.scale.y = 0.5; g.add(c); g.visible = false; scene.add(g); return g;
-})();
+// a round parachute: canopy panels in team colour and white, with lines down to the harness
+function makeChute(color) {
+  const g = new THREE.Group(), R = 4, TH = Math.PI / 2.3, team = new Part(), white = new Part(), lines = new Part();
+  for (let i = 0; i < 10; i++) (i % 2 ? white : team).add(new THREE.SphereGeometry(R, 3, 6, i / 10 * Math.PI * 2, Math.PI * 2 / 10, 0, TH), 0xffffff, 0, 0, 0, 0, 0, 0, 1, 0.55, 1);
+  team.add(new THREE.CylinderGeometry(0.5, 0.5, 0.05, 10), 0xffffff, 0, R * 0.55 + 0.02, 0);   // the vent at the top
+  const rimY = Math.cos(TH) * R * 0.55, rimR = Math.sin(TH) * R, up = new THREE.Vector3(0, 1, 0), q = new THREE.Quaternion(), e = new THREE.Euler();
+  for (let i = 0; i < 10; i++) {
+    const a = i / 10 * Math.PI * 2, A = new THREE.Vector3(Math.cos(a) * rimR, rimY, Math.sin(a) * rimR), B = new THREE.Vector3(0, -5.3, 0);
+    const d = B.clone().sub(A), len = d.length(); q.setFromUnitVectors(up, d.normalize()); e.setFromQuaternion(q);
+    lines.add(new THREE.CylinderGeometry(0.02, 0.02, len, 3), 0x333333, (A.x + B.x) / 2, (A.y + B.y) / 2, (A.z + B.z) / 2, e.x, e.y, e.z);
+  }
+  const tm = new THREE.Mesh(team.build(), new THREE.MeshLambertMaterial({ color, side: THREE.DoubleSide }));
+  const wm = new THREE.Mesh(white.build(), new THREE.MeshLambertMaterial({ color: 0xf2f2ee, side: THREE.DoubleSide }));
+  const lm = new THREE.Mesh(lines.build(), new THREE.MeshBasicMaterial({ vertexColors: true }));
+  tm.castShadow = wm.castShadow = true;
+  g.add(tm, wm, lm); g.visible = false; scene.add(g); return g;
+}
+// place a parachute over someone: pops open over half a second, leans into the glide and sways
+function poseChute(g, pos, yaw, open, fwd, side) {
+  const k = 1 - Math.pow(1 - open, 3), sw = Math.sin(simTime * 1.7 + pos.x * 0.1) * 0.05;
+  g.scale.set(0.25 + 0.75 * k, 0.4 + 0.6 * k, 0.25 + 0.75 * k);
+  g.position.set(pos.x, pos.y + 1.6 + 5.3 * (0.4 + 0.6 * k), pos.z);
+  g.rotation.set(-fwd * 0.18 + sw, yaw, -side * 0.22 + sw * 0.6, 'YXZ');
+}
+function openChute() {
+  player.parachute = true; player.chuteT = 0; player.onGround = false;
+  showMessage(IS_TOUCH ? 'Parachute open! Drag to turn and aim, FIRE to shoot' : 'Parachute open! Mouse turns and aims, W glides, click fires', 3);
+  if (typeof SFX !== 'undefined' && SFX.thump) SFX.thump(0.5);
+}
+const parachuteMesh = makeChute(0x2f6fe0);
 function pushPlayerFrom(pos, radius, d) {
   const fall = 1 - d / radius;
   const dir = player.pos.clone().sub(pos).setY(0).normalize();
@@ -834,4 +869,18 @@ function updatePlayerInVehicle(dt) {
   }
   camShake *= Math.exp(-dt * 6);
   if (camera.fov !== (SET.fov || 75)) { camera.fov = SET.fov || 75; camera.updateProjectionMatrix(); }
+}
+// other players floating down under their parachutes (online games)
+const _chutePool = [];
+function updateChutes(dt) {
+  let n = 0;
+  for (const c of chars) {
+    if (!c.parachute || !c.alive || c.vehicle || c.gv || c === player || !c.model) continue;
+    let g = _chutePool[n]; if (!g) { g = _chutePool[n] = makeChute(TEAM_COLOR[c.team] || 0x888888); }
+    g.children[0].material.color.setHex(TEAM_COLOR[c.team] || 0x888888);
+    c.chuteT = Math.min(1, (c.chuteT || 0) + dt * 1.8);
+    g.visible = true; poseChute(g, c.pos, c.heading + Math.PI, c.chuteT, 0, 0); n++;
+  }
+  for (let i = n; i < _chutePool.length; i++) _chutePool[i].visible = false;
+  for (const c of chars) if (!c.parachute) c.chuteT = 0;
 }

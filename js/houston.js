@@ -299,4 +299,5 @@ function waterSpots() {
 }
 function buildHoustonExtras() {
   hRoads(); hDowntown(); hMedical(); hDome(); hHeights(); hShipChannel(); hGalleria(); hSpace();
+  if (typeof buildSuburbs === 'function') buildSuburbs();
 }

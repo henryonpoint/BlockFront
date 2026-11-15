@@ -322,7 +322,7 @@ function rawHeight(x, z) {
   if (HOUSTON) {
     // Houston is famously flat: gentle bumps away from the streets, the bayou cut into the ground, and the lakes
     const pd = pathDist(x, z);
-    h = 2 + (vnoise(x * 0.01 + 5, z * 0.01 - 8) - 0.5) * 1.6 * smooth(5, 26, pd);
+    h = 2 + (vnoise(x * 0.01 + 5, z * 0.01 - 8) - 0.5) * 0.5 * smooth(5, 26, pd);   // nearly dead flat, so neighbourhood streets sit on the ground
     const bd = bayouDist(x, z);
     h = lerp(h, -4.2, smooth(17, 6, bd) * smooth(8, 15, pd));          // roads cross the bayou on bridges
     if (d > MTN) h += Math.pow((d - MTN) / 45, 2) * 18;
