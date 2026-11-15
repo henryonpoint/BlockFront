@@ -49,6 +49,15 @@ detonateNuke = function (at, owner, ghost, mega) {
   _inNuke = true;
   try {
     _detZ.call(this, at, owner, ghost);
+    if (mega) {   // a giant mushroom cloud, a mega crater, and everything for hundreds of meters is flattened
+      const fx = nukeFx[nukeFx.length - 1]; if (fx && fx.kind === 'cloud') { fx.cloud.scale.setScalar(4.5); fx.mega = true; }
+      if (typeof makeCrater === 'function') makeCrater(at, NUKE_R * 3, 'mega');
+      if (!ghost || !net.active || net.isHost) {
+        for (const c of chars) if (c.alive && c.pos.distanceTo(at) < 330) kill(c, owner && owner.team && c !== owner ? owner : null, new THREE.Vector3(c.pos.x - at.x, 4, c.pos.z - at.z).normalize(), 18);
+        for (const v of gvehicles) if (v.alive && v.pos.distanceTo(at) < 330) damageVehicle(v, 99999, owner);
+        for (const pl of planes) if (pl.alive && pl.pos.distanceTo(at) < 400) destroyPlane(pl, owner);
+      }
+    }
     if (mega && (!net.active || net.isHost)) {
       for (const n of npcs) if (n.alive && !n.inactive && (!owner || n.team !== owner.team || n.zombie)) kill(n, owner && owner.team ? owner : null, new THREE.Vector3(n.pos.x - at.x, 3, n.pos.z - at.z).normalize(), 12);
     }

@@ -68,7 +68,7 @@ function detonateNuke(at, owner, ghost) {
 }
 function updateNukes(dt) {
   for (let i = nukeFx.length - 1; i >= 0; i--) {
-    const f = nukeFx[i]; f.t += dt;
+    const f = nukeFx[i]; f.t += f.mega ? dt * 0.5 : dt;   // a mega cloud rises slowly and hangs in the sky
     if (f.kind === 'drop') {
       f.g.position.y -= 11 * dt; f.g.rotation.y += dt * 0.6; f.mk.material.opacity = 0.3 + Math.sin(f.t * 8) * 0.2;
       if (f.g.position.y <= f.at.y + 1.5 || f.t > 7) { scene.remove(f.g); scene.remove(f.mk); nukeFx.splice(i, 1); detonateNuke(f.at, f.owner, f.ghost, f.mega); }

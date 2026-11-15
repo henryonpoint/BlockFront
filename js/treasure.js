@@ -33,20 +33,30 @@ function chestModel() {
     _chestGeo = P.build();
   }
   const g = new THREE.Group();
-  const m = new THREE.Mesh(_chestGeo, new THREE.MeshLambertMaterial({ vertexColors: true, emissive: 0x2a1c00 })); m.castShadow = true; g.add(m);
-  const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.6, 26, 10, 1, true), new THREE.MeshBasicMaterial({ color: 0xffd54f, transparent: true, opacity: 0.18, depthWrite: false, side: THREE.DoubleSide }));
-  beam.position.y = 13; g.add(beam);
+  const m = new THREE.Mesh(_chestGeo, new THREE.MeshLambertMaterial({ vertexColors: true })); m.castShadow = true; g.add(m);   // no glow and no beam: you have to hunt for them
   scene.add(g); return g;
 }
+// chests hide: tucked behind walls, houses, rocks and crates, away from roads. Only if none fits, anywhere quiet.
 function chestSpot() {
-  for (let k = 0; k < 80; k++) {
-    const x = rand(-EDGE + 40, EDGE - 40), z = rand(-EDGE + 40, EDGE - 40), y = heightAt(x, z);
-    if (waterDepth(x, z) > 0.05 || y > 26) continue;
-    if (TEAMS.some(t => Math.hypot(x - BASES[t].x, z - BASES[t].z) < 70)) continue;
-    if (blockedAt(x, z, y, 1, true) || undergroundAt(x, z, y - 1)) continue;
-    if ([...CHESTS.values()].some(c => Math.hypot(c.x - x, c.z - z) < 90)) continue;
-    return { x, z };
+  const okHere = (x, z) => {
+    if (Math.abs(x) > EDGE - 30 || Math.abs(z) > EDGE - 30) return false;
+    const y = heightAt(x, z);
+    if (waterDepth(x, z) > 0.05 || y > 26) return false;
+    if (TEAMS.some(t => Math.hypot(x - BASES[t].x, z - BASES[t].z) < 70)) return false;
+    if (blockedAt(x, z, y, 0.8, true) || undergroundAt(x, z, y - 1)) return false;
+    if ([...CHESTS.values()].some(c => Math.hypot(c.x - x, c.z - z) < 90)) return false;
+    return true;
+  };
+  const boxes = obstacles.filter(o => o.kind === 'box' && o.maxY - o.minY > 1.2 && o.maxX - o.minX < 40 && o.maxZ - o.minZ < 40);
+  for (let k = 0; k < 120 && boxes.length; k++) {
+    const o = boxes[Math.floor(Math.random() * boxes.length)], side = Math.floor(Math.random() * 4);
+    const x = side === 0 ? o.minX - 0.9 : side === 1 ? o.maxX + 0.9 : rand(o.minX + 0.5, o.maxX - 0.5);
+    const z = side === 2 ? o.minZ - 0.9 : side === 3 ? o.maxZ + 0.9 : rand(o.minZ + 0.5, o.maxZ - 0.5);
+    if (pathDist(x, z) < 10) continue;
+    if (POINTS_DEF.some(p => Math.hypot(x - p.x, z - p.z) < 25)) continue;
+    if (okHere(x, z)) return { x, z };
   }
+  for (let k = 0; k < 80; k++) { const x = rand(-EDGE + 40, EDGE - 40), z = rand(-EDGE + 40, EDGE - 40); if (pathDist(x, z) > 15 && okHere(x, z)) return { x, z }; }
   return null;
 }
 function addChest(id, x, z, value, bag) {

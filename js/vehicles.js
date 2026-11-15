@@ -216,9 +216,29 @@ function planeTick(pl, dt) {
 // ground (unless the throttle is low, which means you are coming in to land).
 let planeView = 'chase';
 let _cockpit = null;
+let cockpitFull = false;   // the third view: the full cockpit, with dashboard, dials, gunsight and canopy frame
 function cockpitModel() {
   if (_cockpit) return _cockpit;
-  const g = new THREE.Group();   // an open view: nothing in the way, just the crosshair, nose marker and flight panel
+  const g = new THREE.Group();   // the open view has nothing in the way; the full cockpit lives in g.full
+  const P = new Part(), frame = 0x2c3034, dash = 0x1d1f22, trim = 0x4a5056;
+  P.box(1.3, 0.36, 0.3, dash, 0, 1.02, -1.0); P.box(1.34, 0.05, 0.42, frame, 0, 1.21, -1.04);     // dashboard with a padded top
+  for (const [x, y] of [[-0.42, 1.04], [-0.14, 1.07], [0.14, 1.07], [0.42, 1.04], [-0.28, 0.93], [0.28, 0.93]]) {
+    P.cyl(0.07, 0.07, 0.02, 0xf2f2ee, x, y, -0.84, Math.PI / 2, 0, 0, 1, 16);                     // dials
+    P.cyl(0.078, 0.078, 0.015, 0x111111, x, y, -0.845, Math.PI / 2, 0, 0, 1, 16);
+    P.box(0.01, 0.05, 0.01, 0xd8262a, x, y + 0.018, -0.828);                                    // needles
+  }
+  P.box(0.18, 0.12, 0.02, 0x2a8a3a, 0, 0.93, -0.84);                                              // a small green radar screen
+  P.box(0.03, 0.16, 0.03, frame, 0, 1.3, -1.08); P.box(0.16, 0.12, 0.01, 0x88ccff, 0, 1.42, -1.1, -0.3, 0, 0);   // gunsight and its glass
+  for (const s of [-1, 1]) {
+    P.box(0.04, 0.6, 0.04, frame, s * 0.5, 1.45, -1.25, -0.35, 0, s * 0.25);                       // windscreen posts
+    P.box(0.04, 0.04, 1.8, frame, s * 0.6, 1.24, -0.3);                                           // canopy rails
+    P.box(0.18, 0.28, 1.6, trim, s * 0.68, 1.05, -0.2);                                           // side walls
+    P.box(0.06, 0.1, 0.2, 0x222222, s * 0.62, 1.22, 0.05);                                        // throttle and switches
+  }
+  P.add(new THREE.TorusGeometry(0.62, 0.025, 6, 20, Math.PI), frame, 0, 1.24, -0.75);             // canopy hoop
+  P.add(new THREE.TorusGeometry(0.62, 0.025, 6, 20, Math.PI), frame, 0, 1.24, 0.35);
+  P.box(0.05, 0.05, 1.1, frame, 0, 1.86, -0.2);                                                   // top frame
+  const full = new THREE.Mesh(P.build(), new THREE.MeshLambertMaterial({ vertexColors: true })); full.visible = false; g.add(full); g.full = full;
   g.visible = false; _cockpit = g; return g;
 }
 // the plane's own body is hidden from its pilot in cockpit view (it only blocked the view)
@@ -230,9 +250,12 @@ function setPlaneView(v) {
   else c.visible = false;
   try { localStorage.setItem('bf_planeView', v); } catch (e) { }
 }
-function togglePlaneView() {
-  setPlaneView(planeView === 'chase' ? 'cockpit' : 'chase');
-  showMessage(planeView === 'cockpit' ? 'Cockpit view: the plane flies where you look. Move the mouse to steer. V for the outside view' : 'Outside view: W/S pitch, A/D roll. V for the cockpit', 3);
+function togglePlaneView() {   // V: outside view, then the open cockpit, then the full cockpit
+  if (planeView === 'chase') { cockpitFull = false; setPlaneView('cockpit'); }
+  else if (!cockpitFull) cockpitFull = true;
+  else { cockpitFull = false; setPlaneView('chase'); }
+  cockpitModel().full.visible = planeView === 'cockpit' && cockpitFull;
+  showMessage(planeView !== 'cockpit' ? 'Outside view: W/S pitch, A/D roll. V for the cockpit' : cockpitFull ? 'Full cockpit view. V for the outside view' : 'Open cockpit view: the plane flies where you look. V for the full cockpit', 3);
 }
 try { if (localStorage.getItem('bf_planeView') === 'cockpit') planeView = 'cockpit'; } catch (e) { }
 const _eE = new THREE.Euler();

@@ -1051,7 +1051,8 @@ function updatePlayerInVehicle(dt) {
     if (v.T.heli && S.role === 'drive' && heliView === 'cockpit') {
       // in the pilot's seat: looking out through the big nose window, mouse up and down aims the guns
       camera.position.copy(new THREE.Vector3(0, 1.95, -2.0).applyQuaternion(vehicleQuat(v)).add(v.pos));
-      if (!v._rotorHidden) { for (const o of v.model.g.children) o.visible = false; v._rotorHidden = true; }   // open view: nothing of the helicopter in the way
+      if (heliFull) { if (v._rotorHidden) { for (const o of v.model.g.children) o.visible = true; v._rotorHidden = false; } }   // full cockpit: the helicopter around you
+      else if (!v._rotorHidden) { for (const o of v.model.g.children) o.visible = false; v._rotorHidden = true; }   // open view: nothing of the helicopter in the way
       camera.rotation.set(-cp * 0.9 + v.pitch * 0.5, v.yaw, -v.roll * 0.4, 'YXZ');
       const fov = (SET.fov || 75) + 10; if (Math.abs(camera.fov - fov) > 0.1) { camera.fov = fov; camera.updateProjectionMatrix(); }
       if (player.body3p) player.body3p.root.visible = false;
@@ -1117,10 +1118,13 @@ function updatePlaneGun(dt) {
 // helicopter pilot: V switches between the outside camera and the cockpit (remembered)
 let heliView = 'chase';
 try { if (localStorage.getItem('bf_heliView') === 'cockpit') heliView = 'cockpit'; } catch (e) { }
-function toggleHeliView() {
-  heliView = heliView === 'chase' ? 'cockpit' : 'chase';
+let heliFull = false;
+function toggleHeliView() {   // V: outside, open cockpit, full cockpit
+  if (heliView === 'chase') { heliView = 'cockpit'; heliFull = false; }
+  else if (!heliFull) heliFull = true;
+  else { heliView = 'chase'; heliFull = false; }
   try { localStorage.setItem('bf_heliView', heliView); } catch (e) { }
-  showMessage(heliView === 'cockpit' ? 'Cockpit view: mouse turns and aims, the crosshair shows where your guns and rockets go. V for the outside view' : 'Outside view. V for the cockpit', 3);
+  showMessage(heliView !== 'cockpit' ? 'Outside view. V for the cockpit' : heliFull ? 'Full cockpit view. V for the outside view' : 'Open cockpit view: the crosshair shows where your guns and rockets go. V for the full cockpit', 3);
 }
 // other players floating down under their parachutes (online games)
 const _chutePool = [], _gliderPool = [];
