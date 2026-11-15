@@ -119,6 +119,7 @@ function buildWorld1() {
     o.FPS = Math.round(typeof fpsNow === 'function' ? fpsNow() : 0);
     if (typeof towerMask === 'function' && TOWERS.length) o.TW = towerMask();
     if (typeof treasureState === 'function') o.TR = treasureState();
+    if (typeof zombieState === 'function') { const zb = zombieState(); if (zb.length) o.ZB = zb; }
     o.CHT = net.allowCheats ? 1 : 0; net.cheatsAllowed = !!net.allowCheats;
     if (typeof SPAWNED !== 'undefined' && SPAWNED.length) o.VS = SPAWNED;
     o.CF = [BATTLE.points, BATTLE.soldiers, BATTLE.diff]; o.HS = [Math.round(holdScore.blue), Math.round(holdScore.red)]; if (typeof clownNetState === 'function') o.CL = clownNetState();
@@ -142,7 +143,7 @@ function buildWorld2() {
 }
 
 // ---------- connecting ----------
-const GAME_BUILD = 29;   // bump when vehicles or the world change, so mismatched versions never mix
+const GAME_BUILD = 30;   // bump when vehicles or the world change, so mismatched versions never mix
 // the version number on the start screen and pause menu, so everyone can check they are on the same one
 const GAME_DATE = 'Nov 15, 2026';
 setTimeout(() => { const v = document.getElementById('verTag'); if (v) v.textContent = `Version ${GAME_BUILD}  \u00b7  ${GAME_DATE}${window.STANDALONE ? '' : '  \u00b7  Claude'}`; const p = document.getElementById('verPause'); if (p) p.textContent = `Version ${GAME_BUILD}`; }, 0);
@@ -455,7 +456,9 @@ function applyFx(e, src) {
     const bomb = e[9] === 1;
     spawnBall(new THREE.Vector3(e[3], e[4], e[5]), new THREE.Vector3(e[6], e[7], e[8]), ghostOwner(e[2], src), { ghost: true, type: bomb ? 'bomb' : 'grenade', bomb, r: bomb ? 0.32 : 0.12, mass: bomb ? 25 : 0.8, fuse: e[10], color: bomb ? 0x30343a : 0x2e7d32, radius: e[11], impact: bomb });
   } else if (k === 'nk') {
-    dropNuke(new THREE.Vector3(e[3], 0, e[4]), ghostOwner(e[2], src), true);
+    dropNuke(new THREE.Vector3(e[3], 0, e[4]), ghostOwner(e[2], src), true, !!e[5]);
+  } else if (k === 'zb') {
+    playAt('yell', new THREE.Vector3(e[2], heightAt(e[2], e[3]) + 1, e[3]), 0.7);
   } else if (k === 'sk') {
     makeSticky(new THREE.Vector3(e[3], e[4], e[5]), new THREE.Vector3(e[6], e[7], e[8]), ghostOwner(e[2], src), true);
   } else if (k === 'w') {
@@ -495,6 +498,7 @@ function applySnapshot(P, dt) {
   if (P.TW && typeof applyTowerMask === 'function') applyTowerMask(P.TW);
   if (P.TR && typeof applyTreasure === 'function') applyTreasure(P.TR);
   if (P.CHT !== undefined) net.cheatsAllowed = !!P.CHT;
+  if (typeof applyZombies === 'function') applyZombies(P.ZB);
   if (P.VS && typeof applySpawned === 'function') applySpawned(P.VS);
 }
 function applyNpcSnap(d, i) {

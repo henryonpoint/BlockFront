@@ -65,6 +65,7 @@ function cheatsOK() { return !net.active || !!net.cheatsAllowed; }
       <div class="sub">Cheats and settings, any time in the battle.${net.active ? (ok ? ' Cheats are ON in this online game.' : ' Online: cheats are off unless the host turns them on.') : ''}</div>`;
     if (host) h += `<div class="row">${b(net.allowCheats ? 'Cheats allowed for everyone' : 'Allow cheats for everyone', net.allowCheats, 'allow')}</div>`;
     h += `<h3>Cheats</h3><div class="row">${b('God mode', CHEAT.god, 'god', !ok)}${b('Endless ammo', CHEAT.ammo, 'ammo', !ok)}${b('Endless money', CHEAT.money, 'money', !ok)}${b('+$10,000', false, 'cash', !ok)}${b('Full health', false, 'heal', !ok)}</div>`;
+    if (typeof ZOMBIE !== 'undefined') h += `<h3>Zombies</h3><div class="row">${b(ZOMBIE.on ? 'Zombie mode on' : 'Zombie mode', ZOMBIE.on, 'zombie', !ok || (net.active && !net.isHost))}${b('Start an outbreak', false, 'outbreak', !ok || !ZOMBIE.on || (net.active && !net.isHost))}</div><div class="sub">With zombie mode on, soldiers killed by a nuke get back up as zombies, and anyone a zombie kills turns too.</div>`;
     h += `<h3>Weapons</h3><div class="row">${WEAPONS.map(w => b(w.name, player.owned[w.id], 'give:' + w.id, !ok)).join('')}</div>`;
     const vlist = typeof CHEAT_VEHICLES !== 'undefined' ? CHEAT_VEHICLES : [];
     if (vlist.length) h += `<h3>Spawn a vehicle next to you</h3><div class="row">${vlist.map(v => b(v.name, false, 'veh:' + v.id, !ok)).join('')}</div>`;
@@ -88,6 +89,8 @@ function cheatsOK() { return !net.active || !!net.cheatsAllowed; }
     else if (fn === 'money' && need()) CHEAT.money = !CHEAT.money;
     else if (fn === 'cash' && need()) { addMoney(10000, 'Cheat'); }
     else if (fn === 'heal' && need()) { player.hp = 100; player.armor = 100; }
+    else if (fn === 'zombie' && need() && !(net.active && !net.isHost)) { ZOMBIE.on = !ZOMBIE.on; out(ZOMBIE.on ? 'Zombie mode on: nuke some soldiers, or start an outbreak' : 'Zombie mode off'); }
+    else if (fn === 'outbreak' && need() && ZOMBIE.on && !(net.active && !net.isHost)) { startOutbreak(); out('Outbreak! Eight soldiers have turned'); }
     else if (fn === 'give') give(arg);
     else if (fn === 'veh') spawnVehicle(arg);
     else if (fn === 'tpmap' && need()) { close(); openTopView({ mode: 'tp', span: 700, blast: 3, onPick: p => { closeTopView(); teleportTo(p.x, p.z); showMessage('Teleported!', 1.5); return true; } }); return; }

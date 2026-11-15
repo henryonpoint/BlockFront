@@ -349,7 +349,7 @@ function applyHit(hit, dir, w, shooter) {
     burst(hit.point, 5, [0xff4fa0, 0xffd23f, 0x6ef07a][Math.floor(Math.random() * 3)], 4, 0.4, 0.08);
     return true;
   }
-  if (hit.char && hit.char.team !== shooter.team) {
+  if (hit.char && (hit.char.team !== shooter.team || hit.char.zombie)) {
     const dmg = w.dmg * (hit.head ? 2 : 1);
     damage(hit.char, dmg, shooter, dir, w.force * 2.5, hit.head);
     if (shooter === player) dmgNumber(hit.point, dmg, hit.head);
@@ -362,11 +362,11 @@ function applyHit(hit, dir, w, shooter) {
     if (pr.kind === 'barrel') { pr.hp -= w.dmg / 30; if (pr.hp <= 0) setTimeout(() => explodeBarrel(pr, shooter), 60); }
     burst(hit.point, 3, pr.kind === 'crate' ? 0x8a5a2b : 0xffdd88, 3, 0.4, 0.05);
   } else if (hit.plane) {
-    damagePlane(hit.plane, w.dmg * 0.6, shooter);
+    damagePlane(hit.plane, Math.min(w.dmg, 200) * 0.6, shooter);   // the Golden Gun one-shots people, not planes
     burst(hit.point, 5, 0xffdd88, 5, 0.3, 0.05);
     hitEnemy = true;
   } else if (hit.gv) {
-    damageVehicle(hit.gv, (w.dmg || 15) * hit.gv.T.bulletMult, shooter);
+    damageVehicle(hit.gv, Math.min(w.dmg || 15, 300) * hit.gv.T.bulletMult, shooter);
     burst(hit.point, 4, 0xffdd88, 4, 0.3, 0.05);
     if (hit.gv.team !== shooter.team) hitEnemy = true;
   } else if (hit.build) {

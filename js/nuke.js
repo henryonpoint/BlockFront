@@ -20,7 +20,7 @@ function launchNuke(at) {
   dropNuke(at, player, false);
   netFx(['nk', teamIdx(player.team), +at.x.toFixed(1), +at.z.toFixed(1)]);
 }
-function dropNuke(at, owner, ghost) {
+function dropNuke(at, owner, ghost, mega) {
   SFX.siren(1);
   const g = new THREE.Group(), p = new Part();
   p.cyl(0.55, 0.55, 2.4, 0xd8c230, 0, 0, 0); p.ball(0.55, 0xd8c230, 0, 1.2, 0); p.cyl(0.55, 0.2, 0.7, 0x2a2a2a, 0, -1.55, 0);
@@ -35,7 +35,7 @@ function dropNuke(at, owner, ghost) {
   // a red smoke marker at the target
   const mk = new THREE.Mesh(new THREE.RingGeometry(NUKE_R - 1, NUKE_R, 64), new THREE.MeshBasicMaterial({ color: 0xff3020, transparent: true, opacity: 0.45, side: THREE.DoubleSide, depthWrite: false }));
   mk.rotation.x = -Math.PI / 2; mk.position.set(at.x, gy + 0.3, at.z); scene.add(mk);
-  nukeFx.push({ kind: 'drop', g, mk, at: new THREE.Vector3(at.x, gy, at.z), t: 0, owner, ghost });
+  nukeFx.push({ kind: 'drop', g, mk, at: new THREE.Vector3(at.x, gy, at.z), t: 0, owner, ghost, mega });
 }
 function detonateNuke(at, owner, ghost) {
   // the damage: a huge blast, then a second ring further out
@@ -71,7 +71,7 @@ function updateNukes(dt) {
     const f = nukeFx[i]; f.t += dt;
     if (f.kind === 'drop') {
       f.g.position.y -= 11 * dt; f.g.rotation.y += dt * 0.6; f.mk.material.opacity = 0.3 + Math.sin(f.t * 8) * 0.2;
-      if (f.g.position.y <= f.at.y + 1.5 || f.t > 7) { scene.remove(f.g); scene.remove(f.mk); nukeFx.splice(i, 1); detonateNuke(f.at, f.owner, f.ghost); }
+      if (f.g.position.y <= f.at.y + 1.5 || f.t > 7) { scene.remove(f.g); scene.remove(f.mk); nukeFx.splice(i, 1); detonateNuke(f.at, f.owner, f.ghost, f.mega); }
       continue;
     }
     const t = f.t;

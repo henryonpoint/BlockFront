@@ -164,7 +164,7 @@ function updateEffects(dt) {
 let camShake = 0;
 function damage(c, amount, attacker, dir, force = 4, headshot = false) {
   if (!c.alive || gameOver) return;
-  if (attacker && attacker.team === c.team && attacker !== c) return;
+  if (attacker && attacker.team === c.team && attacker !== c && !attacker.zombie && !c.zombie) return;   // zombies are on nobody's side
   if (c.isPlayer && simTime < (c.protUntil || 0)) return;   // spawn shield
   if (c.isPlayer && typeof godOn === 'function' && godOn()) return;   // god mode: nothing hurts you
   if (c.isPlayer && attacker && !attacker.isPlayer) showHitDir(attacker.pos || attacker.chest && attacker.chest());

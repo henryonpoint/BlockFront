@@ -204,6 +204,7 @@ function terrainColor(x, z, h, slope) {
   if (HOUSTON) return terrainColorHouston(x, z, h, slope);
   if (SNOW) return terrainColorSnow(x, z, h, slope);
   if (DESERT) return terrainColorDesert(x, z, h, slope);
+  if ((GERMANY || NORMANDY || DAM) && typeof terrainColorLevel === 'function') return terrainColorLevel(x, z, h, slope);
   const n = vnoise(x * 0.05, z * 0.05), nf = vnoise(x * 0.21 + 9, z * 0.21 - 3), nb = vnoise(x * 0.008 - 20, z * 0.008 + 5);
   const c = new THREE.Color().setRGB(lerp(0.27, 0.42, n), lerp(0.48, 0.63, n), lerp(0.17, 0.25, n));
   c.multiplyScalar(0.9 + nf * 0.16);                                           // small light and dark patches in the grass
@@ -251,11 +252,13 @@ function shadeY(g, lo = 0.65, hi = 1.1) {
 }
 function buildTerrain() {
   // flatten important places
-  for (const p of POINTS_DEF) addFlatCircle(p.x, p.z, 17, 18);
+  for (const p of POINTS_DEF) if (!(DAM && p.n === 'C')) addFlatCircle(p.x, p.z, DAM && p.n === 'D' ? 12 : 17, 18);   // the dam's middle point stays on the crest
   if (SNOW) {
     // big level sites for the Russian landmarks
     addFlatCircle(0, 0, 60, 26, Math.max(rawHeight(0, 0), 1) + 4);           // the Kremlin sits a little above the passes
     for (const [n, r] of [['A', 58], ['E', 58], ['B', 52], ['D', 52], ['G', 54], ['F', 34]]) addFlatCircle(PD[n].x, PD[n].z, r, 22);
+  } else if (DAM || NORMANDY) {
+    // no big centre square here
   } else if (!WAKE) {
   addFlatCircle(0, 0, 58, 25);
   for (const p of [PD.F, PD.G, PD.A]) addFlatCircle(p.x, p.z, 36, 20);
@@ -265,7 +268,7 @@ function buildTerrain() {
     addFlatCircle(BASES[t].x, BASES[t].z, 34, 22);
     const r = RUNWAYS[t]; if (r) addFlatRect(r.x, r.z, r.len / 2 + (SNOW ? 140 : 8), r.wid / 2 + (SNOW ? 24 : 6), SNOW ? 40 : 22);
   }
-  if (!WAKE) chooseBunkerSites();
+  if (!WAKE && !DAM) chooseBunkerSites();
   if (typeof chooseNestSites === 'function') chooseNestSites();
   buildHeights();
 
@@ -322,6 +325,8 @@ function buildTerrain() {
   waterMesh = new THREE.Group(); scene.add(waterMesh);
   if (SNOW) { const ice = new THREE.MeshPhongMaterial({ color: 0xbfd8ea, shininess: 110, specular: 0xffffff, transparent: true, opacity: 0.85 }); for (const L of LAKES) { const im = new THREE.Mesh(new THREE.CircleGeometry(L.r + 2, 48), ice); im.rotation.x = -Math.PI / 2; im.position.set(L.x, ICE_Y + 0.06, L.z); im.receiveShadow = true; scene.add(im); } return; }
   if (WAKE) { const sea = new THREE.Mesh(new THREE.PlaneGeometry(3200, 3200, 1, 1), waterMat); sea.rotation.x = -Math.PI / 2; sea.position.y = WATER_Y; waterMesh.add(sea); }
+  if (NORMANDY) { const sea = new THREE.Mesh(new THREE.PlaneGeometry(3200, 1500, 1, 1), waterMat); sea.rotation.x = -Math.PI / 2; sea.position.set(0, WATER_Y, 300 + 750); waterMesh.add(sea); }
+  if (DAM) { const res = new THREE.Mesh(new THREE.PlaneGeometry(560, 340, 1, 1), waterMat); res.rotation.x = -Math.PI / 2; res.position.set(0, WATER_Y, -230); waterMesh.add(res); }
   if (HOUSTON) {   // Buffalo Bayou: a ribbon of water along its winding line
     const pts = []; for (let i = 0; i < BAYOU.length - 1; i++) { const a = BAYOU[i], b = BAYOU[i + 1], n = Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / 6); for (let k = 0; k < n; k++) pts.push({ x: lerp(a.x, b.x, k / n), z: lerp(a.z, b.z, k / n) }); }
     pts.push(BAYOU[BAYOU.length - 1]);
@@ -663,6 +668,7 @@ function buildNature() {
     if (Math.hypot(x, z) < 64) return false;
     for (const s of settlements) if (Math.hypot(x - s.x, z - s.z) < s.r) return false;
     if (HOUSTON && typeof hoodAt === 'function' && (hoodAt(x, z) || storeAt(x, z))) return false;   // the suburbs plant their own trees
+    if ((NORMANDY && z > 222) || (GERMANY && Math.hypot(x, z) < 190) || (DAM && z > -70 && z < 130 && Math.abs(x) < 150)) return false;   // no trees on the beach, in the old town or in the gorge
     if (pathDist(x, z) < clear) return false;
     const h = heightAt(x, z);
     return h > 0.6 && h < 30;
@@ -943,17 +949,18 @@ function mergeStatic() {
 
 function buildWorld() {
   buildTerrain();
-  if (!WAKE) buildBunkers();
+  if (!WAKE && !DAM) buildBunkers();
   if (typeof buildNests === 'function') buildNests();
-  if (!SNOW && !HOUSTON && !WAKE) { buildTown(); buildFarm(); }
+  if (!SNOW && !HOUSTON && !WAKE && !DAM) { if (!GERMANY) buildTown(); buildFarm(); }
   TEAMS.forEach(t => { if (!(WAKE && t === 'blue')) buildBase(t); });
   buildPoints();
-  if (!WAKE) buildTunnels();
+  if (!NO_TUNNELS) buildTunnels();
   if (!WAKE) buildNature();
   buildClouds();
   if (SNOW && typeof buildSnowExtras === 'function') buildSnowExtras();
   if (DESERT && typeof buildDesertExtras === 'function') buildDesertExtras();
   if (HOUSTON && typeof buildHoustonExtras === 'function') buildHoustonExtras();
   if (WAKE && typeof buildWakeExtras === 'function') buildWakeExtras();
+  if ((GERMANY || NORMANDY || DAM) && typeof buildLevelExtras === 'function') buildLevelExtras();
   mergeStatic();
 }

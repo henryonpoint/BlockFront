@@ -408,6 +408,8 @@ function resetVehicle(v) {
   for (const c of occupants(v)) leaveSeat(c);
   v.pos.set(v.spawn.x, v.spawn.y !== undefined ? v.spawn.y : heightAt(v.spawn.x, v.spawn.z), v.spawn.z); v.lastGround = v.pos.y; v.yaw = v.spawn.yaw; v.speed = 0; v.vy = 0; v.pitch = 0; v.roll = 0;
   v.hp = v.T.hp; v.alive = true; v.turretYaw = 0; v.gunPitch = 0; v.mgYaw = v.yaw; v.aiGoal = null; v.route = null; v.airborne = false; v.lastGround = v.pos.y; if (v.vel) v.vel.set(0, 0, 0); v.rotorSpin = 0; v.restT = 0;
+  v.launched = false; v.burn = 0;   // a mini rocket stands ready again
+  if (v.model.flame) v.model.flame.visible = false;
   v.model.g.visible = true; placeVehicleModel(v);
 }
 

@@ -191,7 +191,7 @@ function simHeli(v, dt, inp) {
   }
   const g2 = groundAt(v.pos.x, v.pos.z, v.pos.y + 0.5);
   if (v.pos.y <= g2) {
-    if (v.vel.y < -11) damageVehicle(v, (-v.vel.y - 11) * 35, null);
+    if (v.vel.y < -11 && !T.agile) damageVehicle(v, (-v.vel.y - 11) * 35, null);   // the skateboard lands softly
     v.pos.y = g2; v.vel.y = Math.max(0, v.vel.y);
     v.vel.x *= Math.exp(-dt * 5); v.vel.z *= Math.exp(-dt * 5);
   }
@@ -283,7 +283,10 @@ function buildHelisAndBoats() {
       helipadMesh(spot[0], v.pos.y, spot[1]);
     }
     // a gun boat on each of the two big lakes, on each team's side
-    if (t === 'blue' || t === 'red') for (const L of SNOW ? [] : [LAKES[0], LAKES[1]]) {
+    if (NORMANDY && t === 'blue') { for (const x of [-120, -40, 40, 120]) makeGV('boat', t, x, 390, Math.PI, WATER_Y); continue; }   // landing boats off the beach
+    if (NORMANDY) continue;
+    if (DAM) { if (t === 'blue' || t === 'red') makeGV('boat', t, t === 'blue' ? 60 : -60, t === 'blue' ? -110 : -320, t === 'blue' ? 0 : Math.PI, WATER_Y); continue; }   // boats on the reservoir
+    if (t === 'blue' || t === 'red') for (const L of SNOW ? [] : [LAKES[0], LAKES[1]].filter(Boolean)) {
       const z = L.z + s * L.r * 0.45, x = L.x;
       makeGV('boat', t, x, z, t === 'blue' ? Math.PI * 0.5 : -Math.PI * 0.5, WATER_Y);
     } else if (!SNOW && LAKES.length) {   // green and yellow: a boat on the lake nearest their base, on the side facing it

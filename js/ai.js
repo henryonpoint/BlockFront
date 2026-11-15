@@ -83,7 +83,7 @@ function pushProps(pos, vx, vz, strength) {
 
 // ---------- spawning ----------
 function enemiesNear(p, team, extra = 10) {
-  let n = 0; for (const c of chars) if (c.alive && c.team !== team && !c.vehicle && Math.hypot(c.pos.x - p.x, c.pos.z - p.z) < p.r + extra) n++;
+  let n = 0; for (const c of chars) if (c.alive && !c.zombie && c.team !== team && !c.vehicle && Math.hypot(c.pos.x - p.x, c.pos.z - p.z) < p.r + extra) n++;
   return n;
 }
 function findSpawn(team, pref) {
@@ -159,7 +159,7 @@ function npcThink(n, S) {
   const eye = n.eye();
   const cands = [];
   for (const c of chars) {
-    if (!c.alive || c.team === n.team || c.vehicle || c.inactive || (c.gv && !c.exposed)) continue;
+    if (!c.alive || (c.team === n.team && !c.zombie) || c.vehicle || c.inactive || (c.gv && !c.exposed)) continue;
     const d = c.pos.distanceTo(n.pos);
     if (d < S.range) cands.push([d - (c === n.alertedBy ? 30 : 0), c]);
   }

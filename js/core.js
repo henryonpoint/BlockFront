@@ -4,7 +4,7 @@
 // ---------- which map and game mode this page builds ----------
 // The world is built once when the page loads, so changing the map or mode reloads the page.
 // A join that needs a different map stores what it needs in sessionStorage first ('bf_force').
-const MAPS = { green: 'Green valley', snow: 'Snow mountain', desert: 'Desert', houston: 'Houston city', wake: 'Wake Island' };
+const MAPS = { green: 'Green valley', snow: 'Snow mountain', desert: 'Desert', houston: 'Houston city', wake: 'Wake Island', normandy: 'Normandy beach', europe: 'Germany 1944', dam: 'The Dam' };
 const MODES = { conquest: 'Conquest', tdm: 'Team battle', koth: 'King of the hill', four: '4 teams' };
 const WORLD = (() => {
   let w = { map: 'green', mode: 'conquest' };
@@ -14,6 +14,8 @@ const WORLD = (() => {
   return w;
 })();
 const SNOW = WORLD.map === 'snow', DESERT = WORLD.map === 'desert', HOUSTON = WORLD.map === 'houston', WAKE = WORLD.map === 'wake';
+const NORMANDY = WORLD.map === 'normandy', GERMANY = WORLD.map === 'europe', DAM = WORLD.map === 'dam';
+const NO_TUNNELS = WAKE || DAM;   // tunnels sit at a fixed depth: they would break into the dam's gorge
 // ===================== core.js : setup, sky, sound, terrain math =====================
 const HALF = 560, GRID = 336, CELL = (HALF * 2) / GRID, W1 = GRID + 1;
 const MTN = HALF - 50, EDGE = HALF - 24;   // mountains start, players stay inside
@@ -56,7 +58,7 @@ renderer.autoClear = false;
 document.body.prepend(renderer.domElement);
 
 const scene = new THREE.Scene();
-const FOG_COLOR = new THREE.Color(SNOW ? 0xdde4ec : DESERT ? 0xe8d6b0 : HOUSTON ? 0xd7e0e4 : WAKE ? 0xcfe6f0 : 0xcfe3f2);
+const FOG_COLOR = new THREE.Color(SNOW ? 0xdde4ec : DESERT ? 0xe8d6b0 : HOUSTON ? 0xd7e0e4 : WAKE ? 0xcfe6f0 : GERMANY ? 0xb8bfc5 : NORMANDY ? 0xc5d2dc : DAM ? 0xc6d3dc : 0xcfe3f2);
 // the snow map is thick with falling snow, so the distance blurs out much sooner
 if (SNOW) {
   // snowstorm haze: thickens quickly with distance (near and far are kept for the few custom shaders)
@@ -64,6 +66,9 @@ if (SNOW) {
 } else if (DESERT) scene.fog = new THREE.Fog(FOG_COLOR, LITE ? 60 : 90, LITE ? 340 : 470);   // a light dusty haze
 else if (WAKE) scene.fog = new THREE.Fog(FOG_COLOR, LITE ? 90 : 140, LITE ? 480 : 720);   // clear tropical air over the ocean
 else if (HOUSTON) scene.fog = new THREE.Fog(FOG_COLOR, LITE ? 80 : 130, LITE ? 420 : 640);   // warm, humid city haze
+else if (GERMANY) scene.fog = new THREE.Fog(FOG_COLOR, LITE ? 60 : 90, LITE ? 360 : 520);   // grey wartime overcast and smoke
+else if (NORMANDY) scene.fog = new THREE.Fog(FOG_COLOR, LITE ? 80 : 120, LITE ? 420 : 620);   // sea mist over the beach
+else if (DAM) scene.fog = new THREE.Fog(FOG_COLOR, LITE ? 90 : 140, LITE ? 460 : 700);   // cool mountain air
 else scene.fog = new THREE.Fog(FOG_COLOR, LITE ? 70 : 110, LITE ? 360 : 520);
 
 const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 2000);
@@ -246,7 +251,13 @@ function fbm(x, z) {
 const WAKE_U = [[-330, -260], [-305, 210], [-230, 255], [230, 255], [305, 210], [330, -260]].map(([x, z]) => ({ x, z }));
 function wakeDist(x, z) { let m = Infinity; for (let i = 0; i < WAKE_U.length - 1; i++) m = Math.min(m, distToSeg(x, z, WAKE_U[i].x, WAKE_U[i].z, WAKE_U[i + 1].x, WAKE_U[i + 1].z)); return Math.min(m, Math.hypot(x, z + 20) + 2); }
 const CARRIER = { x: 0, z: 470, hl: 105, hw: 17, deck: 13 };
-const POINTS_DEF = WAKE ? [
+const POINTS_DEF = NORMANDY ? [
+  { n: 'A', x: -300, z: 285 }, { n: 'B', x: 300, z: 285 }, { n: 'C', x: 0, z: 160 },
+  { n: 'D', x: -260, z: 145 }, { n: 'E', x: 260, z: 145 }, { n: 'F', x: -250, z: -220 }, { n: 'G', x: 250, z: -220 },
+] : DAM ? [
+  { n: 'A', x: -205, z: -60 }, { n: 'B', x: 205, z: -60 }, { n: 'C', x: 0, z: -60 },
+  { n: 'D', x: 0, z: 70 }, { n: 'E', x: -215, z: -250 }, { n: 'F', x: 215, z: -250 }, { n: 'G', x: 0, z: 270 },
+] : WAKE ? [
   { n: 'A', x: -318, z: -120 }, { n: 'B', x: -308, z: 90 }, { n: 'C', x: -170, z: 252 },
   { n: 'D', x: 170, z: 252 }, { n: 'E', x: 308, z: 90 }, { n: 'F', x: 318, z: -150 }, { n: 'G', x: 0, z: -20 },
 ] : SNOW ? [
@@ -257,13 +268,13 @@ const POINTS_DEF = WAKE ? [
   { n: 'D', x: -300, z: -250 }, { n: 'E', x: 300, z: -250 }, { n: 'F', x: -430, z: 0 }, { n: 'G', x: 430, z: 0 },
 ];
 const PD = Object.fromEntries(POINTS_DEF.map(p => [p.n, p]));
-const BASES = WAKE ? { blue: { x: 50, z: 470 }, red: { x: -322, z: -262 } } : SNOW ? { blue: { x: -250, z: 460 }, red: { x: 250, z: -460 } } : { blue: { x: 0, z: 450 }, red: { x: 0, z: -450 } };
+const BASES = NORMANDY ? { blue: { x: 0, z: 318 }, red: { x: 0, z: -450 } } : DAM ? { blue: { x: 0, z: 455 }, red: { x: 0, z: -455 } } : WAKE ? { blue: { x: 50, z: 470 }, red: { x: -322, z: -262 } } : SNOW ? { blue: { x: -250, z: 460 }, red: { x: 250, z: -460 } } : { blue: { x: 0, z: 450 }, red: { x: 0, z: -450 } };
 if (FOUR) { BASES.green = { x: -440, z: -420 }; BASES.yellow = { x: 440, z: 420 }; }
 // which way a team's base faces: +1 looks north (towards -z), -1 looks south
 const teamSide = t => Math.sign(BASES[t].z) || 1;
-const RUNWAYS = WAKE ? { blue: { x: -15, z: 470, len: 170, wid: 16, dir: -1 }, red: { x: 0, z: 262, len: 170, wid: 18, dir: 1 } } : SNOW ? { blue: { x: -20, z: 468, len: 160, wid: 18, dir: -1 }, red: { x: 20, z: -468, len: 160, wid: 18, dir: 1 } }
+const RUNWAYS = NORMANDY ? { blue: { x: 160, z: 300, len: 160, wid: 18, dir: -1 }, red: { x: -170, z: -470, len: 160, wid: 18, dir: 1 } } : DAM ? { blue: { x: 175, z: 470, len: 160, wid: 18, dir: -1 }, red: { x: -175, z: -470, len: 160, wid: 18, dir: 1 } } : WAKE ? { blue: { x: -15, z: 470, len: 170, wid: 16, dir: -1 }, red: { x: 0, z: 262, len: 170, wid: 18, dir: 1 } } : SNOW ? { blue: { x: -20, z: 468, len: 160, wid: 18, dir: -1 }, red: { x: 20, z: -468, len: 160, wid: 18, dir: 1 } }
   : { blue: { x: 170, z: 470, len: 160, wid: 18, dir: -1 }, red: { x: -170, z: -470, len: 160, wid: 18, dir: 1 } };
-const LAKES = WAKE ? [] : SNOW ? [{ x: -190, z: 130, r: 34 }, { x: 190, z: -130, r: 34 }] : HOUSTON ? [{ x: -205, z: 345, r: 28 }, { x: 225, z: 355, r: 24 }] : [{ x: -225, z: 20, r: 48 }, { x: 215, z: -30, r: 40 }, { x: -170, z: 440, r: 24 }];
+const LAKES = WAKE || NORMANDY || DAM ? [] : GERMANY ? [{ x: -250, z: -60, r: 38 }, { x: 260, z: 40, r: 30 }] : SNOW ? [{ x: -190, z: 130, r: 34 }, { x: 190, z: -130, r: 34 }] : HOUSTON ? [{ x: -205, z: 345, r: 28 }, { x: 225, z: 355, r: 24 }] : [{ x: -225, z: 20, r: 48 }, { x: 215, z: -30, r: 40 }, { x: -170, z: 440, r: 24 }];
 const LAKE = LAKES[0];
 // Houston: downtown in the middle, the 610 Loop around it, I-45 and I-10 crossing, and Buffalo Bayou winding past the north side
 const BAYOU = [[-575, -120], [-470, -150], [-360, -130], [-260, -175], [-150, -200], [-50, -190], [50, -210], [160, -185], [260, -205], [360, -170], [470, -195], [575, -170]].map(([x, z]) => ({ x, z }));
@@ -274,7 +285,13 @@ const H_FREEWAYS = HOUSTON ? [
   [{ x: 110, z: -430 }, { x: 110, z: 425 }, 'I-45'], [{ x: -560, z: 190 }, { x: 560, z: 190 }, 'I-10'],
 ] : [];
 const H_GRID = [-150, -90, -30, 30, 90, 150];
-const PATHS = WAKE ? [
+const PATHS = NORMANDY ? [
+  [BASES.blue, PD.A], [BASES.blue, PD.B], [PD.A, PD.D], [PD.B, PD.E], [BASES.blue, PD.C], [PD.D, PD.C], [PD.C, PD.E],
+  [PD.C, { x: 0, z: 0 }], [PD.D, PD.F], [PD.E, PD.G], [{ x: 0, z: 0 }, PD.F], [{ x: 0, z: 0 }, PD.G], [PD.F, BASES.red], [PD.G, BASES.red], [{ x: 0, z: 0 }, BASES.red],
+] : DAM ? [
+  [BASES.blue, PD.G], [PD.G, PD.D], [PD.G, { x: 205, z: 120 }], [{ x: 205, z: 120 }, PD.B], [PD.G, { x: -205, z: 120 }], [{ x: -205, z: 120 }, PD.A],
+  [PD.A, PD.C], [PD.C, PD.B], [PD.A, PD.E], [PD.B, PD.F], [PD.E, BASES.red], [PD.F, BASES.red], [PD.D, { x: 0, z: -40 }],
+] : WAKE ? [
   [BASES.red, PD.A], [PD.A, PD.B], [PD.B, { x: -280, z: 240 }], [{ x: -280, z: 240 }, PD.C], [PD.C, PD.D], [PD.D, { x: 280, z: 240 }], [{ x: 280, z: 240 }, PD.E], [PD.E, PD.F],
 ] : HOUSTON ? [
   ...H_FREEWAYS.map(f => [f[0], f[1]]),
@@ -318,6 +335,46 @@ function rawHeight(x, z) {
     if (d < 34) return lerp(3.2, 0.2, (d - 20) / 14);
     if (d < 46) return lerp(0.2, -2.6, (d - 34) / 12);
     return lerp(-2.6, sea, smooth(46, 80, d));
+  }
+  if (NORMANDY) {
+    // the beach: the sea to the south, wide sand, a low sea wall, steep bluffs cut by gullies (the roads), then
+    // flat farmland with hedgerows inland
+    const land = h * 0.32 + 9;
+    const pd = pathDist(x, z), gully = smooth(26, 8, pd);
+    let g;
+    if (z < 150) g = land;
+    else if (z < 236) { const t = smooth(150, 236, z); g = lerp(land, 2.4, Math.pow(t, 0.7)); g = lerp(g, lerp(land, 2.4, smooth(130, 250, z)), gully); }
+    else if (z < 336) g = lerp(2.4, 0.15, (z - 236) / 100) + (vnoise(x * 0.05, z * 0.05) - 0.5) * 0.3;
+    else g = lerp(0.15, -9 + vnoise(x * 0.01, z * 0.01) * 2, smooth(336, 400, z));
+    if (d > MTN && z < 300) g += Math.pow((d - MTN) / 45, 2) * 40;
+    return g;
+  }
+  if (DAM) {
+    // a deep mountain valley running north to south. The dam crosses it at z = -60: the reservoir lies to the
+    // north at the dam's top, a dry gorge drops far below it to the south. Banks beside the dam, cliffs beyond.
+    const ax = Math.abs(x), pd = pathDist(x, z), ridge = (f, ox, oz) => 1 - Math.abs(vnoise(x * f + ox, z * f + oz) * 2 - 1);
+    const mtn = 22 + Math.pow(ridge(0.008, 3, 9), 2.2) * 55 + vnoise(x * 0.05, z * 0.05) * 4;
+    const bank = 6 + (vnoise(x * 0.02, z * 0.02) - 0.5) * 2;
+    let g;
+    if (z < -66 && z > -380) {   // the reservoir: steep shores, deep in the middle
+      const w = 168 + vnoise(z * 0.01, 3) * 20;
+      g = ax < w ? lerp(-9, bank, smooth(w - 26, w, ax)) : lerp(bank, mtn, smooth(w + 50, w + 120, ax) * smooth(18, 50, pd));
+      if (z < -340) g = lerp(g, bank - 1, smooth(-340, -380, z));
+    } else if (z > -54 && z < 140) {   // the gorge below the dam
+      const floor = lerp(-28, 2, smooth(-54, 140, z)), w = lerp(150, 120, smooth(-54, 140, z));
+      g = ax < w ? floor + Math.pow(smooth(w - 60, w, ax), 2.2) * (bank - floor) : lerp(bank, mtn, smooth(w + 70, w + 140, ax) * smooth(18, 50, pd));
+    } else if (z >= -66 && z <= -54) {   // the dam itself: a flat crest across the whole valley
+      g = ax < 170 ? 4.2 : lerp(bank, mtn, smooth(240, 320, ax) * smooth(18, 50, pd));
+    } else {   // open land at both ends
+      g = lerp(h * 0.25 + 4, mtn, smooth(220, 330, ax) * smooth(18, 60, pd));
+    }
+    if (d > MTN) g += Math.pow((d - MTN) / 45, 2) * 55;
+    return g;
+  }
+  if (GERMANY) {
+    // gentle farmland around a flat old town in the middle
+    h = h * 0.4 + 1.6;
+    h = lerp(h, 2.2, smooth(215, 160, Math.hypot(x, z)));
   }
   if (HOUSTON) {
     // Houston is famously flat: gentle bumps away from the streets, the bayou cut into the ground, and the lakes
@@ -415,7 +472,7 @@ function undergroundAt(x, z, y) {
 function groundAt(x, z, y) { const u = y !== undefined ? undergroundAt(x, z, y) : null; return u ? (u.ramp ? underFloor(u, x, z) : u.floor) : heightAt(x, z); }
 
 // water only exists in the lakes (other low ground is just dry valleys)
-function nearLake(x, z) { for (const L of LAKES) if (Math.hypot(x - L.x, z - L.z) < L.r + 20) return true; return WAKE || (HOUSTON && bayouDist(x, z) < 16); }
+function nearLake(x, z) { for (const L of LAKES) if (Math.hypot(x - L.x, z - L.z) < L.r + 20) return true; return WAKE || (NORMANDY && z > 300) || (DAM && z < -60 && z > -400) || (HOUSTON && bayouDist(x, z) < 16); }
 const ICE_Y = 0.15;
 // skyscrapers: planes flown by the computer look out for these as well as the ground
 const TALL = [];

@@ -192,8 +192,8 @@ function planeBomb(pl, shooter) {
   if (pl.kind === 'stealth' && typeof dropNuke === 'function') {   // the stealth bomber drops a mini nuke on a parachute
     const f = planeFwd(pl); f.y = 0; f.normalize(); const ahead = Math.min(4, Math.sqrt(2 * Math.max(5, pl.pos.y - heightAt(pl.pos.x, pl.pos.z)) / 20)) * pl.speed;
     const at = new THREE.Vector3(clamp(pl.pos.x + f.x * ahead, -EDGE, EDGE), 0, clamp(pl.pos.z + f.z * ahead, -EDGE, EDGE));
-    dropNuke(at, shooter, false); if (typeof netFx === 'function') netFx(['nk', teamIdx(pl.team), +at.x.toFixed(1), +at.z.toFixed(1)]);
-    if (pl.pilot === player) showMessage(pl.bombs > 0 ? `NUKE AWAY! Get clear! ${pl.bombs} left` : `NUKE AWAY! Get clear! Next one loads in ${pl.bombRegenT} seconds`, 3);
+    dropNuke(at, shooter, false, true); if (typeof netFx === 'function') netFx(['nk', teamIdx(pl.team), +at.x.toFixed(1), +at.z.toFixed(1), 1]);   // a MEGA nuke
+    if (pl.pilot === player) showMessage(pl.bombs > 0 ? `MEGA NUKE AWAY! Get clear! ${pl.bombs} left` : `NUKE AWAY! Get clear! Next one loads in ${pl.bombRegenT} seconds`, 3);
     return;
   }
   const v = planeFwd(pl).multiplyScalar(pl.speed * 0.9);
@@ -375,7 +375,7 @@ function updateAIPlane(pl, dt) {
   // last-moment pull up: never fly into the ground just ahead
   { let g = skyAt(pl.pos.x, pl.pos.z); for (const d of [15, 35, 60]) g = Math.max(g, skyAt(pl.pos.x + fx0 * d, pl.pos.z + fz0 * d)); const need = g + 12 - pl.pos.y; if (need > 0) { pl.pos.y += Math.min(need, 30 * dt); pl.aiPitch = Math.max(pl.aiPitch, 0.5); } }
   const shooter = planeShooter(pl);
-  if (!pl.wp.plane && pl.wp.point && pl.bombs > 0) {
+  if (!pl.wp.plane && pl.wp.point && pl.bombs > 0 && !pl.parked) {   // computer pilots never fly off with a console plane's bombs or nukes
     const alt = pl.pos.y - heightAt(tx, tz);
     const fall = Math.sqrt(2 * Math.max(alt, 5) / 20), lead = pl.speed * fall * 0.9;
     const fx = -Math.sin(pl.aiYaw), fz = -Math.cos(pl.aiYaw);
