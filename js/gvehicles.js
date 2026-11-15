@@ -158,7 +158,7 @@ function buildTunnelQuads() {
 const _q = new THREE.Quaternion(), _e = new THREE.Euler(0, 0, 0, 'YXZ');
 function vehicleQuat(v) { _e.set(v.pitch, v.yaw, v.roll, 'YXZ'); return _q.setFromEuler(_e); }
 function placeVehicleModel(v) {
-  if (v._rotorHidden && !(player.gv === v && player.seat === 0 && typeof heliView !== 'undefined' && heliView === 'cockpit')) { v._rotorHidden = false; if (v.model.rotor) v.model.rotor.visible = true; }
+  if (v._rotorHidden && !(player.gv === v && player.seat === 0 && typeof heliView !== 'undefined' && heliView === 'cockpit')) { v._rotorHidden = false; for (const o of v.model.g.children) o.visible = true; }
   v.model.g.position.copy(v.pos); v.model.g.quaternion.copy(vehicleQuat(v));
   if (v.model.turret) { v.model.turret.rotation.y = v.turretYaw; v.model.barrel.rotation.x = v.gunPitch; }
   if (v.model.mgYaw) {

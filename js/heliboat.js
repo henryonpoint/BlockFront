@@ -164,6 +164,7 @@ function simHeli(v, dt, inp) {
   if (!v.vel) { v.vel = new THREE.Vector3(); v.rotorSpin = 0; v.fireT = 0; }
   const piloted = !!driverOf(v);
   v.rotorSpin = piloted ? Math.min(1, v.rotorSpin + dt * 0.55) : Math.max(0, v.rotorSpin - dt * 0.2);
+  if (T.agile) v.rotorSpin = piloted ? 1 : 0;   // the skateboard is ready at once
   const lift = v.rotorSpin, flying = lift > 0.85;
   const fx = -Math.sin(v.yaw), fz = -Math.cos(v.yaw);
   const ground = groundAt(v.pos.x, v.pos.z, v.pos.y + 0.5);
@@ -172,11 +173,11 @@ function simHeli(v, dt, inp) {
   const thr = flying ? inp.thr : 0, want = thr * (thr > 0 ? T.maxSpeed : T.maxSpeed * 0.35);
   const sw = flying ? (inp.strafe || 0) * T.maxSpeed * 0.45 : 0, rx = -fz, rz = fx;   // sideways slide (right is +)
   const vx = fx * want + rx * sw, vz = fz * want + rz * sw;
-  const k = Math.min(1, dt * (thr || inp.strafe ? 0.9 : 0.55));
+  const k = Math.min(1, dt * (T.agile ? 4 : thr || inp.strafe ? 0.9 : 0.55));
   v.vel.x += (vx - v.vel.x) * k;
   v.vel.z += (vz - v.vel.z) * k;
   // up and down: hover when flying, sink when the rotor slows
-  const wantVy = flying ? (inp.up ? 10 : 0) - (inp.down ? 8 : 0) : -14 * (1 - lift);
+  const wantVy = flying ? (inp.up ? (T.agile ? 18 : 10) : 0) - (inp.down ? (T.agile ? 16 : 8) : 0) : -14 * (1 - lift);
   v.vel.y += (wantVy - v.vel.y) * Math.min(1, dt * (flying ? 2.2 : 1.2));
   if (flying || !onGround) v.yaw += (inp.steer || 0) * T.turn * dt;
   const px = v.pos.x, pz = v.pos.z;

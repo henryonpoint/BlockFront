@@ -189,6 +189,13 @@ function planeBomb(pl, shooter) {
   if (pl.bombs <= 0 || pl.bombT > 0) return;
   pl.bombs--; pl.bombT = 0.5; pl.model.bomb.visible = pl.bombs > 0;
   if (pl === player.vehicle || pl.pos.distanceTo(camera.position) < 140) sfxBombDrop();
+  if (pl.kind === 'stealth' && typeof dropNuke === 'function') {   // the stealth bomber drops a mini nuke on a parachute
+    const f = planeFwd(pl); f.y = 0; f.normalize(); const ahead = Math.min(4, Math.sqrt(2 * Math.max(5, pl.pos.y - heightAt(pl.pos.x, pl.pos.z)) / 20)) * pl.speed;
+    const at = new THREE.Vector3(clamp(pl.pos.x + f.x * ahead, -EDGE, EDGE), 0, clamp(pl.pos.z + f.z * ahead, -EDGE, EDGE));
+    dropNuke(at, shooter, false); if (typeof netFx === 'function') netFx(['nk', teamIdx(pl.team), +at.x.toFixed(1), +at.z.toFixed(1)]);
+    if (pl.pilot === player) showMessage(pl.bombs > 0 ? `NUKE AWAY! Get clear! ${pl.bombs} left` : `NUKE AWAY! Get clear! Next one loads in ${pl.bombRegenT} seconds`, 3);
+    return;
+  }
   const v = planeFwd(pl).multiplyScalar(pl.speed * 0.9);
   spawnBall(pl.pos.clone().add(new THREE.Vector3(0, -1.6, 0)), v, shooter, { type: 'bomb', bomb: true, r: 0.32, mass: 25, fuse: 14, color: 0x30343a, radius: pl.bombBig ? 28 : 20, dmg: pl.bombBig ? 340 : 260, power: 95, impact: true });   // big plane bombs: wide blast, and they leave a crater
   playAt('thump', pl.pos, 0.7);
@@ -211,11 +218,7 @@ let planeView = 'chase';
 let _cockpit = null;
 function cockpitModel() {
   if (_cockpit) return _cockpit;
-  // a glass cockpit: only a thin frame low down and two slim posts, so almost the whole screen is sky and ground
-  const P = new Part(), frame = 0x2a2d31;
-  P.box(1.5, 0.05, 0.12, frame, 0, 0.5, -1.9);                                   // a thin bar along the bottom of the windscreen
-  P.box(0.02, 0.5, 0.02, frame, -0.95, 1.2, -1.85, 0, 0, -0.45); P.box(0.02, 0.5, 0.02, frame, 0.95, 1.2, -1.85, 0, 0, 0.45);   // posts far out to the sides
-  const g = new THREE.Group(); g.add(new THREE.Mesh(P.build(), new THREE.MeshLambertMaterial({ vertexColors: true })));
+  const g = new THREE.Group();   // an open view: nothing in the way, just the crosshair, nose marker and flight panel
   g.visible = false; _cockpit = g; return g;
 }
 // the plane's own body is hidden from its pilot in cockpit view (it only blocked the view)
@@ -242,9 +245,12 @@ function easyFly(pl, dt) {
   let yaw = _eE.y, pitch = _eE.x, roll = _eE.z;
   const ctrl = clamp(pl.speed / 28, 0.3, 1);
   // turn towards the aim, banking into the turn like a real plane, and level out when on course
-  const err = wrapAngle(pl.aimYaw - yaw), yawRate = clamp(err * 1.6, -0.95, 0.95) * ctrl;
-  yaw += yawRate * dt;
-  roll += (clamp(yawRate * 1.15, -1.05, 1.05) - roll) * Math.min(1, dt * 3);   // lean into the turn: turning right drops the right wing
+  // like a real plane: roll into the bank first, and the bank is what turns the plane (more bank, tighter turn)
+  const err = wrapAngle(pl.aimYaw - yaw);
+  const wantRoll = clamp(err * 1.5, -1.05, 1.05);
+  roll += clamp(wantRoll - roll, -2.2 * dt, 2.2 * dt) * (Math.abs(wantRoll - roll) < 0.15 ? 0.6 : 1);
+  const yawRate = Math.sin(roll) * 1.25 * ctrl;
+  yaw += (Math.abs(err) < 0.02 ? err : clamp(yawRate * dt, -Math.abs(err), Math.abs(err)));
   // nose towards the aim; a slow plane can't climb steeply (stall protection)
   const maxUp = pl.speed < 26 ? 0.15 : 0.7;
   let wantPitch = clamp(pl.aimPitch, -0.75, maxUp);

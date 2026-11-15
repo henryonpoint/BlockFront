@@ -16,12 +16,12 @@ Object.assign(VTYPES, {
     seats: VTYPES.heli.seats,
   },
   hoverboard: {
-    name: 'Flying skateboard', hp: 150, maxSpeed: 32, accel: 14, turn: 2.4, radius: 0.9, len: 1.6, wid: 0.6, bulletMult: 1, expMult: 1, camDist: 6, heli: true, unarmed: true,
-    seats: [{ p: [0, 0.32, 0], role: 'drive', pose: 'stand', exposed: true }],
+    name: 'Flying skateboard', hp: 150, maxSpeed: 70, accel: 40, turn: 3.6, radius: 0.9, len: 1.6, wid: 0.6, bulletMult: 1, expMult: 1, camDist: 6, heli: true, unarmed: true, agile: true,
+    seats: [{ p: [0, 1.48, 0], role: 'drive', pose: 'stand', exposed: true }],
   },
   balloon: {
     name: 'Hot air balloon', hp: 300, maxSpeed: 9, accel: 4, turn: 0.6, radius: 2.4, len: 3, wid: 3, bulletMult: 0.5, expMult: 1, camDist: 20, heli: true, unarmed: true,
-    seats: [{ p: [0, 0.35, 0.3], role: 'drive', pose: 'stand', exposed: true }, { p: [-0.5, 0.35, -0.4], role: 'ride', pose: 'stand', exposed: true }, { p: [0.5, 0.35, -0.4], role: 'ride', pose: 'stand', exposed: true }],
+    seats: [{ p: [0, 1.15, 0.3], role: 'drive', pose: 'stand', exposed: true }, { p: [-0.45, 1.15, -0.4], role: 'ride', pose: 'stand', exposed: true }, { p: [0.45, 1.15, -0.4], role: 'ride', pose: 'stand', exposed: true }],
   },
   blimp: {
     name: 'Blimp', hp: 900, maxSpeed: 16, accel: 5, turn: 0.5, radius: 4, len: 24, wid: 6, bulletMult: 0.4, expMult: 0.8, camDist: 42, heli: true, unarmed: true,
@@ -73,12 +73,12 @@ makeVehicleModel = function (type, team) {
   } else if (type === 'hoverboard') {
     main = vcached('hover' + team, () => {
       const p = new Part();
-      p.box(0.55, 0.06, 1.5, P.team, 0, 0.26, 0); p.box(0.5, 0.05, 0.3, P.team, 0, 0.29, -0.72, 0.25); p.box(0.5, 0.05, 0.3, P.team, 0, 0.29, 0.72, -0.25);   // deck with kicked ends
-      p.box(0.5, 0.012, 1.3, VC.black, 0, 0.295, 0);                                                                // grip tape
+      p.box(0.75, 0.08, 1.8, P.team, 0, 0.26, 0); p.box(0.7, 0.06, 0.35, P.team, 0, 0.3, -0.95, 0.3); p.box(0.7, 0.06, 0.35, P.team, 0, 0.3, 0.95, -0.3);   // deck with kicked ends
+      p.box(0.68, 0.012, 1.6, VC.black, 0, 0.305, 0); p.box(0.1, 0.014, 1.5, 0xffd54f, 0, 0.31, 0);                                                                // grip tape
       for (const z of [-0.5, 0.5]) p.cyl(0.18, 0.2, 0.1, VC.dark2, 0, 0.18, z, 0, 0, 0, 1, 12);                     // hover pads
       return p;
     });
-    for (const z of [-0.5, 0.5]) glow.cyl(0.16, 0.16, 0.02, 0x58c8ff, 0, 0.12, z, 0, 0, 0, 1, 12);
+    for (const z of [-0.6, 0.6]) glow.cyl(0.24, 0.24, 0.02, 0x58c8ff, 0, 0.12, z, 0, 0, 0, 1, 12);
   } else if (type === 'balloon') {
     main = vcached('balloon' + team, () => {
       const p = new Part();
@@ -115,7 +115,7 @@ function updateSpecials(dt) {
   for (const v of gvehicles) {
     if (!v.alive) continue;
     if (v.type === 'balloon' && v.model.flame) { const up = driverOf(v) && driverOf(v).isPlayer ? keys.Space : v.vel && v.vel.y > 1; v.model.flame.visible = !!up || Math.random() < 0.05; v.model.flame.scale.setScalar(0.8 + Math.random() * 0.5); }
-    if (v.type === 'hoverboard') v.model.body.position.y = 0.15 + Math.sin(simTime * 3 + v.idx) * 0.06;
+    if (v.type === 'hoverboard') v.model.body.position.y = Math.sin(simTime * 3 + v.idx) * 0.05;
   }
 }
 
@@ -137,12 +137,19 @@ function jetModel(team, kind) {
         p.box(0.6, 0.6, 2.2, dark, 0.75 * s, -0.25, -0.8);                                                         // intakes
         p.cyl(0.42, 0.38, 0.6, VC.dark, 0.42 * s, -0.05, 5.0, RX, 0, 0, 1, 12);                                    // engine nozzles
       }
-    } else {   // stealth bomber: a black flying wing
-      const blk = 0x2a2d32, blk2 = 0x1c1e22;
-      p.add(new THREE.CylinderGeometry(0.01, 9.5, 7.0, 3), blk, 0, 0, 0.6, RX, Math.PI, 0, 1, 0.12, 1);                  // the wing (a flattened triangle)
-      p.ball(1, blk2, 0, 0.35, -1.2, 1.4, 0.55, 3.2);                                                                // centre body hump
-      for (const s of [-1, 1]) { for (let i = 0; i < 2; i++) p.box(1.3, 0.06, 1.2, blk, (2.4 + i * 2.2) * s, 0, 3.8 + i * 0.2, 0, 0, 0); p.box(0.8, 0.3, 0.9, blk2, 1.2 * s, 0.35, 0.2); }   // sawtooth trailing edge, engine humps
-      p.box(1.0, 0.05, 0.4, P.team, 0, 0.45, 1.2);
+    } else {   // stealth bomber: a B-2 style flying wing, swept leading edge and a sawtooth trailing edge
+      const grey = 0x3c4047, dark = 0x2b2e33, half = [[0, -5.6], [10.5, 2.3], [9.6, 3.2], [6.0, 0.9], [3.4, 3.3], [1.6, 1.8], [0, 3.0]];
+      const sh = new THREE.Shape(); const pts = half.concat(half.slice(1, -1).reverse().map(([x, z]) => [-x, z]));
+      pts.forEach(([x, z], i) => i ? sh.lineTo(x, z) : sh.moveTo(x, z)); sh.closePath();
+      p.add(new THREE.ExtrudeGeometry(sh, { depth: 0.22, bevelEnabled: true, bevelThickness: 0.12, bevelSize: 0.12, bevelSegments: 1 }), grey, 0, 0.1, 0, RX, 0, 0);
+      p.ball(1, dark, 0, 0.32, -1.2, 1.5, 0.62, 3.6);                                                     // the raised middle with the crew
+      for (const [x, z] of [[-0.42, -3.2], [0.42, -3.2]]) p.box(0.5, 0.08, 0.35, 0x111316, x, 0.72, z, -0.35, 0, 0);   // cockpit windows
+      for (const s of [-1, 1]) for (const x of [1.9, 3.0]) {
+        p.ball(1, dark, x * s, 0.26, -0.2, 0.5, 0.34, 1.9);                                              // engine humps on top
+        p.box(0.6, 0.1, 0.22, 0x111316, x * s, 0.5, -1.4);                                              // intakes
+        p.box(0.7, 0.06, 0.5, 0x6a5040, x * s, 0.32, 1.7);                                              // exhaust trench
+      }
+      p.box(0.9, 0.03, 0.35, P.team, 7.2, 0.24, 1.4); p.box(0.9, 0.03, 0.35, P.team, -7.2, 0.24, 1.4);   // small team marks
     }
     return p;
   });
@@ -160,7 +167,7 @@ function jetModel(team, kind) {
 const PLANE_KINDS = {
   prop: { name: 'Fighter plane', spd: 1, hp: 320, bombs: 1, regen: 25, model: team => makePlaneModel(team) },
   f18: { name: 'F-18 jet', spd: 1.75, hp: 420, bombs: 2, regen: 15, model: team => jetModel(team, 'f18') },
-  stealth: { name: 'Stealth bomber', spd: 1.35, hp: 700, bombs: 6, regen: 10, bombBig: true, model: team => jetModel(team, 'stealth') },
+  stealth: { name: 'Stealth bomber', spd: 1.35, hp: 700, bombs: 2, regen: 30, bombBig: true, model: team => jetModel(team, 'stealth') },
 };
 
 // ---------- the mini rocket: climb on, press W or Space, and it blasts you straight up ----------

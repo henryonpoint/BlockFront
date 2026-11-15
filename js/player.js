@@ -849,7 +849,7 @@ function updateHUD(dt) {
     vh.style.display = 'block';
     $('vName').textContent = `${v.T.name}: ${role === 'drive' ? 'Driver' : role === 'gun' ? 'Gunner' : 'Passenger'} (seat ${player.seat + 1} of ${v.seats.length})`;
     $('vHp').style.width = Math.max(0, v.hp / v.T.hp * 100) + '%';
-    $('vInfo').textContent = `${Math.round(Math.abs(v.speed) * 3.6)} km/h` + (v.type === 'tank' && player.seat === 0 ? (v.fireT > 0 ? `   Cannon reloading ${v.fireT.toFixed(1)}s` : '   Cannon ready') : '') + (v.T.heli ? `   Height ${Math.max(0, Math.round(v.pos.y - heightAt(v.pos.x, v.pos.z)))} m` + (player.seat === 0 ? (v.fireT > 0 ? '   Rockets loading (right click)' : '   Rockets ready (right click)') + '   Gun: left click' : '') : '') + `   ${occupants(v).length} aboard`;
+    $('vInfo').textContent = `${Math.round(Math.abs(v.speed) * 3.6)} km/h` + (v.type === 'tank' && player.seat === 0 ? (v.fireT > 0 ? `   Cannon reloading ${v.fireT.toFixed(1)}s` : '   Cannon ready') : '') + (v.T.heli ? `   Height ${Math.max(0, Math.round(v.pos.y - heightAt(v.pos.x, v.pos.z)))} m` + (player.seat === 0 && !v.T.unarmed ? (v.fireT > 0 ? '   Rockets loading (right click)' : '   Rockets ready (right click)') + '   Gun: left click' : '') : '') + `   ${occupants(v).length} aboard`;
   } else vh.style.display = 'none';
   $('crosshair').style.transform = `scale(${(ads ? 0.6 : 1) * (1 + bloom * 0.8)})`;
   $('scope').style.display = zoom ? 'block' : 'none';
@@ -1036,7 +1036,7 @@ function updatePlayerInVehicle(dt) {
     if (v.T.heli && S.role === 'drive' && heliView === 'cockpit') {
       // in the pilot's seat: looking out through the big nose window, mouse up and down aims the guns
       camera.position.copy(new THREE.Vector3(0, 1.95, -2.0).applyQuaternion(vehicleQuat(v)).add(v.pos));
-      if (v.model.rotor) v.model.rotor.visible = false; v._rotorHidden = true;
+      if (!v._rotorHidden) { for (const o of v.model.g.children) o.visible = false; v._rotorHidden = true; }   // open view: nothing of the helicopter in the way
       camera.rotation.set(-cp * 0.9 + v.pitch * 0.5, v.yaw, -v.roll * 0.4, 'YXZ');
       const fov = (SET.fov || 75) + 10; if (Math.abs(camera.fov - fov) > 0.1) { camera.fov = fov; camera.updateProjectionMatrix(); }
       if (player.body3p) player.body3p.root.visible = false;
