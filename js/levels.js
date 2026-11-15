@@ -157,6 +157,8 @@ function buildNormandy() {
     if (!lvFree(x, z, 2) || Math.random() < 0.15) continue;
     addBlock(x, z, 2.2, 1.8 + vnoise(x * 0.3, z * 0.3) * 0.8, 9, LV.hedge);
   }
+  // French villages inland
+  village(PD.F, 8, 20, 40); village(PD.G, 8, 20, 40); village({ x: -120, z: -60 }, 5, 12, 30); village({ x: 140, z: -40 }, 5, 12, 30);
   // wrecked tanks and landing craft on the sand
   for (let i = 0; i < 6; i++) { const x = rand(-450, 450), z = rand(262, 320); if (lvFree(x, z, 5)) rubble(x, z, 1.6); }
 }

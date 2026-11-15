@@ -212,7 +212,7 @@ function simHeli(v, dt, inp) {
   }
 }
 function heliRockets(v, shooter, dir) {
-  v.fireT = 0.55; v.podSide = 1 - (v.podSide || 0);
+  v.fireT = v.T.rocketT || 0.55; v.podSide = 1 - (v.podSide || 0);
   const pod = v.model.pods[v.podSide];
   pod.getWorldPosition(_hv);
   spawnRocket(_hv.clone(), dir, shooter, { speed: 95, dmg: 160, radius: 5.5 });

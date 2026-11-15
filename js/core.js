@@ -10,7 +10,7 @@ const WORLD = (() => {
   let w = { map: 'green', mode: 'conquest' };
   try { const b = JSON.parse(localStorage.getItem('bf_battle') || '{}'); if (MAPS[b.map]) w.map = b.map; if (MODES[b.mode]) w.mode = b.mode; } catch (e) { }
   try { const f = JSON.parse(sessionStorage.getItem('bf_force') || 'null'); if (f) { if (MAPS[f.map]) w.map = f.map; if (MODES[f.mode]) w.mode = f.mode; w.force = f; } } catch (e) { }
-  if (w.map === 'wake' && w.mode === 'four') w.mode = 'conquest';   // the island only has room for two sides
+  if ((w.map === 'wake' || w.map === 'normandy') && w.mode === 'four') w.mode = 'conquest';   // only room for two sides   // the island only has room for two sides
   return w;
 })();
 const SNOW = WORLD.map === 'snow', DESERT = WORLD.map === 'desert', HOUSTON = WORLD.map === 'houston', WAKE = WORLD.map === 'wake';

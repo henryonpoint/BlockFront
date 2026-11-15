@@ -15,6 +15,10 @@ Object.assign(VTYPES, {
     name: 'Black Hawk', hp: 1100, maxSpeed: 52, accel: 11, turn: 1.3, radius: 3.2, len: 10, wid: 2.8, bulletMult: 0.3, expMult: 0.75, camDist: 16, heli: true,
     seats: VTYPES.heli.seats,
   },
+  apache: {
+    name: 'Apache', hp: 1500, maxSpeed: 58, accel: 12, turn: 1.5, radius: 3.0, len: 10, wid: 2.4, bulletMult: 0.22, expMult: 0.6, camDist: 16, heli: true, rocketT: 0.28,
+    seats: [VTYPES.heli.seats[0], VTYPES.heli.seats[2]],
+  },
   hoverboard: {
     name: 'Flying skateboard', hp: 150, maxSpeed: 100, accel: 55, turn: 4.2, radius: 0.9, len: 1.6, wid: 0.6, bulletMult: 1, expMult: 1, camDist: 6, heli: true, unarmed: true, agile: true,
     seats: [{ p: [0, 0.34, 0], role: 'drive', pose: 'surf', exposed: true }],
@@ -31,8 +35,30 @@ Object.assign(VTYPES, {
 
 const makeVehicleModelPre = makeVehicleModel;
 makeVehicleModel = function (type, team) {
-  const SPECIAL = ['racecar', 'speedboat', 'blackhawk', 'hoverboard', 'balloon', 'blimp'];
+  const SPECIAL = ['racecar', 'speedboat', 'blackhawk', 'hoverboard', 'balloon', 'blimp', 'apache'];
   if (!SPECIAL.includes(type)) return makeVehicleModelPre(type, team);
+  if (type === 'apache') {   // an attack helicopter: dark olive, slimmer, with stub wings full of rockets and missiles
+    const out = makeVehicleModelPre('heli', team);
+    out.g.traverse(o => {
+      if (!o.isMesh || !o.geometry.attributes.color || o.material === VEH_GLOW) return;
+      o.geometry = o.geometry.clone(); const c = o.geometry.attributes.color;
+      for (let i = 0; i < c.count; i++) { const r = c.getX(i), g = c.getY(i), b = c.getZ(i), l = (r + g + b) / 3; if (l > 0.85) continue; c.setXYZ(i, 0.12 + l * 0.32, 0.15 + l * 0.36, 0.08 + l * 0.22); }
+    });
+    out.body.scale.set(0.82, 0.95, 1.08);
+    const p = new Part(), oc = 0x3a4228, dk = 0x22261a;
+    for (const sd of [-1, 1]) {
+      p.box(1.9, 0.12, 0.9, oc, sd * 1.45, 0.95, -0.2, 0, 0, sd * 0.12);                                   // stub wing
+      for (const dx of [0.95, 1.85]) {
+        p.cyl(0.22, 0.22, 1.5, dk, sd * dx, 0.62, -0.25, Math.PI / 2, 0, 0, 1, 10);                        // rocket pod
+        p.cyl(0.18, 0.18, 0.04, 0x111111, sd * dx, 0.62, -1.01, Math.PI / 2, 0, 0, 1, 10);
+      }
+      for (const dy of [0.42, 0.72]) p.cyl(0.07, 0.07, 1.1, 0x6a6e60, sd * 2.35, dy, -0.2, Math.PI / 2, 0, 0, 1, 6);   // missiles on the wingtips
+    }
+    p.box(0.3, 0.3, 0.5, dk, 0, 0.35, -3.3); p.cyl(0.05, 0.05, 1.2, 0x111111, 0, 0.3, -3.9, Math.PI / 2, 0, 0, 1, 6);   // chin gun
+    p.ball(0.32, 0x1a1c18, 0, 1.0, -4.0, 1, 1, 1);                                                          // nose sensor ball
+    const add = new THREE.Mesh(p.build(), VEH_MAT); add.castShadow = true; out.body.add(add);
+    return out;
+  }
   if (type === 'blackhawk') {   // the helicopter, bigger and painted black
     const out = makeVehicleModelPre('heli', team);
     out.g.traverse(o => {

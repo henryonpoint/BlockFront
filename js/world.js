@@ -570,6 +570,7 @@ const settlements = [
   { x: PD.G.x, z: PD.G.z, r: 40 }, { x: PD.B.x, z: PD.B.z, r: 32 }, { x: PD.D.x, z: PD.D.z, r: 32 },
 ];
 if (WAKE) settlements.length = 0, settlements.push({ x: BASES.red.x, z: BASES.red.z, r: 45 }, { x: RUNWAYS.red.x, z: RUNWAYS.red.z, r: 95 });
+if (NORMANDY) settlements.length = 0, settlements.push({ x: PD.F.x, z: PD.F.z, r: 46 }, { x: PD.G.x, z: PD.G.z, r: 46 }, { x: -120, z: -60, r: 36 }, { x: 140, z: -40, r: 36 });
 if (HOUSTON) settlements.length = 0, settlements.push(   // the city districts (keeps trees and stray houses out)
   { x: 0, z: 0, r: 185 }, { x: PD.A.x, z: PD.A.z, r: 70 }, { x: PD.B.x + 10, z: PD.B.z + 60, r: 80 }, { x: PD.E.x, z: PD.E.z, r: 80 },
   { x: PD.F.x, z: PD.F.z, r: 70 }, { x: PD.G.x, z: PD.G.z, r: 70 }, { x: PD.D.x, z: PD.D.z, r: 75 });
@@ -902,6 +903,7 @@ function buildPoints() {
     const spriteMat = new THREE.SpriteMaterial({ map: letterTex(def.n, '#ffffff'), depthTest: false, transparent: true });
     const sprite = new THREE.Sprite(spriteMat); sprite.scale.set(5, 5, 1); sprite.position.set(def.x, y + 14, def.z); sprite.renderOrder = 10; scene.add(sprite);
     points.push({ name: def.n, x: def.x, z: def.z, y, r: 15, owner: null, progress: 0, flag, flagMat, ringMat, spriteMat, shownColor: '', blueIn: 0, redIn: 0 });
+    if (NORMANDY && ['C', 'D', 'E'].includes(def.n)) { const pt = points[points.length - 1]; pt.owner = 'red'; pt.progress = -1; }   // red already holds the bunkers on the bluffs
     fortifyPoint(def);
   }
 }
@@ -951,7 +953,7 @@ function buildWorld() {
   buildTerrain();
   if (!WAKE && !DAM) buildBunkers();
   if (typeof buildNests === 'function') buildNests();
-  if (!SNOW && !HOUSTON && !WAKE && !DAM) { if (!GERMANY) buildTown(); buildFarm(); }
+  if (!SNOW && !HOUSTON && !WAKE && !DAM) { if (!GERMANY) buildTown(); if (!NORMANDY) buildFarm(); }
   TEAMS.forEach(t => { if (!(WAKE && t === 'blue')) buildBase(t); });
   buildPoints();
   if (!NO_TUNNELS) buildTunnels();
