@@ -165,9 +165,11 @@ function simHeli(v, dt, inp) {
   const onGround = v.pos.y <= ground + 0.05;
   // forward and back
   const thr = flying ? inp.thr : 0, want = thr * (thr > 0 ? T.maxSpeed : T.maxSpeed * 0.35);
-  const vx = fx * want, vz = fz * want;
-  v.vel.x += (vx - v.vel.x) * Math.min(1, dt * (thr ? 0.8 : 0.5));
-  v.vel.z += (vz - v.vel.z) * Math.min(1, dt * (thr ? 0.8 : 0.5));
+  const sw = flying ? (inp.strafe || 0) * T.maxSpeed * 0.45 : 0, rx = -fz, rz = fx;   // sideways slide (right is +)
+  const vx = fx * want + rx * sw, vz = fz * want + rz * sw;
+  const k = Math.min(1, dt * (thr || inp.strafe ? 0.9 : 0.55));
+  v.vel.x += (vx - v.vel.x) * k;
+  v.vel.z += (vz - v.vel.z) * k;
   // up and down: hover when flying, sink when the rotor slows
   const wantVy = flying ? (inp.up ? 10 : 0) - (inp.down ? 8 : 0) : -14 * (1 - lift);
   v.vel.y += (wantVy - v.vel.y) * Math.min(1, dt * (flying ? 2.2 : 1.2));

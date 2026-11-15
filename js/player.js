@@ -164,7 +164,7 @@ function interact() {
     enterSeat(player, it.v, it.seat); zoom = false; ads = false; cancelPlace();
     camOrbit.yaw = 0; camOrbit.pitch = 0.15; camOrbit.wyaw = it.v.yaw; player.yaw = it.v.yaw; player.pitch = 0;
     const role = it.v.T.seats[it.seat].role;
-    showMessage(role === 'drive' && it.v.T.heli ? 'W/S fly forward and back, A/D turn, Space go up, Shift go down, click to fire rockets. F switch seat, E get out' : role === 'drive' && it.v.T.boat ? 'W/S drive, A/D steer, Space slow down. F switch seat, E get out' : role === 'drive' ? (it.v.type === 'tank' ? 'W/S drive, A/D turn, mouse aims the cannon, click to fire. F switch seat, E get out' : 'W/S drive, A/D steer, Space brake. F switch seat, E get out') : role === 'gun' ? 'Mouse to aim, click to fire. F switch seat, E get out' : 'Riding along! F switch seat, E get out', 4);
+    showMessage(role === 'drive' && it.v.T.heli ? 'Mouse turns and aims, W/S forward and back, A/D slide sideways, Space up, Shift down. Left click: nose gun. Right click: rockets. F switch seat, E get out' : role === 'drive' && it.v.T.boat ? 'W/S drive, A/D steer, Space slow down. F switch seat, E get out' : role === 'drive' ? (it.v.type === 'tank' ? 'W/S drive, A/D turn, mouse aims the cannon, click to fire. F switch seat, E get out' : 'W/S drive, A/D steer, Space brake. F switch seat, E get out') : role === 'gun' ? 'Mouse to aim, click to fire. F switch seat, E get out' : 'Riding along! F switch seat, E get out', 4);
     return;
   }
   if (it.kind === 'turret') {
@@ -207,6 +207,7 @@ function updatePlayer(dt) {
     return;
   }
   // ----- on foot -----
+  if (heliMark) heliMark.visible = false;
   const water = waterDepth(player.pos.x, player.pos.z) > 0.7;
   if (player.crouch && (player.vehicle || player.gv || player.turret || !player.alive)) toggleCrouch(false);
   crouchK += ((player.crouch ? 1 : 0) - crouchK) * Math.min(1, dt * 12);
@@ -362,6 +363,9 @@ function lookDelta(mx, my) {
   mx *= SET.sens; my *= SET.sens; if (SET.invert) my = -my;
   if (player.vehicle) { camOrbit.yaw = clamp(camOrbit.yaw - mx * 0.003, -2.5, 2.5); camOrbit.pitch = clamp(camOrbit.pitch - my * 0.003, -0.6, 0.8); camOrbit.t = 2; return; }
   if (player.turret) { const t = player.turret; t.yaw -= mx * 0.0022; t.pitch = clamp(t.pitch - my * 0.0022, -0.35, 1.2); return; }
+  if (player.gv && player.gv.T.heli && player.seat === 0) {   // helicopter pilot: mouse left/right turns, up/down aims
+    player.gv.yaw -= mx * 0.0026; camOrbit.yaw = 0; camOrbit.pitch = clamp(camOrbit.pitch - my * 0.0028, -0.2, 1.25); return;
+  }
   if (player.gv && player.gv.T.seats[player.seat].role !== 'gun') {
     camOrbit.wyaw -= mx * 0.003; camOrbit.yaw = clamp(camOrbit.yaw - mx * 0.003, -3, 3); camOrbit.pitch = clamp(camOrbit.pitch - my * 0.003, -0.3, 0.9); camOrbit.t = 1.5; return;
   }
@@ -656,7 +660,7 @@ function updateHUD(dt) {
   const _ts = WORLD.mode === 'tdm' ? [teamKills.blue, `of ${tdmTarget()}`, teamKills.red] : WORLD.mode === 'koth' ? [Math.floor(holdScore.blue), `of ${KOTH_TIME} s`, Math.floor(holdScore.red)] : [points.filter(p => p.owner === 'blue').length, 'points', points.filter(p => p.owner === 'red').length];
   if (FOUR) $('teamstat').innerHTML = TEAMS.map(t => `<span style="color:${TEAM_CSS[t]}">${teamName(t).toUpperCase()} ${points.filter(p => p.owner === t).length}</span>`).join(' &nbsp; ') + `<br><small>Points held. Takedowns ${TEAMS.map(t => teamKills[t] || 0).join(' : ')}</small>`;
   else $('teamstat').innerHTML = `<span style="color:${TEAM_CSS.blue}">BLUE ${_ts[0]}</span> &nbsp; ${_ts[1]} &nbsp; <span style="color:${TEAM_CSS.red}">${_ts[2]} RED</span><br><small>Takedowns ${teamKills.blue} : ${teamKills.red}</small>`;
-  const gvAim = player.gv && (player.gv.T.seats[player.seat].role === 'gun' || (player.gv.type === 'tank' && player.seat === 0));
+  const gvAim = player.gv && (player.gv.T.seats[player.seat].role === 'gun' || (player.gv.type === 'tank' && player.seat === 0) || (player.gv.T.heli && player.seat === 0));
   $('crosshair').style.display = (onFoot || player.turret || gvAim) && !zoom && player.alive ? 'block' : 'none';
   const vh = $('vehHud');
   if (player.gv) {
@@ -664,7 +668,7 @@ function updateHUD(dt) {
     vh.style.display = 'block';
     $('vName').textContent = `${v.T.name}: ${role === 'drive' ? 'Driver' : role === 'gun' ? 'Gunner' : 'Passenger'} (seat ${player.seat + 1} of ${v.seats.length})`;
     $('vHp').style.width = Math.max(0, v.hp / v.T.hp * 100) + '%';
-    $('vInfo').textContent = `${Math.round(Math.abs(v.speed) * 3.6)} km/h` + (v.type === 'tank' && player.seat === 0 ? (v.fireT > 0 ? `   Cannon reloading ${v.fireT.toFixed(1)}s` : '   Cannon ready') : '') + (v.T.heli ? `   Height ${Math.max(0, Math.round(v.pos.y - heightAt(v.pos.x, v.pos.z)))} m` + (player.seat === 0 ? (v.fireT > 0 ? '   Rockets loading' : '   Rockets ready') : '') : '') + `   ${occupants(v).length} aboard`;
+    $('vInfo').textContent = `${Math.round(Math.abs(v.speed) * 3.6)} km/h` + (v.type === 'tank' && player.seat === 0 ? (v.fireT > 0 ? `   Cannon reloading ${v.fireT.toFixed(1)}s` : '   Cannon ready') : '') + (v.T.heli ? `   Height ${Math.max(0, Math.round(v.pos.y - heightAt(v.pos.x, v.pos.z)))} m` + (player.seat === 0 ? (v.fireT > 0 ? '   Rockets loading (right click)' : '   Rockets ready (right click)') + '   Gun: left click' : '') : '') + `   ${occupants(v).length} aboard`;
   } else vh.style.display = 'none';
   $('crosshair').style.transform = `scale(${(ads ? 0.6 : 1) * (1 + bloom * 0.8)})`;
   $('scope').style.display = zoom ? 'block' : 'none';
@@ -749,22 +753,48 @@ function switchSeat() {
   }
   showMessage('No free seat', 1);
 }
+// ---------- flying a helicopter: the crosshair aims, left click fires the nose gun, right click fires rockets ----------
+let heliMark = null;
+const _hAim = new THREE.Vector3(), _hFrom = new THREE.Vector3();
+function heliAimPoint(v) {
+  const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+  const hit = rayHit(camera.position, dir, 700, player.team, { ignoreGV: v });
+  return { point: hit ? hit.point : camera.position.clone().addScaledVector(dir, 700), hit };
+}
+function heliPilotWeapons(v, dt) {
+  v.fireT -= dt; v.gunT = (v.gunT || 0) - dt;
+  const aim = heliAimPoint(v);
+  // a red ring on the ground (or target) where the crosshair is pointing
+  if (!heliMark) { heliMark = new THREE.Mesh(new THREE.RingGeometry(1.4, 1.8, 28), new THREE.MeshBasicMaterial({ color: 0xff4030, transparent: true, opacity: 0.85, depthTest: false, side: THREE.DoubleSide })); heliMark.rotation.x = -Math.PI / 2; heliMark.renderOrder = 10; scene.add(heliMark); }
+  heliMark.visible = !!aim.hit; if (aim.hit) { heliMark.position.copy(aim.point).y += 0.15; const d = aim.point.distanceTo(camera.position); heliMark.scale.setScalar(clamp(d / 60, 0.6, 4)); }
+  if (!v.airborne && v.pos.y - heightAt(v.pos.x, v.pos.z) < 1.5) return;   // no shooting while sitting on the pad
+  // nose gun: fast, accurate, good against soldiers and light vehicles
+  if (mouse.left && v.gunT <= 0) {
+    v.gunT = 0.075;
+    const fwd = new THREE.Vector3(-Math.sin(v.yaw), 0, -Math.cos(v.yaw));
+    _hFrom.set(v.pos.x + fwd.x * 3.8, v.pos.y + 0.7, v.pos.z + fwd.z * 3.8);
+    const d = aim.point.clone().sub(_hFrom).normalize().add(new THREE.Vector3(rand(-1, 1), rand(-1, 1), rand(-1, 1)).multiplyScalar(0.012)).normalize();
+    const hit = rayHit(_hFrom, d, 400, player.team, { ignoreGV: v });
+    const end = hit ? hit.point : _hFrom.clone().addScaledVector(d, 400);
+    shootTracer(_hFrom.clone(), end, 0xffc860, 420, 0.06, () => { if (applyHit(hit, d, { dmg: 22, force: 6 }, player)) { showHitmarker(false); SFX.hit(); } });
+    if (typeof fxMuzzle === 'function') fxMuzzle(_hFrom, d, 1.4);
+    netShot(_hFrom.clone(), end, 1); playAt('mg', _hFrom, 0.9); camShake = Math.max(camShake, 0.012);
+  }
+  // rockets: slower, big blast, great against tanks and groups
+  if (mouse.right && v.fireT <= 0) {
+    v.model.pods[1 - (v.podSide || 0)].getWorldPosition(_tv);
+    heliRockets(v, player, aim.point.clone().sub(_tv).normalize());
+  }
+}
 function updatePlayerInVehicle(dt) {
   const v = player.gv, S = v.T.seats[player.seat];
+  if (heliMark && !(v.T.heli && player.seat === 0)) heliMark.visible = false;
   if (!v.alive) { leaveSeat(player); return; }
   player.vel.set(-Math.sin(v.yaw) * v.speed, 0, -Math.cos(v.yaw) * v.speed);
   if (S.role === 'drive') {
-    moveVehicle(v, dt, { thr: (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0), steer: (keys.KeyA ? 1 : 0) - (keys.KeyD ? 1 : 0), brake: !!keys.Space, up: !!keys.Space, down: !!(keys.ShiftLeft || keys.ShiftRight) });
-    if (v.T.heli) {
-      v.fireT -= dt;
-      if (mouse.left && v.fireT <= 0 && v.airborne) {
-        const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
-        const hit = rayHit(camera.position, dir, 600, player.team, { ignoreGV: v, noChars: true });
-        const aim = hit ? hit.point : camera.position.clone().addScaledVector(dir, 600);
-        v.model.pods[1 - (v.podSide || 0)].getWorldPosition(_tv);
-        heliRockets(v, player, aim.clone().sub(_tv).normalize());
-      }
-    }
+    const heliPilot = v.T.heli;
+    moveVehicle(v, dt, { thr: (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0), steer: heliPilot ? 0 : (keys.KeyA ? 1 : 0) - (keys.KeyD ? 1 : 0), strafe: heliPilot ? (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0) : 0, brake: !!keys.Space, up: !!keys.Space, down: !!(keys.ShiftLeft || keys.ShiftRight) });
+    if (heliPilot) heliPilotWeapons(v, dt);
     if (v.type === 'tank') {
       v.fireT -= dt;
       const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
@@ -799,7 +829,8 @@ function updatePlayerInVehicle(dt) {
       }
     } else want.y = Math.max(want.y, heightAt(want.x, want.z) + 1.2);
     camera.position.lerp(want, 1 - Math.exp(-dt * 12));
-    camera.lookAt(v.pos.x - Math.sin(cy) * 6, v.pos.y + (v.T.heli ? 2.2 : 2.4) + (v.T.heli ? -Math.sin(cp) * 4 : 0), v.pos.z - Math.cos(cy) * 6);
+    if (v.T.heli && S.role === 'drive') { const ahead = 22 + 34 * Math.max(0, Math.sin(cp)); camera.lookAt(v.pos.x - Math.sin(cy) * ahead, v.pos.y + 2.2 - Math.max(0, Math.sin(cp)) * 30 + Math.min(0, cp) * 10, v.pos.z - Math.cos(cy) * ahead); }   // aim well ahead so the helicopter sits low on screen, out of the way
+    else camera.lookAt(v.pos.x - Math.sin(cy) * 6, v.pos.y + (v.T.heli ? 2.2 : 2.4) + (v.T.heli ? -Math.sin(cp) * 4 : 0), v.pos.z - Math.cos(cy) * 6);
   }
   camShake *= Math.exp(-dt * 6);
   if (camera.fov !== (SET.fov || 75)) { camera.fov = SET.fov || 75; camera.updateProjectionMatrix(); }
