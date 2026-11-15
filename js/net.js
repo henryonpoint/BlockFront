@@ -3,7 +3,7 @@
 // player who joined first (the host) also runs the soldiers, planes and points.
 const net = {
   active: false, isHost: true, joinPerf: 0, w1: null, w2: null, myId: Math.random().toString(36).slice(2, 10), jt: 0, game: null,
-  seq: 0, fx: [], hits: [], dd: [], req: [], kf: [], lastSnap: [null, null], snapAt: [0, 0], snapGap: [250, 250], seen: {}, remotes: new Map(), sendT: 0, hostId: null, status: '',
+  seq: 0, fx: [], hits: [], dd: [], req: [], kf: [], chat: [], lastSnap: [null, null], snapAt: [0, 0], snapGap: [250, 250], seen: {}, remotes: new Map(), sendT: 0, hostId: null, status: '',
 };
 const NPC_POOL = 40;
 const TEAM_POOL = (typeof FOUR !== 'undefined' && FOUR) ? 24 : NPC_POOL;   // 4 teams share the work, so each gets fewer   // most computer soldiers a team can have (see the battle setup)
@@ -83,12 +83,12 @@ function buildPresence() {
   }
   if (p.vehicle) { const pl = p.vehicle; o.m = 2; o.pi = pl.idx; o.pl = [r10(pl.pos.x), r10(pl.pos.y), r10(pl.pos.z), Math.round(pl.quat.x * 1000), Math.round(pl.quat.y * 1000), Math.round(pl.quat.z * 1000), Math.round(pl.quat.w * 1000), Math.round(pl.speed), pl.onGround ? 1 : 0, pl.bombs]; }
   const recent = (list, age) => list.filter(e => simTime - e[e.length - 1] < age).map(e => e.slice(0, -1));
-  o.fx = recent(net.fx, 1.2); o.h = recent(net.hits, 2); o.dd = recent(net.dd, 3); o.rq = recent(net.req, 3);
+  o.fx = recent(net.fx, 1.2); o.h = recent(net.hits, 2); o.dd = recent(net.dd, 3); o.rq = recent(net.req, 3); o.ch = recent(net.chat, 6);
   o.b = myBuilds().slice(-24).map(b => [b.id.split('-')[1] | 0, BUILD_KEYS.indexOf(b.type), r10(b.x), r10(b.z), b.rot]);
   o.hc = net.isHost && !document.hidden ? 1 : 0;
   o.hb = net.tick || 0; o.aw = document.hidden ? 1 : 0;
   o.age = Math.round((performance.now() - net.joinPerf) / 100);
-  return fitSize(o, ['fx', 'h', 'dd', 'rq', 'b']);
+  return fitSize(o, ['fx', 'h', 'dd', 'rq', 'b', 'ch']);
 }
 const _enc = new TextEncoder();
 function fitSize(o, lists) {
@@ -129,7 +129,7 @@ function buildWorld2() {
 }
 
 // ---------- connecting ----------
-const GAME_BUILD = 17;   // bump when vehicles or the world change, so mismatched versions never mix
+const GAME_BUILD = 18;   // bump when vehicles or the world change, so mismatched versions never mix
 // the version number on the start screen and pause menu, so everyone can check they are on the same one
 const GAME_DATE = 'Nov 15, 2026';
 setTimeout(() => { const v = document.getElementById('verTag'); if (v) v.textContent = `Version ${GAME_BUILD}  \u00b7  ${GAME_DATE}${window.STANDALONE ? '' : '  \u00b7  Claude'}`; const p = document.getElementById('verPause'); if (p) p.textContent = `Version ${GAME_BUILD}`; }, 0);
@@ -270,7 +270,7 @@ function remoteFor(pe) {
     c.netPos = new THREE.Vector3(); c.walkPhase = 0; c.aimPitch = 0;
     r = { char: c, tag: null, name: '', planeIdx: -1, turretIdx: -1, builds: new Map() };
     net.remotes.set(id, r);
-    showMessage(`${String(pe.presence.n || 'Someone').slice(0, 16)} joined the ${teamName(team)} team`, 2.5);
+    showMessage(`${(typeof chatClean === 'function' ? chatClean : x => x)(String(pe.presence.n || 'Someone').slice(0, 16))} joined the ${teamName(team)} team`, 2.5);
   }
   return r;
 }
@@ -306,7 +306,7 @@ function netUpdate(dt) {
   electHost();
   for (const pe of peers) {
     const P = pe.presence, r = remoteFor(pe), c = r.char;
-    const nm = String(P.n || 'Soldier').replace(/[\u0000-\u001f]/g, '').slice(0, 16);
+    const nm = (typeof chatClean === 'function' ? chatClean : x => x)(String(P.n || 'Soldier').replace(/[\u0000-\u001f]/g, '').slice(0, 16));
     if (nm !== r.name) { r.name = nm; c.name = nm; if (r.tag) c.model.root.remove(r.tag); r.tag = nameTag(nm, TEAM_CSS[c.team]); r.tag.position.y = 2.75; c.model.root.add(r.tag); }
     c.kills = P.k | 0; c.deaths = P.d | 0;
     const s = P.s || [0, 0, 0, 0, 0];
@@ -357,6 +357,8 @@ function netUpdate(dt) {
     // effects they made
     for (const e of newEntries(P.id, 'fx', P.fx)) applyFx(e, c);
     for (const e of newEntries(P.id, 'h', P.h)) applyHitEntry(e, c);
+    // chat from real players (cleaned again here, whatever their game sent)
+    for (const e of newEntries(P.id, 'ch', P.ch)) if (typeof chatLine === 'function' && typeof e[1] === 'string') chatLine(r.name, c.team, e[1].slice(0, 80));
     if (net.isHost) {
       for (const e of newEntries(P.id, 'dd', P.dd)) {
         const killer = resolveAttacker(e[1]);
