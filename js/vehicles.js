@@ -165,9 +165,11 @@ function damagePlane(pl, amt, attacker) {
 function destroyPlane(pl, attacker) {
   if (!pl.alive) return;
   pl.alive = false; pl.model.g.visible = false; pl.respawnT = 10;
-  const pos = pl.pos.clone();
-  explosion(pos, 8, 30, attacker && attacker.team !== pl.team ? attacker : null, 90);
-  burst(pos, 24, TEAM_COLOR[pl.team], 18, 2.5, 0.4);
+  const pos = pl.pos.clone(), crash = pos.y - heightAt(pos.x, pos.z) < 8;
+  explosion(pos, crash ? 14 : 10, crash ? 60 : 30, attacker && attacker.team !== pl.team ? attacker : null, crash ? 160 : 110);
+  burst(pos, 24, TEAM_COLOR[pl.team], 18, 2.5, 0.4); burst(pos, 40, 0xffa030, 24, 1.2, 0.6); burst(pos, 26, 0x2a2a2a, 14, 2.8, 0.35);   // fireball and flying wreckage
+  for (let i = 0; i < 10; i++) smokePuff(pos.clone().add(new THREE.Vector3(rand(-3, 3), rand(0, 6), rand(-3, 3))), i < 4 ? 0xff8a30 : 0x2e2e2e, rand(2, 4), rand(2, 4), 3);
+  if (crash) { const g = new THREE.Vector3(pos.x, heightAt(pos.x, pos.z), pos.z); if (typeof makeCrater === 'function') makeCrater(g, 16); if (typeof addFire === 'function') addFire(g); camShake = Math.max(camShake, clamp(0.3 - camera.position.distanceTo(g) / 400, 0, 0.3)); }
   if (attacker === player && attacker.team !== pl.team) addMoney(300, 'Plane destroyed');
   netPlaneDown(pl, attacker);
   if (!net.active || net.isHost) addKillfeed(attacker && attacker !== pl.pilot ? attacker : null, { name: teamName(pl.team) + ' plane', team: pl.team }, false);
@@ -287,7 +289,23 @@ function cockpitModel() {
     P.box(0.05, 0.08, 0.16, 0x222222, s * 0.6, 1.08, 0.05);                                        // throttle and switches
   }
   P.add(new THREE.TorusGeometry(0.62, 0.014, 5, 24, Math.PI), frame, 0, 1.1, 0.4);                // one canopy hoop, behind your head
+  // the tub: a floor, side walls and consoles, the seat, stick and pedals, so looking down shows the cockpit, not the ground
+  const T = new Part();   // the tub is shown in both cockpit views
+  const floor = 0x22262a, wall = 0x30353a, cons = 0x1c1f22, seat = 0x3a2e24, paint = 0x55606a;
+  T.box(1.24, 0.06, 2.4, floor, 0, 0.52, -0.35);                                                  // floor
+  for (const s of [-1, 1]) {
+    T.box(0.06, 0.56, 2.4, wall, s * 0.64, 0.8, -0.35);                                           // side walls, up to the canopy rail
+    T.box(0.22, 0.06, 1.1, cons, s * 0.52, 0.9, 0.05);                                            // side consoles
+    for (let i = 0; i < 4; i++) T.box(0.04, 0.03, 0.04, i % 2 ? 0xd8c040 : 0xd83a2a, s * 0.48, 0.94, -0.3 + i * 0.18);   // switches
+    T.box(0.05, 0.3, 0.05, 0x111111, s * 0.18, 0.6, -1.25); T.box(0.18, 0.04, 0.24, 0x2a2a2a, s * 0.18, 0.56, -1.3);     // rudder pedals
+  }
+  T.box(1.26, 0.5, 0.06, wall, 0, 0.78, -1.5);                                                     // closes the space under the dashboard
+  T.box(0.6, 0.1, 0.55, seat, 0, 0.6, 0.35); T.box(0.6, 0.7, 0.1, seat, 0, 0.95, 0.66);            // the seat
+  T.box(0.04, 0.4, 0.04, 0x111111, 0, 0.75, -0.45); T.box(0.08, 0.12, 0.08, 0x222222, 0, 0.98, -0.45);   // the stick
+  // ahead of the windscreen: the top of the nose, so there is something to judge the horizon by
+  T.cyl(0.32, 0.62, 2.8, paint, 0, 0.5, -2.9, -Math.PI / 2, 0, 0, 1, 16);   // a rounded nose that tapers away below your sight line
   const full = new THREE.Mesh(P.build(), new THREE.MeshLambertMaterial({ vertexColors: true })); full.visible = false; g.add(full); g.full = full;
+  const tub = new THREE.Mesh(T.build(), new THREE.MeshLambertMaterial({ vertexColors: true })); g.add(tub); g.tub = tub;
   g.visible = false; _cockpit = g; return g;
 }
 // the plane's own body is hidden from its pilot in cockpit view (it only blocked the view)
@@ -334,7 +352,7 @@ function easyFly(pl, dt) {
   let ground = skyAt(pl.pos.x, pl.pos.z); for (const d of [20, 45, 80, 130]) ground = Math.max(ground, skyAt(pl.pos.x + fx * d, pl.pos.z + fz * d));
   const clear = pl.pos.y - ground, landing = pl.throttle < 0.3 && pl.speed < 38;
   pl.pullUp = false;
-  if (!landing && clear < 28) { wantPitch = Math.max(wantPitch, clamp((28 - clear) / 28, 0.15, 0.6)); pl.pullUp = true; }
+  if (!landing && clear < 28) pl.pullUp = true;   /* a warning only: the pilot has to pull up */
   pl.pitchV = (pl.pitchV || 0) + (clamp((wantPitch - pitch) * 2.6, -1.2, 1.2) * ctrl - (pl.pitchV || 0)) * k(pl.pullUp ? 9 : 5);
   pitch += pl.pitchV * dt;
   pl.quat.setFromEuler(new THREE.Euler(pitch, yaw, roll, 'YXZ'));
@@ -343,7 +361,7 @@ function easyFly(pl, dt) {
   const f = planeFwd(pl);
   pl.pos.addScaledVector(f, pl.speed * dt);
   pl.pos.y -= (1 - clamp(pl.speed / 26, 0, 1)) * 8 * dt;
-  if (!landing) { const need = skyAt(pl.pos.x, pl.pos.z) + 6 - pl.pos.y; if (need > 0) pl.pos.y += Math.min(need, 25 * dt); }   // last-moment save
+  if (pl.pullUp && pl.pilot === player && typeof tn === 'function' && actx) { pl.puT = (pl.puT || 0) - dt; if (pl.puT <= 0) { pl.puT = 0.45; tn('square', 880, 880, 0.12, 0.14); tn('square', 660, 660, 0.12, 0.14, 0.15); } }   // a warning tone; no automatic save
   if (pl.pos.y > 260) pl.pos.y = 260;
   if (Math.max(Math.abs(pl.pos.x), Math.abs(pl.pos.z)) > HALF + 40) { pl.aimYaw = Math.atan2(pl.pos.x, pl.pos.z); showMessage('Return to the battlefield!', 0.5); }
 }

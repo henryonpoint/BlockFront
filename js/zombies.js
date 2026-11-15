@@ -44,7 +44,7 @@ kill = function (c, attacker, dir, force, headshot) {
 const _spawnZ = spawnChar;
 spawnChar = function (c, pref) { if (c.zombie || c.zRiseT) unZombie(c); return _spawnZ.apply(this, arguments); };
 // nukes: soldiers they kill can rise again, and the stealth bomber's mega nuke takes out every enemy soldier on the map
-const _detZ = detonateNuke;
+const _detZ = detonateNuke, MEGA_R = 380;   // the mega nuke flattens a huge circle (about a third of the map), not all of it
 detonateNuke = function (at, owner, ghost, mega) {
   _inNuke = true;
   try {
@@ -53,21 +53,20 @@ detonateNuke = function (at, owner, ghost, mega) {
       const fx = nukeFx[nukeFx.length - 1]; if (fx && fx.kind === 'cloud') { fx.cloud.scale.setScalar(8); fx.mega = true; }
       if (typeof makeCrater === 'function') makeCrater(at, NUKE_R * 3, 'mega');
       if (!ghost || !net.active || net.isHost) {
-        for (const c of chars) if (c.alive && c !== owner && c.pos.distanceTo(at) < 1650) kill(c, owner && owner.team && c !== owner ? owner : null, new THREE.Vector3(c.pos.x - at.x, 4, c.pos.z - at.z).normalize(), 18);
-        for (const v of gvehicles) if (v.alive && v.pos.distanceTo(at) < 1650 && !(owner && v === owner.gv)) damageVehicle(v, 99999, owner);
-        for (const pl of planes) if (pl.alive && pl.pos.distanceTo(at) < 1650 && !(owner && pl.pilot === owner)) destroyPlane(pl, owner);   // five times the power: the whole battlefield, except the bomber that dropped it
+        for (const c of chars) if (c.alive && c !== owner && Math.hypot(c.pos.x - at.x, c.pos.z - at.z) < MEGA_R) kill(c, owner && owner.team && c !== owner ? owner : null, new THREE.Vector3(c.pos.x - at.x, 4, c.pos.z - at.z).normalize(), 18);
+        for (const v of gvehicles) if (v.alive && Math.hypot(v.pos.x - at.x, v.pos.z - at.z) < MEGA_R && v.pos.y - heightAt(v.pos.x, v.pos.z) < 60 && !(owner && v === owner.gv)) damageVehicle(v, 99999, owner);
+        for (const pl of planes) if (pl.alive && Math.hypot(pl.pos.x - at.x, pl.pos.z - at.z) < MEGA_R && pl.pos.y - heightAt(pl.pos.x, pl.pos.z) < 110 && !(owner && pl.pilot === owner)) destroyPlane(pl, owner);   /* a huge area; planes flying high ride out the blast */
       }
     }
-    if (mega && (!net.active || net.isHost)) {
-      for (const n of npcs) if (n.alive && !n.inactive && (!owner || n.team !== owner.team || n.zombie)) kill(n, owner && owner.team ? owner : null, new THREE.Vector3(n.pos.x - at.x, 3, n.pos.z - at.z).normalize(), 12);
-    }
+
   } finally { _inNuke = false; }
   if (mega) megaFlash();
+  if (typeof addRadiation === 'function') addRadiation(at, mega ? 260 : NUKE_R * 1.3, mega ? 150 : 70, mega ? 6 : 4);
 };
 function megaFlash() {
   const f = document.createElement('div'); f.style.cssText = 'position:fixed;inset:0;background:#fff;z-index:40;pointer-events:none;transition:opacity 2.5s';
   document.body.appendChild(f); requestAnimationFrame(() => setTimeout(() => { f.style.opacity = '0'; }, 120)); setTimeout(() => f.remove(), 2800);
-  showMessage('MEGA NUKE! The whole battlefield is wiped out', 4); camShake = Math.max(camShake, 0.15);
+  showMessage('MEGA NUKE! A huge part of the battlefield is wiped out. Stay out of the green radiation zone', 5); camShake = Math.max(camShake, 0.15);
 }
 
 // ---------- zombies move and bite (host or solo) ----------

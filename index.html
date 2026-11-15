@@ -95,6 +95,7 @@
   #planeHud { left: 50%; bottom: 20px; transform: translateX(-50%); display: none; background: rgba(0,0,0,0.45); padding: 10px 18px; border-radius: 10px; font-size: 14px; text-align: center; }
   #planeHud div.r { display: flex; gap: 18px; }
   #planeHud b { font-size: 18px; }
+  body.flying #slots, body.flying #ammo, body.flying #extras, body.flying #vitals { display: none !important; }   /* the soldier's weapons and health are hidden while flying */
   body.cockpitView #planeHud { left: 16px; bottom: 96px; transform: none; padding: 6px 10px; font-size: 11px; background: rgba(0,0,0,0.35); }
   body.cockpitView #planeHud b { font-size: 14px; }
   body.cockpitView #planeHud div.r { gap: 10px; }
@@ -455,53 +456,53 @@
 <script src="lib/three.min.js"></script>
 <script src="lib/cannon.min.js"></script>
 <script src="lib/peerjs.min.js"></script>
-<script src="js/core.js?v=45"></script>
-<script src="js/world.js?v=45"></script>
-<script src="js/bunker.js?v=45"></script>
-<script src="js/trenches.js?v=45"></script>
-<script src="js/tunnels.js?v=45"></script>
-<script src="js/chars.js?v=45"></script>
-<script src="js/fx.js?v=45"></script>
-<script src="js/models.js?v=45"></script>
-<script src="js/weapons.js?v=45"></script>
-<script src="js/vehicles.js?v=45"></script>
-<script src="js/gvehicles.js?v=45"></script>
-<script src="js/vmodels.js?v=45"></script>
-<script src="js/heliboat.js?v=45"></script>
-<script src="js/specials.js?v=45"></script>
-<script src="js/snowmap.js?v=45"></script>
-<script src="js/houston.js?v=45"></script>
-<script src="js/suburbs.js?v=45"></script>
-<script src="js/levels.js?v=45"></script>
-<script src="js/wake.js?v=45"></script>
-<script src="js/ai.js?v=45"></script>
-<script src="js/build.js?v=45"></script>
-<script src="js/relaynet.js?v=45"></script>
-<script src="js/peernet.js?v=45"></script>
-<script src="js/net.js?v=45"></script>
-<script src="js/player.js?v=45"></script>
-<script src="js/setup.js?v=45"></script>
-<script src="js/main.js?v=45"></script>
-<script src="js/lobby.js?v=45"></script>
-<script src="js/polish.js?v=45"></script>
-<script src="js/clown.js?v=45"></script>
-<script src="js/craters.js?v=45"></script>
-<script src="js/topview.js?v=45"></script>
-<script src="js/animals.js?v=45"></script>
-<script src="js/loot.js?v=45"></script>
-<script src="js/sticky.js?v=45"></script>
-<script src="js/nuke.js?v=45"></script>
-<script src="js/city.js?v=45"></script>
-<script src="js/towers.js?v=45"></script>
-<script src="js/treasure.js?v=45"></script>
-<script src="js/zombies.js?v=45"></script>
-<script src="js/achievements.js?v=45"></script>
-<script src="js/ships.js?v=45"></script>
-<script src="js/sound.js?v=45"></script>
-<script src="js/controls.js?v=45"></script>
-<script src="js/chat.js?v=45"></script>
-<script src="js/console.js?v=45"></script>
-<script src="js/touch.js?v=45"></script>
-<script src="js/intro.js?v=45"></script>
+<script src="js/core.js?v=46"></script>
+<script src="js/world.js?v=46"></script>
+<script src="js/bunker.js?v=46"></script>
+<script src="js/trenches.js?v=46"></script>
+<script src="js/tunnels.js?v=46"></script>
+<script src="js/chars.js?v=46"></script>
+<script src="js/fx.js?v=46"></script>
+<script src="js/models.js?v=46"></script>
+<script src="js/weapons.js?v=46"></script>
+<script src="js/vehicles.js?v=46"></script>
+<script src="js/gvehicles.js?v=46"></script>
+<script src="js/vmodels.js?v=46"></script>
+<script src="js/heliboat.js?v=46"></script>
+<script src="js/specials.js?v=46"></script>
+<script src="js/snowmap.js?v=46"></script>
+<script src="js/houston.js?v=46"></script>
+<script src="js/suburbs.js?v=46"></script>
+<script src="js/levels.js?v=46"></script>
+<script src="js/wake.js?v=46"></script>
+<script src="js/ai.js?v=46"></script>
+<script src="js/build.js?v=46"></script>
+<script src="js/relaynet.js?v=46"></script>
+<script src="js/peernet.js?v=46"></script>
+<script src="js/net.js?v=46"></script>
+<script src="js/player.js?v=46"></script>
+<script src="js/setup.js?v=46"></script>
+<script src="js/main.js?v=46"></script>
+<script src="js/lobby.js?v=46"></script>
+<script src="js/polish.js?v=46"></script>
+<script src="js/clown.js?v=46"></script>
+<script src="js/craters.js?v=46"></script>
+<script src="js/topview.js?v=46"></script>
+<script src="js/animals.js?v=46"></script>
+<script src="js/loot.js?v=46"></script>
+<script src="js/sticky.js?v=46"></script>
+<script src="js/nuke.js?v=46"></script>
+<script src="js/city.js?v=46"></script>
+<script src="js/towers.js?v=46"></script>
+<script src="js/treasure.js?v=46"></script>
+<script src="js/zombies.js?v=46"></script>
+<script src="js/achievements.js?v=46"></script>
+<script src="js/ships.js?v=46"></script>
+<script src="js/sound.js?v=46"></script>
+<script src="js/controls.js?v=46"></script>
+<script src="js/chat.js?v=46"></script>
+<script src="js/console.js?v=46"></script>
+<script src="js/touch.js?v=46"></script>
+<script src="js/intro.js?v=46"></script>
 </body>
 </html>

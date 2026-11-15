@@ -940,9 +940,10 @@ function updateHUD(dt) {
     if (!pl._tipT) pl._tipT = simTime;
     $('pTip').style.display = pl.pullUp || pl.onGround || simTime - pl._tipT < 8 ? '' : 'none';   // the long hint goes away once you are flying
     document.body.classList.toggle('cockpitView', ck);
+    document.body.classList.add('flying');
     if (ck && pl._tipT && simTime - pl._tipT > 8 && !pl.onGround && !pl.pullUp) ph.style.display = 'none';   /* the head-up display shows all of this in the cockpit */
     drawFlightHud(ck ? pl : null);
-  } else { ph.style.display = 'none'; document.body.classList.remove('cockpitView'); drawFlightHud(null); }
+  } else { ph.style.display = 'none'; document.body.classList.remove('cockpitView'); document.body.classList.remove('flying'); drawFlightHud(null); }
   updateAirTargets();
   $('crosshair').style.display = player.vehicle ? (planeView === 'cockpit' ? 'block' : 'none') : $('crosshair').style.display;
   if (!player.vehicle && _cockpit && _cockpit.visible) { _cockpit.visible = false; updateNoseMarker(null); }

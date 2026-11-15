@@ -93,8 +93,34 @@ function updateNukes(dt) {
       m.rotation.y += dt * 0.2 * u.sp;
       m.material.color.setRGB(lerp(0.42, 1, heat), lerp(0.38, 0.62, heat), lerp(0.34, 0.22, heat));
       m.material.emissive.setRGB(0.5 * heat, 0.18 * heat, 0);
-      m.material.opacity = (u.role === 'base' ? Math.max(0, 0.9 - t / 14) : 0.95) * fade;
+      m.material.opacity = (u.role === 'base' ? Math.max(0, 0.9 - t / 6) : 0.95) * fade;   /* the ground dust clears quickly; the mushroom stays */
     }
     if (t > 32) { scene.remove(f.cloud); f.puffs.forEach(m => m.material.dispose()); nukeFx.splice(i, 1); }
+  }
+}
+
+// radiation: after a nuke a glowing green zone lingers, slowly hurting anyone inside it, then fades away
+const RADZ = [];
+function addRadiation(at, r, life, dps) {
+  const m = new THREE.Mesh(new THREE.CircleGeometry(1, 48), new THREE.MeshBasicMaterial({ color: 0x7dff4a, transparent: true, opacity: 0.16, depthWrite: false, side: THREE.DoubleSide }));
+  m.rotation.x = -Math.PI / 2; m.scale.setScalar(r); m.position.set(at.x, heightAt(at.x, at.z) + 1, at.z); m.renderOrder = 3; scene.add(m);
+  const edge = new THREE.Mesh(new THREE.RingGeometry(0.97, 1, 64), new THREE.MeshBasicMaterial({ color: 0x9dff5a, transparent: true, opacity: 0.5, depthWrite: false, side: THREE.DoubleSide }));
+  edge.rotation.x = -Math.PI / 2; edge.scale.setScalar(r); edge.position.copy(m.position); scene.add(edge);
+  RADZ.push({ x: at.x, z: at.z, r, life, t: 0, dps, m, edge, hurtT: 0 });
+}
+function updateRadiation(dt) {
+  const host = !net.active || net.isHost;
+  for (let i = RADZ.length - 1; i >= 0; i--) {
+    const z = RADZ[i]; z.t += dt;
+    const k = Math.max(0, 1 - z.t / z.life); z.m.material.opacity = 0.16 * k + Math.sin(z.t * 3) * 0.03 * k; z.edge.material.opacity = 0.5 * k;
+    z.m.position.y = z.edge.position.y = heightAt(z.x, z.z) + 1;
+    if (z.t >= z.life) { scene.remove(z.m); scene.remove(z.edge); RADZ.splice(i, 1); continue; }
+    z.hurtT -= dt; if (z.hurtT > 0) continue; z.hurtT = 1;
+    for (const c of chars) {
+      if (!c.alive || c.isRemote || (!host && !c.isPlayer) || c.vehicle) continue;
+      if (Math.hypot(c.pos.x - z.x, c.pos.z - z.z) > z.r) continue;
+      damage(c, z.dps * (0.4 + 0.6 * k), null, new THREE.Vector3(0, 1, 0), 0);
+      if (c.isPlayer && !CHEAT.god) { showMessage('RADIATION! Get out of the green zone', 1); if (typeof tn === 'function' && actx) for (let j = 0; j < 4; j++) tn('square', rand(2000, 4000), rand(2000, 4000), 0.02, 0.05, j * 0.05); }
+    }
   }
 }

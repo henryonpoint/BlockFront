@@ -177,12 +177,17 @@ function buildNormandy() {
 function buildDam() {
   // the dam: a concrete deck along the crest, walls along both edges, and the huge face dropping into the gorge
   const crestY = 4.2;
-  addMesh(new THREE.BoxGeometry(344, 0.5, 13), LV.concrete, 0, crestY + 0.05, -60);
-  for (const z of [-66.6, -53.4]) for (let x = -170; x < 170; x += 10) addBlock(x + 5, z, 10, 1.1, 0.6, LV.concrete, { y: crestY });
-  const face = new THREE.Mesh(new THREE.BoxGeometry(340, 34, 3), LV.concrete); face.position.set(0, crestY - 16.5, -52.2); face.rotation.x = -0.12; face.receiveShadow = true; scene.add(face);
-  for (let x = -160; x <= 160; x += 20) { const rib = new THREE.Mesh(new THREE.BoxGeometry(2.2, 34, 2), new THREE.MeshLambertMaterial({ color: 0x9d9e99 })); rib.position.set(x, crestY - 16.5, -50.6); rib.rotation.x = -0.12; scene.add(rib); }
-  // the reservoir side of the wall
-  const back = new THREE.Mesh(new THREE.BoxGeometry(340, 14, 1.5), LV.concrete); back.position.set(0, crestY - 6.8, -67.2); scene.add(back);
+  // built in 10 m sections, so the middle can break away when the dam is destroyed
+  for (let x = -170; x < 170; x += 10) {
+    const P = new Part(), cx = x + 5, c = 0xa8a9a4, rc = 0x9d9e99;
+    P.box(10.05, 0.5, 13, c, 0, crestY + 0.05, -60);                                              // the crest deck
+    P.add(new THREE.BoxGeometry(10.05, 34, 3), c, 0, crestY - 16.5, -52.2, -0.12, 0, 0);          // the face over the gorge
+    if (((cx + 170) / 10) % 2 === 1) P.add(new THREE.BoxGeometry(2.2, 34, 2), rc, 0, crestY - 16.5, -50.6, -0.12, 0, 0);   // ribs
+    P.box(10.05, 14, 1.5, c, 0, crestY - 6.8, -67.2);                                             // the reservoir side
+    const m = new THREE.Mesh(P.build(), VEH_MAT); m.position.x = cx; m.receiveShadow = true; m.castShadow = true; m.userData.kept = true; scene.add(m);
+    const walls = []; for (const z of [-66.6, -53.4]) walls.push(addBlock(cx, z, 10, 1.1, 0.6, LV.concrete, { y: crestY }));
+    DAMWALL.segs.push({ x: cx, m, walls });
+  }
   // control buildings at each end, with lamp posts along the crest
   for (const s of [-1, 1]) { addBlock(s * 182, -44, 14, 8, 10, LV.concrete); addMesh(new THREE.BoxGeometry(14.6, 0.5, 10.6), LV.rail, s * 182, heightAt(s * 182, -44) + 8, -44); }
   for (let x = -150; x <= 150; x += 30) { addMesh(new THREE.CylinderGeometry(0.1, 0.12, 5, 6), LV.rail, x, crestY + 2.5, -66); addMesh(new THREE.BoxGeometry(0.5, 0.25, 1.2), new THREE.MeshBasicMaterial({ color: 0xfff2c0 }), x, crestY + 5, -65.5); }
@@ -197,8 +202,110 @@ function buildDam() {
   dish.position.set(250, dy, 40); scene.add(dish); addBlock(250, 40, 2.6, 6, 2.6, LV.hidden);
   for (const [x, z] of [[-230, 60], [230, -150], [-240, -150], [120, 200], [-120, 200]]) if (lvFree(x, z, 4)) addBlock(x, z, 5, 3.2, 5, LV.concrete);
 }
+// ---------- the dam can be destroyed ----------
+// Explosions near the wall wear it down. Cracks spread across the face as it weakens and water starts spraying
+// through. At zero the middle of the wall gives way: the concrete tumbles into the gorge, a waterfall pours through
+// the gap and a flood surges down the gorge, sweeping away and drowning anyone caught in it.
+const DAMWALL = { hp: 6000, max: 6000, segs: [], cracks: 0, broken: false, t: 0, chunks: [], flood: null, falls: null, told: {} };
+function damFloor(z) { return lerp(-28, 2, smooth(-54, 140, z)); }
+function damHit(pos, radius, dmg) {
+  if (!DAM || DAMWALL.broken || Math.abs(pos.x) > 175) return;
+  const dz = pos.z < -67 ? -67 - pos.z : pos.z > -50 ? pos.z + 50 : 0, dy = pos.y > 5 ? pos.y - 5 : pos.y < -30 ? -30 - pos.y : 0, d = Math.hypot(dz, dy);
+  const reach = radius + 12; if (d > reach) return;
+  DAMWALL.hp -= dmg * (1 - d / reach) * (radius > 40 ? 3 : 1);   // nukes hit it very hard
+  if (DAMWALL.hp <= 0 && !DAMWALL.broken) breakDam();
+}
+function installDamHooks() {
+  if (installDamHooks.done || typeof explosion !== 'function') return; installDamHooks.done = true;
+  const ex = explosion; explosion = function (pos, radius, power, attacker, dmg = 130, ghost = false) { if (!ghost && (!net.active || net.isHost)) damHit(pos, radius, dmg); return ex.apply(this, arguments); };
+}
+const DAM_CRACK = [0.8, 0.55, 0.3, 0.12];
+function updateDamCracks() {
+  const k = DAMWALL.hp / DAMWALL.max;
+  while (DAMWALL.cracks < DAM_CRACK.length && k < DAM_CRACK[DAMWALL.cracks]) {
+    const lvl = DAMWALL.cracks++, mat = new THREE.MeshBasicMaterial({ color: 0x1a1a18 });
+    // jagged cracks running across the face, more and longer each time, centred on the middle of the dam
+    for (let n = 0; n < 6 + lvl * 6; n++) {
+      let x = rand(-60 - lvl * 25, 60 + lvl * 25), y = rand(-26, 2), a = rand(0, 6.28);
+      for (let seg = 0; seg < 4 + lvl * 2; seg++) {
+        const len = rand(1.5, 4 + lvl), m = new THREE.Mesh(new THREE.BoxGeometry(len, 0.18 + lvl * 0.06, 0.1), mat);
+        m.position.set(x + Math.cos(a) * len / 2, 4.2 + y + Math.sin(a) * len / 2, -50.6 + 0.12 * (4.2 + y - (4.2 - 16.5)) * 0); m.position.z = -52.2 + 1.55 - (m.position.y - (4.2 - 16.5)) * Math.tan(0.12) + 0.05;
+        m.rotation.set(-0.12, 0, a); if (m.position.y < 3.6 && Math.abs(m.position.x) < 168) { scene.add(m); (DAMWALL.crackMeshes = DAMWALL.crackMeshes || []).push(m); }   /* only on the face itself */
+        x += Math.cos(a) * len; y += Math.sin(a) * len; a += rand(-0.9, 0.9);
+      }
+    }
+    if (lvl >= 2) DAMWALL.leaks = (DAMWALL.leaks || []).concat(Array.from({ length: lvl * 3 }, () => new THREE.Vector3(rand(-60, 60), rand(-24, -4), 0)));
+    const say = ['Cracks are spreading across the dam!', 'The dam is badly cracked!', 'Water is spraying through the dam!', 'The dam is about to give way!'][lvl];
+    if (!DAMWALL.told[lvl]) { DAMWALL.told[lvl] = true; showMessage(say, 3); }
+  }
+}
+function breakDam() {
+  if (DAMWALL.broken) return; DAMWALL.broken = true; DAMWALL.t = 0; DAMWALL.hp = 0;
+  updateDamCracks();
+  for (const m of DAMWALL.crackMeshes || []) if (Math.abs(m.position.x) < 62) m.visible = false;   // cracks go with the broken part
+  // the middle 120 m breaks away and tumbles into the gorge
+  for (const sg of DAMWALL.segs) {
+    if (Math.abs(sg.x) > 60) continue;
+    sg.m.visible = false;
+    for (const w of sg.walls) if (w) { w.visible = false; const i = solidMeshes.indexOf(w); if (i >= 0) solidMeshes.splice(i, 1); }
+    for (let i = 0; i < 4; i++) {
+      const c = new THREE.Mesh(new THREE.BoxGeometry(rand(3, 6), rand(3, 7), rand(2, 4)), LV.concrete); c.position.set(sg.x + rand(-4, 4), rand(-10, 4), rand(-62, -52)); c.castShadow = true; scene.add(c);
+      DAMWALL.chunks.push({ m: c, v: new THREE.Vector3(rand(-3, 3), rand(0, 4), rand(8, 18)), r: new THREE.Vector3(rand(-2, 2), rand(-2, 2), rand(-2, 2)) });
+    }
+  }
+  for (const b of obstacles) if (b.kind === 'box' && Math.abs((b.minX + b.maxX) / 2) < 62 && (b.minZ + b.maxZ) / 2 > -70 && (b.minZ + b.maxZ) / 2 < -48 && b.maxY > 2) b.minY = b.maxY = -1e4;
+  for (const b of world.bodies.slice()) { if (b.mass !== 0 || !b.shapes[0] || b.shapes[0].type === CANNON.Shape.types.HEIGHTFIELD) continue; if (Math.abs(b.position.x) < 62 && b.position.z > -70 && b.position.z < -48 && b.position.y > 2) world.removeBody(b); }
+  // cut the gap into the ground, from the reservoir down to the gorge floor
+  if (typeof terrainEdit === 'function') terrainEdit(-62, 62, -72, -48, (x, z, h) => { const edge = smooth(62, 50, Math.abs(x)); return lerp(h, Math.min(h, z < -60 ? -10 : damFloor(z) - 1), edge); });
+  if (typeof clearAround === 'function') clearAround(new THREE.Vector3(0, 0, -58), 62, 0);   /* lamp posts, the bungee platform and anything else on the broken part */
+  // the waterfall through the gap, and the flood that sweeps down the gorge
+  const wm = new THREE.MeshLambertMaterial({ color: 0x7fb3c8, transparent: true, opacity: 0.8, side: THREE.DoubleSide, emissive: 0x1a3440 });
+  DAMWALL.falls = new THREE.Mesh(new THREE.PlaneGeometry(116, 30), wm); DAMWALL.falls.position.set(0, -12, -53); DAMWALL.falls.rotation.x = -0.35; scene.add(DAMWALL.falls);
+  const fg = new THREE.PlaneGeometry(300, 196, 1, 40); fg.rotateX(-Math.PI / 2);
+  DAMWALL.flood = new THREE.Mesh(fg, new THREE.MeshLambertMaterial({ color: 0x5f8fa2, transparent: true, opacity: 0.85, emissive: 0x10242c })); DAMWALL.flood.position.set(0, 0, 44); scene.add(DAMWALL.flood);
+  SFX.boom && SFX.boom(1.6); camShake = Math.max(camShake, 0.4);
+  if (typeof tn === 'function' && actx) { nz('lowpass', 260, 6, 1.0); tn('sine', 50, 25, 5, 0.8); }
+  showMessage('THE DAM HAS BROKEN! The flood is coming down the gorge. Get to high ground!', 6);
+}
+function updateDam(dt) {
+  if (!DAM) return;
+  installDamHooks();
+  updateDamCracks();
+  if (!DAMWALL.broken) {   // water spraying through the worst cracks
+    if (DAMWALL.leaks && Math.random() < dt * 8) { const l = pick(DAMWALL.leaks); smokePuff(new THREE.Vector3(l.x, 4.2 + l.y, -49), 0xd8eef8, rand(0.8, 1.6), 1.6, -2); }
+    return;
+  }
+  DAMWALL.t += dt; const t = DAMWALL.t;
+  for (let i = DAMWALL.chunks.length - 1; i >= 0; i--) {   // falling concrete
+    const c = DAMWALL.chunks[i]; if (c.done) continue;
+    c.v.y -= 20 * dt; c.m.position.addScaledVector(c.v, dt); c.m.rotation.x += c.r.x * dt; c.m.rotation.y += c.r.y * dt; c.m.rotation.z += c.r.z * dt;
+    const g = heightAt(c.m.position.x, c.m.position.z); if (c.m.position.y < g + 1) { c.m.position.y = g + 1; c.done = true; burst(c.m.position.clone(), 10, 0x9a9a94, 8, 1, 0.3); }
+  }
+  // the flood: a front races down the gorge, deep at first, then settles into a river
+  const front = -54 + 196 * clamp(t / 9, 0, 1), surge = lerp(14, 3, clamp((t - 6) / 20, 0, 1));
+  const pos = DAMWALL.flood.geometry.attributes.position;
+  for (let i = 0; i < pos.count; i++) { const z = pos.getZ(i) + 44, deep = z < front ? surge * lerp(1, 0.5, (z + 54) / 196) : -6; pos.setY(i, damFloor(z) + deep); }
+  pos.needsUpdate = true; DAMWALL.flood.geometry.computeVertexNormals();
+  DAMWALL.falls.material.opacity = 0.65 + Math.sin(t * 8) * 0.1;
+  if (Math.random() < dt * 20) smokePuff(new THREE.Vector3(rand(-55, 55), damFloor(-50) + rand(0, 6), rand(-50, -40)), 0xe8f4fa, rand(2, 4), 2, 3);   // spray at the foot of the falls
+  if (Math.random() < dt * 10 && front < 140) smokePuff(new THREE.Vector3(rand(-100, 100), damFloor(front) + surge * 0.6, front), 0xdaeef6, rand(2, 4), 1.4, 2);   // foam on the front
+  // anyone caught in the water is swept along and drowns; vehicles are wrecked
+  const host = !net.active || net.isHost;
+  DAMWALL.hurtT = (DAMWALL.hurtT || 0) - dt; const tick = DAMWALL.hurtT <= 0; if (tick) DAMWALL.hurtT = 0.5;
+  for (const c of chars) {
+    if (!c.alive || c.isRemote || (!host && !c.isPlayer) || c.vehicle) continue;
+    const z = c.pos.z; if (z < -54 || z > 142 || z > front || Math.abs(c.pos.x) > 140) continue;
+    const surf = damFloor(z) + surge * lerp(1, 0.5, (z + 54) / 196); if (c.pos.y > surf - 0.5) continue;
+    c.pos.z += 9 * dt; if (c.isPlayer) { player.velY = Math.max(player.velY, -2); }
+    if (tick) { damage(c, t < 25 ? 55 : 22, null, new THREE.Vector3(0, 0, 1), 6); if (c.isPlayer) showMessage('You are being swept away by the flood!', 1); }
+  }
+  if (host && tick) for (const v of gvehicles) if (v.alive && !v.T.boat && v.pos.z > -54 && v.pos.z < front && Math.abs(v.pos.x) < 140 && v.pos.y < damFloor(v.pos.z) + surge - 1) damageVehicle(v, 400, null);
+}
+function damState() { return [Math.round(Math.max(0, DAMWALL.hp)), DAMWALL.broken ? 1 : 0]; }
+function applyDamState(d) { if (!Array.isArray(d)) return; DAMWALL.hp = d[0]; if (d[1] && !DAMWALL.broken) breakDam(); }
 // the bungee jump: drop off the dam into the gorge and a parachute opens for you
 function updateLevel(dt) {
+  if (DAM) updateDam(dt);
   if (GERMANY) { installLeaderHooks(); installGuardHook(); updateBombers(dt); updateLeader(dt); }
   if ((GERMANY || NORMANDY) && started) updateBarrage(dt);
   if ((GERMANY || NORMANDY) && started && !BARRAGE.told && player.alive) { BARRAGE.told = true; showMessage(NORMANDY ? 'June 6, 1944: D-Day. Blue storms the beach, red holds the bunkers' : 'Berlin, April 1945: the last battle in Europe. Hitler hides in one of the bunkers. Blue: find the clues by the landmarks (red blinking lights) to track him down', 8); }
