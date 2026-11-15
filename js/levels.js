@@ -184,6 +184,7 @@ function buildDam() {
     P.add(new THREE.BoxGeometry(10.05, 34, 3), c, 0, crestY - 16.5, -52.2, -0.12, 0, 0);          // the face over the gorge
     if (((cx + 170) / 10) % 2 === 1) P.add(new THREE.BoxGeometry(2.2, 34, 2), rc, 0, crestY - 16.5, -50.6, -0.12, 0, 0);   // ribs
     P.box(10.05, 14, 1.5, c, 0, crestY - 6.8, -67.2);                                             // the reservoir side
+    P.box(10.05, 44, 15, c, 0, crestY - 22.5, -59.5);                                             // the solid core, down past the deepest ground
     const m = new THREE.Mesh(P.build(), VEH_MAT); m.position.x = cx; m.receiveShadow = true; m.castShadow = true; m.userData.kept = true; scene.add(m);
     const walls = []; for (const z of [-66.6, -53.4]) walls.push(addBlock(cx, z, 10, 1.1, 0.6, LV.concrete, { y: crestY }));
     DAMWALL.segs.push({ x: cx, m, walls });

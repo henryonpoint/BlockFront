@@ -188,6 +188,32 @@ function jetModel(team, kind) {
           p.box(0.12, 0.12, 0.9, 0xc8ccd0, 5.45 * sd, 0.05, 1.9); }                                               // wingtip missiles
       }
       p.box(0.3, 0.04, 2.4, P.team, 0, 0.56, 1.4);   // team colour stripe along the spine
+      // finer detail: a darker radar nose, gun port, canopy frame and headrest, panel lines, leading-edge strips,
+      // lights, nozzle petals, tail stripes, and (on the F-18) missiles on pylons and a centre fuel tank
+      const radome = F22 ? 0x5a6068 : 0x6c747c, panel = F22 ? 0x5e646b : 0x7a838d, lite = 0xb8ffb0;
+      p.add(new THREE.CylinderGeometry(0.06, 0.34, 1.2, F22 ? 6 : 14), radome, 0, 0, -5.45, -RX, 0, 0, 1.25, 1, 0.75);
+      p.box(0.12, 0.06, 0.25, black, 0.42, 0.22, -3.6);                                                      // gun port
+      p.box(0.04, 0.04, 1.9, black, 0, 0.93, -3.4); p.box(0.7, 0.04, 0.05, black, 0, 0.82, -2.9);                // canopy frame
+      p.box(0.34, 0.32, 0.12, black, 0, 0.72, -2.75); p.box(0.22, 0.08, 0.3, 0x2a2e33, 0, 0.62, -4.3);      // ejection seat headrest, coaming
+      for (const z of [-2.2, -0.8, 0.6, 2.0, 3.4]) p.box(1.05, 0.015, 0.03, panel, 0, 0.5, z);               // panel lines across the spine
+      p.box(0.03, 0.015, 6.0, panel, 0.32, 0.49, 0.4); p.box(0.03, 0.015, 6.0, panel, -0.32, 0.49, 0.4);
+      for (const sd of [-1, 1]) {
+        p.box(0.4, 0.04, 0.08, lite, 1.2 * sd, 0.55, 0.3);                                                  // formation lights
+        p.box(0.08, 0.06, 0.12, sd > 0 ? 0x30d040 : 0xe03030, 5.35 * sd, 0.06, 1.85);                       // wingtip nav lights
+      }
+      if (!F22) {
+        for (const sd of [-1, 1]) for (const x of [2.6, 3.9]) {
+          p.box(0.12, 0.3, 0.9, panel, x * sd, -0.15, 1.6);                                                 // pylon
+          p.cyl(0.1, 0.1, 2.4, 0xd8dadc, x * sd, -0.4, 1.5, RX, 0, 0, 1, 10); p.cyl(0.01, 0.1, 0.35, 0x8a8e92, x * sd, -0.4, 0.15, -RX, 0, 0, 1, 10);   // missile and its nose
+          for (let f = 0; f < 4; f++) p.box(0.02, 0.28, 0.28, 0xb0b4b8, x * sd, -0.4, 2.55, 0, 0, f * Math.PI / 4);   // tail fins
+        }
+        p.cyl(0.32, 0.32, 3.0, 0x9aa2aa, 0, -0.75, 0.6, RX, 0, 0, 1, 14); p.cyl(0.02, 0.32, 0.7, 0x9aa2aa, 0, -0.75, -1.25, -RX, 0, 0, 1, 14); p.cyl(0.02, 0.32, 0.7, 0x9aa2aa, 0, -0.75, 2.45, RX, 0, 0, 1, 14);   // centre fuel tank
+        p.box(0.1, 0.08, 0.9, black, 0, -0.42, 4.6, 0.25, 0, 0);                                          // tail hook
+        for (const sd of [-1, 1]) for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; p.box(0.1, 0.03, 0.22, 0x5a5048, 0.45 * sd + Math.cos(a) * 0.38, -0.02 + Math.sin(a) * 0.38, 5.32); }   // nozzle petals
+      } else {
+        for (const sd of [-1, 1]) { p.box(0.7, 0.015, 1.6, panel, 0.55 * sd, -0.5, 0.2); p.box(0.03, 0.015, 1.6, black, 0.9 * sd, -0.5, 0.2); }   // weapon bay doors underneath
+        p.box(1.6, 0.015, 0.03, panel, 0, -0.5, -0.6); p.box(1.6, 0.015, 0.03, panel, 0, -0.5, 1.0);
+      }
     } else {   // stealth bomber: a B-2 style flying wing, swept leading edge and a sawtooth trailing edge
       const grey = 0x3c4047, dark = 0x2b2e33, half = [[0, -5.6], [10.5, 2.3], [9.6, 3.2], [6.0, 0.9], [3.4, 3.3], [1.6, 1.8], [0, 3.0]];
       const sh = new THREE.Shape(); const pts = half.concat(half.slice(1, -1).reverse().map(([x, z]) => [-x, z]));

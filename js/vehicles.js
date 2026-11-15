@@ -140,8 +140,8 @@ function buildPlanes() {
     }
     return;
   }
-  [[30, 6], [52, 30], [70, 55]].forEach(([off, wait]) => makePlane('blue', RUNWAYS.blue.x + off, RUNWAYS.blue.z, RUNWAYS.blue.carrier ? 0 : Math.PI / 2, wait));
-  [[-30, 6], [-52, 30], [-70, 55]].forEach(([off, wait]) => makePlane('red', RUNWAYS.red.x + off, RUNWAYS.red.z, -Math.PI / 2, wait));
+  [[30, 6], [52, 30], [70, 55]].forEach(([off, wait]) => makePlane('blue', RUNWAYS.blue.x + off, RUNWAYS.blue.z, RUNWAYS.blue.carrier ? 0 : Math.PI / 2, wait, AFGHAN ? 'f18' : undefined));
+  [[-30, 6], [-52, 30], [-70, 55]].forEach(([off, wait]) => makePlane('red', RUNWAYS.red.x + off, RUNWAYS.red.z, -Math.PI / 2, wait, AFGHAN ? 'f18' : undefined));   /* Desert Combat: modern jets */
   if (NORMANDY) {   // a big air battle over the beach: more fighters on both sides, up quickly
     [[8, 1], [-14, 12]].forEach(([off, wait]) => makePlane('blue', RUNWAYS.blue.x + off, RUNWAYS.blue.z, 0, wait));
     [[-8, 1], [14, 12]].forEach(([off, wait]) => makePlane('red', RUNWAYS.red.x + off, RUNWAYS.red.z, -Math.PI / 2, wait));

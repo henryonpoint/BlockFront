@@ -4,7 +4,7 @@
 // ---------- which map and game mode this page builds ----------
 // The world is built once when the page loads, so changing the map or mode reloads the page.
 // A join that needs a different map stores what it needs in sessionStorage first ('bf_force').
-const MAPS = { green: 'Green valley', snow: 'Snow mountain', desert: 'Desert', houston: 'Houston city', wake: 'Wake Island', normandy: 'Normandy beach', europe: 'Berlin 1945', dam: 'The Dam', dogfight: 'Dogfight: old planes', jetfight: 'Dogfight: jets', wwifight: 'Dogfight: WW1 triplanes' };
+const MAPS = { green: 'Green valley', snow: 'Snow mountain', desert: 'Desert', houston: 'Houston city', wake: 'Wake Island', normandy: 'Normandy beach', europe: 'Berlin 1945', dam: 'The Dam', afghan: 'Desert Combat', dogfight: 'Dogfight: old planes', jetfight: 'Dogfight: jets', wwifight: 'Dogfight: WW1 triplanes' };
 const MODES = { conquest: 'Conquest', tdm: 'Team battle', koth: 'King of the hill', four: '4 teams' };
 const WORLD = (() => {
   let w = { map: 'green', mode: 'conquest' };
@@ -14,7 +14,8 @@ const WORLD = (() => {
   if (w.map === 'dogfight' || w.map === 'jetfight' || w.map === 'wwifight') w.mode = 'tdm';   // dogfights are scored on planes shot down   // the island only has room for two sides
   return w;
 })();
-const SNOW = WORLD.map === 'snow', DESERT = WORLD.map === 'desert', HOUSTON = WORLD.map === 'houston', WAKE = WORLD.map === 'wake';
+const AFGHAN = WORLD.map === 'afghan';   // Desert Combat: modern Afghanistan (a dusty valley ringed by mountains)
+const SNOW = WORLD.map === 'snow', DESERT = WORLD.map === 'desert' || AFGHAN, HOUSTON = WORLD.map === 'houston', WAKE = WORLD.map === 'wake';
 const NORMANDY = WORLD.map === 'normandy', GERMANY = WORLD.map === 'europe', DAM = WORLD.map === 'dam';
 const DOGFIGHT = WORLD.map === 'dogfight' || WORLD.map === 'jetfight' || WORLD.map === 'wwifight', JETFIGHT = WORLD.map === 'jetfight', WWIFIGHT = WORLD.map === 'wwifight';
 const NO_TUNNELS = WAKE || DAM;   // tunnels sit at a fixed depth: they would break into the dam's gorge
@@ -417,6 +418,17 @@ function rawHeight(x, z) {
     if (d > EDGE + 6) h -= Math.pow((d - EDGE - 6) / 18, 2) * 85 * (0.8 + 0.4 * vnoise(x * 0.05, z * 0.05));
     for (const L of LAKES) { const ld = Math.hypot(x - L.x, z - L.z); if (ld < L.r + 18) h = lerp(h, ICE_Y, smooth(L.r + 18, L.r - 4, ld)); }   // frozen lakes are flat ice
     return h;
+  }
+  if (AFGHAN) {
+    // a wide dusty valley with rocky hills and a dry riverbed, ringed by tall bare mountains with snowy peaks
+    const ridge = (f, ox, oz) => 1 - Math.abs(vnoise(x * f + ox, z * f + oz) * 2 - 1);
+    const mtn = 45 + Math.pow(ridge(0.006, 5, 2), 1.8) * 115 + vnoise(x * 0.03, z * 0.03) * 8;
+    let pd2 = Infinity; for (const P of POINTS_DEF) pd2 = Math.min(pd2, Math.hypot(x - P.x, z - P.z));
+    let floor = 4 + (vnoise(x * 0.008, z * 0.008) - 0.5) * 8 + ridge(0.015, 3, 8) * 3;
+    floor += Math.pow(ridge(0.0035, 11, 4), 3) * 42 * smooth(55, 130, pd2) * smooth(10, 40, pathDist(x, z));   // rocky hills between the points
+    const wz = Math.sin(x * 0.006 + 1) * 80 + 60, wd = Math.abs(z - wz); floor -= smooth(26, 6, wd) * 3.5;  // the dry riverbed
+    const e = Math.max(Math.abs(x) / 470, Math.abs(z) / 490);
+    return lerp(floor, mtn, smooth(0.84, 1.03, e) * smooth(14, 50, pathDist(x, z)));
   }
   if (DESERT) {
     // rolling sand dunes, and flat-topped rock mesas with cliff sides (kept off the roads)

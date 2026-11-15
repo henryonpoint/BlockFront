@@ -23,6 +23,11 @@ const VTYPES = {
       ...[0.1, 1.2, 2.3].flatMap(z => [{ p: [-0.75, 1.75, z], role: 'ride', pose: 'sit', exposed: true, side: 1 }, { p: [0.75, 1.75, z], role: 'ride', pose: 'sit', exposed: true, side: -1 }])],
   },
 };
+if (AFGHAN) Object.assign(VTYPES.jeep, {   // Desert Combat: the jeeps are Humvees, with an enclosed cab and a roof gun
+  name: 'Humvee', hp: 720, maxSpeed: 30, radius: 2.3, len: 4.6, wid: 2.2, bulletMult: 0.35,
+  seats: [{ p: [-0.5, 1.35, -0.35], role: 'drive', pose: 'sit', exposed: false }, { p: [0, 1.75, 0.45], role: 'gun', pose: 'stand', exposed: true },
+    { p: [0.5, 1.35, -0.35], role: 'ride', pose: 'sit', exposed: false }, { p: [0.5, 1.35, 0.85], role: 'ride', pose: 'sit', exposed: false }],
+});
 const gvehicles = [];
 const VM2 = {
   tire: new THREE.MeshLambertMaterial({ color: 0x1c1c1c }), hub: new THREE.MeshLambertMaterial({ color: 0x8a8f94 }),

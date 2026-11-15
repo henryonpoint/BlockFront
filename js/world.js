@@ -203,6 +203,7 @@ function terrainColor(x, z, h, slope) {
   if (WAKE) return terrainColorWake(x, z, h, slope);
   if (HOUSTON) return terrainColorHouston(x, z, h, slope);
   if (SNOW) return terrainColorSnow(x, z, h, slope);
+  if (AFGHAN && typeof terrainColorLevel === 'function') return terrainColorLevel(x, z, h, slope);
   if (DESERT) return terrainColorDesert(x, z, h, slope);
   if ((GERMANY || NORMANDY || DAM) && typeof terrainColorLevel === 'function') return terrainColorLevel(x, z, h, slope);
   const n = vnoise(x * 0.05, z * 0.05), nf = vnoise(x * 0.21 + 9, z * 0.21 - 3), nb = vnoise(x * 0.008 - 20, z * 0.008 + 5);
@@ -953,16 +954,16 @@ function buildWorld() {
   buildTerrain();
   if (!WAKE && !DAM) buildBunkers();
   if (typeof buildNests === 'function') buildNests();
-  if (!SNOW && !HOUSTON && !WAKE && !DAM) { if (!GERMANY) buildTown(); if (!NORMANDY) buildFarm(); }
+  if (!SNOW && !HOUSTON && !WAKE && !DAM) { if (!GERMANY) buildTown(); if (!NORMANDY && !AFGHAN) buildFarm(); }
   TEAMS.forEach(t => { if (!(WAKE && t === 'blue')) buildBase(t); });
   buildPoints();
   if (!NO_TUNNELS) buildTunnels();
   if (!WAKE) buildNature();
   buildClouds();
   if (SNOW && typeof buildSnowExtras === 'function') buildSnowExtras();
-  if (DESERT && typeof buildDesertExtras === 'function') buildDesertExtras();
+  if (DESERT && !AFGHAN && typeof buildDesertExtras === 'function') buildDesertExtras();
   if (HOUSTON && typeof buildHoustonExtras === 'function') buildHoustonExtras();
   if (WAKE && typeof buildWakeExtras === 'function') buildWakeExtras();
-  if ((GERMANY || NORMANDY || DAM) && typeof buildLevelExtras === 'function') buildLevelExtras();
+  if ((GERMANY || NORMANDY || DAM || AFGHAN) && typeof buildLevelExtras === 'function') buildLevelExtras();
   mergeStatic();
 }

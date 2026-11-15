@@ -26,6 +26,7 @@ function makeCrater(at, blast, huge) {
   for (let iz = j0; iz <= j1; iz++) for (let ix = i0; ix <= i1; ix++) {
     const x = -HALF + ix * CELL, z = -HALF + iz * CELL, d = Math.hypot(x - at.x, z - at.z) / r;
     if (d > 1.5) continue;
+    if (DAM && Math.abs(x) < 180 && z > -74 && z < -44 && !(typeof DAMWALL !== 'undefined' && DAMWALL.broken && Math.abs(x) < 62)) continue;   /* the dam is solid concrete: blasts crack it, they don't dig under it */
     let dh = 0;
     if (d < 1) dh = -depth * (1 - d * d);                          // the bowl
     else dh = depth * 0.22 * Math.sin((d - 1) / 0.5 * Math.PI);     // a raised rim of thrown-up earth

@@ -80,7 +80,37 @@ function makeVehicleModel(type, team) {
   const glass = new Part(), glow = new Part();
   let main;
 
-  if (type === 'jeep') {
+  if (type === 'jeep' && AFGHAN) {   // a desert-tan Humvee: wide and low, long hood, boxy cab, cargo bed, armoured roof gun
+    main = vcached('humvee' + team, () => {
+      const p = new Part(), tan = 0xb8a47a, tan2 = 0xa28f68, dk = 0x3a3a34, blk = 0x1c1c1c;
+      p.box(2.1, 0.5, 4.4, tan, 0, 0.85, 0); p.box(1.8, 0.14, 4.2, dk, 0, 0.56, 0);                       // body, underside
+      p.box(2.0, 0.34, 1.6, tan, 0, 1.26, -1.4); p.box(1.9, 0.5, 0.14, tan2, 0, 1.05, -2.2, -0.35);         // long hood, sloped grille
+      for (let i = 0; i < 6; i++) p.box(0.06, 0.32, 0.05, dk, -0.5 + i * 0.2, 1.05, -2.29, -0.35);          // grille slots
+      p.box(2.0, 0.9, 2.0, tan, 0, 1.78, 0.05); p.box(2.06, 0.08, 2.1, tan2, 0, 2.26, 0.05);                // cab and roof
+      p.box(2.0, 0.55, 1.25, tan, 0, 1.36, 1.62); p.box(2.04, 0.06, 1.28, tan2, 0, 1.66, 1.62);             // cargo bed
+      for (const s of [-1, 1]) {
+        p.box(0.25, 0.36, 1.3, tan2, 1.0 * s, 1.18, -1.45); p.box(0.25, 0.36, 1.3, tan2, 1.0 * s, 1.18, 1.45);   // fenders
+        p.box(0.06, 0.5, 0.75, dk, 1.02 * s, 1.85, -0.4); p.box(0.06, 0.5, 0.75, dk, 1.02 * s, 1.85, 0.5);       // armoured side windows
+        p.box(0.05, 0.62, 0.05, tan2, 1.02 * s, 1.55, 0.05); p.box(0.12, 0.1, 0.06, blk, 1.08 * s, 1.95, -0.95); // door seams, mirrors
+        p.box(0.16, 0.12, 0.08, 0xfff2c0, 0.72 * s, 1.3, -2.22);                                                 // headlights
+        p.box(0.1, 0.08, 0.06, 0xd03020, 0.85 * s, 1.15, 2.26);                                                 // tail lights
+      }
+      p.box(0.24, 0.03, 4.0, P.team, 0, 2.31, 0.05); p.box(0.6, 0.02, 0.6, P.team, 0, 1.44, -1.3);             // team marks on roof and hood
+      p.cyl(0.6, 0.6, 0.16, dk, 0, 2.36, 0.45, 0, 0, 0, 1, 16);                                               // roof turret ring
+      for (const [x, z, r] of [[0, -0.15, 0], [-0.55, 0.3, 1.2], [0.55, 0.3, -1.2]]) p.box(0.85, 0.55, 0.06, tan2, x, 2.7, z, 0, r, 0);   // gun shield plates
+      p.box(2.1, 0.18, 0.2, blk, 0, 0.75, -2.32); p.box(2.1, 0.18, 0.2, blk, 0, 0.75, 2.3);                  // bumpers
+      p.cyl(0.015, 0.015, 2.6, blk, -0.9, 3.4, 1.8);                                                          // whip antenna
+      for (const z of [-1.45, 1.45]) p.cyl(0.07, 0.07, 2.0, dk, 0, 0.55, z, 0, 0, RX);
+      return p;
+    });
+    glass.box(1.8, 0.55, 0.04, 0, 0, 1.92, -0.97, -0.15);
+    for (const s of [-0.72, 0.72]) glow.cyl(0.08, 0.08, 0.04, VC.lamp, s, 1.3, -2.27, RX, 0, 0, 1, 10);
+    for (const [x, z] of [[-1.05, -1.45], [1.05, -1.45], [-1.05, 1.45], [1.05, 1.45]]) wheel(x, 0.55, z, 0.55, 0.45);
+    const mgYaw = new THREE.Group(); mgYaw.position.set(0, 2.62, 0.45); body.add(mgYaw);
+    const mgPitch = new THREE.Group(); mgYaw.add(mgPitch); mesh(hmgGeo(false, P), VEH_MAT, mgPitch);
+    const mz = new THREE.Object3D(); mz.position.z = -1.95; mgPitch.add(mz);
+    Object.assign(out, { mgYaw, mgPitch, mgMuzzle: mz, mgBase: 2.62 });
+  } else if (type === 'jeep') {
     main = vcached('jeep' + team, () => {
       const p = new Part();
       p.box(1.86, 0.5, 3.9, P.a, 0, 0.86, 0); p.box(1.6, 0.14, 3.7, VC.dark, 0, 0.56, 0);                 // tub, underside
