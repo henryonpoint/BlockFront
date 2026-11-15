@@ -257,7 +257,7 @@ function render(dt) {
   if (typeof TOPVIEW !== 'undefined' && TOPVIEW.on) { renderTopView(); return; }
   renderer.clear();
   renderer.render(scene, camera);
-  if (started && player.alive && !player.vehicle && !player.turret && !player.gv && !player.planeGun) { renderer.clearDepth(); renderer.render(vmScene, vmCam); }
+  if (started && player.alive && !player.vehicle && !player.turret && !player.gv && !player.planeGun && !player.ship) { renderer.clearDepth(); renderer.render(vmScene, vmCam); }
 }
 // ---------- title screen: a slow cinematic tour of the battlefield ----------
 let menuShots = null, menuHeli = null;

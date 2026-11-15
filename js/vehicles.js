@@ -365,7 +365,11 @@ function updatePlayerPlane(pl, dt) {
     if (t && t === pl.lockTgt) pl.lockT += dt; else { pl.lockTgt = t; pl.lockT = 0; }
     pl.locked = !!t && pl.lockT >= 1.2;
     pl.beepT = (pl.beepT || 0) - dt;
-    if (t && pl.beepT <= 0 && typeof tn === 'function' && typeof actx !== 'undefined' && actx) { pl.beepT = pl.locked ? 0.12 : 0.3; tn('square', pl.locked ? 1650 : 1100, pl.locked ? 1650 : 1100, pl.locked ? 0.1 : 0.06, 0.03); }
+    if (t && pl.beepT <= 0 && typeof tn === 'function' && typeof actx !== 'undefined' && actx) { pl.beepT = pl.locked ? 0.12 : 0.3; tn('square', pl.locked ? 1650 : 1100, pl.locked ? 1650 : 1100, pl.locked ? 0.1 : 0.07, pl.locked ? 0.16 : 0.11); /* loud enough to hear over the engine */ }
+  }
+  if (!jetAB && DOGFIGHT && pl.pilot === player && typeof planeLeadTarget === 'function') {   // older planes: a clear double beep when the guns lock onto someone
+    const g = planeLeadTarget(pl), had = pl.gunLock; pl.gunLock = g ? g.t : null;
+    if (g && g.t !== had && typeof tn === 'function' && actx) { tn('square', 1300, 1300, 0.07, 0.15); tn('square', 1700, 1700, 0.07, 0.15, 0.09); }
   }
   pl.speed += (pl.throttle * 52 * (pl.spdMul || 1) * (pl.ab ? 1.6 : 1) - pl.speed) * dt * (pl.ab ? 0.8 : 0.4);
   if (!pl.onGround) pl.speed -= fwd.y * 10 * dt;

@@ -167,6 +167,7 @@ function updateEngines() {
     else if (c.kind === 'quad' || c.kind === 'cart') { f = 70 + c.s * 6; cut = 700 + c.s * 60; nf = 900; vol *= 0.8; }
     else if (c.kind === 'truck') { f = 40 + c.s * 2.6; cut = 320 + c.s * 30; nf = 260; }
     else { f = 50 + c.s * 4; cut = 420 + c.s * 40; nf = 400; }
+    if (c.kind === 'plane' && (DOGFIGHT || player.vehicle)) vol *= c.mine ? 0.4 : 0.5;   // quieter engines in the air so the lock tone and guns come through
     if (undergroundAt(cam.x, cam.z, cam.y - 1.7)) { vol *= 0.25; cut = Math.min(cut, 300); }
     ev.o.frequency.setTargetAtTime(f, t, 0.1); ev.o2.frequency.setTargetAtTime(f / 2, t, 0.1);
     ev.f.frequency.setTargetAtTime(cut, t, 0.1); ev.nf.frequency.setTargetAtTime(nf, t, 0.2);

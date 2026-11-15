@@ -55,14 +55,23 @@ function buildBattleship(x, z, yaw, team) {
   for (let u = -90; u < 90; u += 3) P.box(0.08, 0.02, s.halfW(u) * 2 - 1, 0x7a5e3e, u, mainY + 0.31, 0);   // deck planking lines
   // superstructure: two levels and a tall bridge tower, two funnels, a mast
   P.box(40, 6, 22, grey, -10, mainY + 3, 0); P.box(24, 6, 14, grey, -12, mainY + 9, 0); P.box(10, 8, 10, dark, -6, mainY + 16, 0);
-  P.box(10.4, 1.4, 10.4, 0x1c2228, -6, mainY + 18.6, 0);                                 // bridge windows
+  P.box(10.4, 1.4, 10.4, 0x1c2228, -6, mainY + 18.6, 0);
+  P.box(5, 0.5, 14, grey, 2.5, mainY + 11.75, 0); for (const sd of [-1, 1]) P.box(5, 1, 0.15, dark, 2.5, mainY + 12.6, sd * 7); P.box(0.15, 1, 14, dark, 5, mainY + 12.6, 0);   // bridge wing with a railing                                 // bridge windows
   P.cyl(2.6, 3, 10, dark, -20, mainY + 14, 0); P.cyl(2.4, 2.8, 9, dark, -30, mainY + 13, 0);
   P.cyl(0.4, 0.5, 18, dark, -2, mainY + 29, 0); P.box(8, 0.4, 0.4, dark, -2, mainY + 34, 0);
   for (const v of [-9, 9]) for (const u of [-28, -18, -4, 6]) P.box(3, 2, 3, dark, u, mainY + 7, v);   // secondary gun mounts
   for (let i = 0; i < 10; i++) P.box(1, 1.2, 1, 0x3a3e44, -40 + i * 8, mainY + 0.8, (i % 2 ? 1 : -1) * 13.5);   // anti-aircraft guns along the rails
   // railings along the deck edge
   for (let u = -94; u < 94; u += 4) for (const sd of [-1, 1]) P.box(4, 0.1, 0.1, dark, u + 2, mainY + 1.1, sd * (s.halfW(u + 2) - 0.3));
+  // finer detail: portholes along the hull, anchors at the bow, lifeboats, searchlights, a range finder on the bridge
+  for (let u = -80; u < 60; u += 5) for (const sd of [-1, 1]) P.cyl(0.35, 0.35, 0.1, 0x1c2228, u, mainY - 2.5, sd * (s.halfW(u) + 0.02), Math.PI / 2, 0, 0, 1, 8);
+  for (const sd of [-1, 1]) { P.box(1.4, 2, 0.4, 0x2a2e34, 82, mainY - 3, sd * (s.halfW(82) + 0.2)); P.box(0.3, 4, 0.3, 0x2a2e34, 82, mainY - 1, sd * (s.halfW(82) + 0.1)); }
+  for (const sd of [-1, 1]) for (const u of [-36, -26]) { P.box(6, 1.4, 2, 0xd8d4c8, u, mainY + 7.6, sd * 11.6); P.box(6.2, 0.3, 2.2, 0x5a6068, u, mainY + 8.4, sd * 11.6); }
+  for (const sd of [-1, 1]) P.cyl(0.7, 0.7, 0.8, 0xd8d8c8, -6, mainY + 20.6, sd * 5.4, 0, 0, Math.PI / 2, 1, 10);
+  P.box(12, 1.2, 1.4, dark, -6, mainY + 21, 0); P.cyl(1.4, 1.4, 1.6, dark, -6, mainY + 21, 0, 0, 0, 0, 1, 10);
+  for (let u = -90; u < 90; u += 15) P.box(0.2, 0.05, s.halfW(u) * 2 - 2, 0x8a6a42, u, mainY + 0.32, 0);
   const m = new THREE.Mesh(P.build(), VEH_MAT); m.castShadow = true; m.receiveShadow = true; g.add(m);
+  { const r = new THREE.Group(); r.position.set(-2, mainY + 36, 0); const RP = new Part(); RP.box(6, 2.4, 0.3, 0x3a3e44, 0, 0, 0); RP.box(0.4, 0.4, 1.2, 0x3a3e44, 0, -1.2, 0.5); r.add(new THREE.Mesh(RP.build(), VEH_MAT)); g.add(r); s.radar = r; }
   // the big gun turrets: two forward, one aft. Each turns and its three barrels lift.
   for (const [u, fwd] of [[42, true], [24, true], [-58, false]]) {
     const tg = new THREE.Group(); tg.position.set(u, mainY, 0); g.add(tg);
@@ -78,7 +87,7 @@ function buildBattleship(x, z, yaw, team) {
   // walkable decks: superstructure levels, connected by ramps, and the bridge with the wheel
   s.decks.push({ u0: -30, u1: 10, v0: -11, v1: 11, y: mainY + 6 });                          // first level (its roof)
   s.decks.push({ u0: 10, u1: 22, v0: 7, v1: 11, ramp: 'u', ya: mainY + 6, yb: mainY, flip: true });   // ramp down to the main deck (starboard)
-  s.decks.push({ u0: -24, u1: 0, v0: -7, v1: 7, y: mainY + 12 });                            // second level
+  s.decks.push({ u0: -24, u1: 5, v0: -7, v1: 7, y: mainY + 12 });                            // second level, with a bridge wing out front where the wheel stands
   s.decks.push({ u0: -30, u1: -24, v0: -7, v1: -3, ramp: 'u', ya: mainY + 6, yb: mainY + 12 });  // ramp up from the first level
   s.walls.push({ u0: -30, u1: 10, v0: -11, v1: 11, y0: mainY, y1: mainY + 5.6, door: { u0: 10, u1: 10.5, v0: 6, v1: 11 } });   // first level block
   s.walls.push({ u0: -24, u1: 0, v0: -7, v1: 7, y0: mainY + 6, y1: mainY + 11.6, door: { u0: -24.5, u1: -24, v0: -7, v1: -3 } });
@@ -103,7 +112,16 @@ function buildCarrier(x, z, yaw, team) {
   // the island: a tall superstructure on the right side with bridge windows, radar and a funnel
   P.box(30, 12, 8, grey, -10, mainY + 6, 15); P.box(18, 8, 7, grey, -12, mainY + 16, 15); P.box(18.3, 1.4, 7.3, 0x1c2228, -12, mainY + 18.5, 15);
   P.box(8, 6, 6, dark, -22, mainY + 15, 15); P.cyl(0.4, 0.5, 14, dark, -10, mainY + 27, 15); P.box(6, 1.5, 0.3, dark, -10, mainY + 32, 15);
+  // finer detail: catapult tracks at the bow, the aircraft lift outlines, deck edge nets, portholes, anchors, guns at the corners
+  for (const v of [-6, 6]) P.box(70, 0.06, 0.3, 0x8a8e92, 70, mainY + 0.64, v);
+  for (const [u, v] of [[-30, -12], [60, 12]]) { P.box(16, 0.06, 0.3, 0xf2d040, u, mainY + 0.64, v - 7); P.box(16, 0.06, 0.3, 0xf2d040, u, mainY + 0.64, v + 7); P.box(0.3, 0.06, 14, 0xf2d040, u - 8, mainY + 0.64, v); P.box(0.3, 0.06, 14, 0xf2d040, u + 8, mainY + 0.64, v); }
+  for (let u = -105; u < 80; u += 6) for (const sd of [-1, 1]) P.box(6, 0.1, 2, 0x2a2e34, u, mainY + 0.3, sd * (B / 2 + 1), sd * 0.25, 0, 0);
+  for (let u = -100; u < 80; u += 6) for (const sd of [-1, 1]) P.cyl(0.35, 0.35, 0.1, 0x1c2228, u, hangY + 2.4, sd * (s.halfW(u) + 0.02), Math.PI / 2, 0, 0, 1, 8);
+  for (const sd of [-1, 1]) P.box(1.6, 2.2, 0.4, 0x2a2e34, 98, hangY + 2, sd * (s.halfW(98) + 0.2));
+  for (const [u, v] of [[-100, -19], [-100, 19], [78, -19], [70, 19]]) { P.cyl(1.6, 1.8, 1.2, dark, u, mainY + 1, v, 0, 0, 0, 1, 10); P.box(0.3, 0.3, 4, 0x2a2e34, u, mainY + 2, v - 1.5 * Math.sign(v) * 0); }
+  P.box(18.4, 0.3, 7.6, 0x2a2e34, -12, mainY + 20.2, 15);
   const m = new THREE.Mesh(P.build(), VEH_MAT); m.castShadow = true; m.receiveShadow = true; g.add(m);
+  { const r = new THREE.Group(); r.position.set(-10, mainY + 34, 15); const RP = new Part(); RP.box(7, 2.6, 0.3, 0x3a3e44, 0, 0, 0); RP.box(0.4, 0.4, 1.2, 0x3a3e44, 0, -1.3, 0.5); r.add(new THREE.Mesh(RP.build(), VEH_MAT)); g.add(r); s.radar = r; }
   // jets parked on the flight deck and in the hangar
   for (const [u, v, h] of [[-80, -10, mainY], [-62, -10, mainY], [-44, -10, mainY], [-80, 4, mainY], [-62, 4, mainY], [30, 6, mainY], [-40, -4, hangY], [-10, 4, hangY], [20, -4, hangY], [50, 4, hangY]]) {
     if (typeof PLANE_KINDS === 'undefined') break;
@@ -132,7 +150,7 @@ function addShipDeckRamps(s) {
   rm.position.set((u0 + u1) / 2, WATER_Y + (top + 0.4) / 2, v); rm.rotation.z = ang; rm.scale.x = Math.hypot(len, top) / len; s.g.add(rm);
   const landing = new THREE.Mesh(new THREE.BoxGeometry(4, 0.3, Math.abs(v - 3 + s.halfW(-10)) + 1), new THREE.MeshLambertMaterial({ color: 0x5a5e62 })); landing.position.set(u1 + 2, WATER_Y + top, (v - 3 - s.halfW(-10) + 1) / 2); s.g.add(landing);
 }
-function placeShip(s) { s.g.position.set(s.x, WATER_Y, s.z); s.g.rotation.y = s.yaw + Math.PI / 2; }   // the models are built along +x (u), so turn them to face their heading
+function placeShip(s) { s.g.position.set(s.x, WATER_Y + Math.sin((typeof simTime !== 'undefined' ? simTime : 0) * 0.5 + s.x) * 0.15, s.z); s.g.rotation.set(s.lean || 0, s.yaw + Math.PI / 2, 0, 'YXZ'); }   // the models are built along +x (u), so turn them to face their heading
 
 // ---------- hooking into ground, walls and water ----------
 function installShipHooks() {
@@ -188,10 +206,13 @@ function updateShips(dt) {
   for (const s of SHIPS2) {
     const captain = s.captain === player ? player : null;
     if (host) {
-      if (captain) { s.throttle = clamp(s.throttle + ((keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0)) * dt * 0.35, -0.3, 1); s.rudder = (keys.KeyA ? 1 : 0) - (keys.KeyD ? 1 : 0); }
-      else if (!s.captain) { s.throttle *= Math.exp(-dt * 0.3); s.rudder = 0; }
-      s.speed += (s.throttle * 13 - s.speed) * dt * 0.12;                       // big ships speed up and slow down slowly
-      const turn = s.rudder * 0.06 * clamp(Math.abs(s.speed) / 5, 0, 1) * Math.sign(s.speed || 1);
+      let wantRudder = 0;
+      if (captain) { s.throttle = clamp(s.throttle + ((keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0)) * dt * 0.5, -0.4, 1); if (keys.KeyX) s.throttle = 0; wantRudder = (keys.KeyA ? 1 : 0) - (keys.KeyD ? 1 : 0); }
+      else if (!s.captain) s.throttle *= Math.exp(-dt * 0.3);
+      s.rudder += clamp(wantRudder - s.rudder, -dt * 1.5, dt * 1.5);              // the rudder swings over smoothly, and centres when you let go
+      s.speed += (s.throttle * 15 - s.speed) * dt * 0.22;                       // big ships still build speed gradually
+      const turn = s.rudder * 0.11 * clamp(0.25 + Math.abs(s.speed) / 6, 0, 1) * Math.sign(s.speed || 1);
+      s.lean = (s.lean || 0) + (-s.rudder * clamp(Math.abs(s.speed) / 15, 0, 1) * 0.035 - (s.lean || 0)) * Math.min(1, dt * 1.5);   // heel over a little in a hard turn
       const b = shipBasis(s), nx = s.x + b.fx * s.speed * dt, nz = s.z + b.fz * s.speed * dt, ny = s.yaw + turn * dt;
       // stay in deep water: check the bow, the stern and both sides at the new spot
       const t = { x: nx, z: nz, yaw: ny, L: s.L, halfW: s.halfW }; let ok = true;
@@ -199,13 +220,50 @@ function updateShips(dt) {
       if (!ok) { if (Math.abs(s.speed) > 2 && captain) showMessage('The ship is running aground!', 1); s.speed *= -0.2; }
       else moveShip(s, nx - s.x, nz - s.z, ny - s.yaw);
     }
+    updateShipFx(s, dt);
     if (captain) {
       const hw = shipWorld(s, s.helm.u, s.helm.v); player.pos.set(hw.x, s.helm.y + WATER_Y, hw.z); player.velY = 0; player.onGround = true;
-      if (s.kind === 'battleship') aimShipGuns(s, dt);
+      shipCamera(s, dt);
+      if (s.turrets.length) aimShipGuns(s, dt);
       updateShipHud(s);
     }
   }
   updateShipPrompt();
+}
+// three views at the wheel: C cycles a chase camera behind the ship, the bridge, and (battleship) the gun sight
+const SHIP_VIEWS = ['chase', 'bridge', 'guns'];
+function shipCamera(s, dt) {
+  const view = s.kind === 'battleship' || SH.view !== 'guns' ? SH.view || 'chase' : 'chase';
+  const dir = new THREE.Vector3(-Math.sin(player.yaw) * Math.cos(player.pitch), Math.sin(player.pitch), -Math.cos(player.yaw) * Math.cos(player.pitch));
+  let fov = SET.fov || 75;
+  if (view === 'chase') {
+    const dist = s.kind === 'carrier' ? 190 : 165, c = new THREE.Vector3(s.x, WATER_Y + s.mainY + 10, s.z);
+    camera.position.copy(c).addScaledVector(dir, -dist); camera.position.y = Math.max(camera.position.y + 30, WATER_Y + 6);
+  } else if (view === 'guns') {
+    const t = s.turrets[1] || s.turrets[0], tw = shipWorld(s, t.u, 0);
+    camera.position.set(tw.x, WATER_Y + s.mainY + 16, tw.z).addScaledVector(new THREE.Vector3(dir.x, 0, dir.z).normalize(), -26);
+    fov = mouse.right ? 18 : 50;
+  }
+  if (view !== 'bridge') camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ');
+  if (Math.abs(camera.fov - fov) > 0.1) { camera.fov += (fov - camera.fov) * Math.min(1, dt * 10); camera.updateProjectionMatrix(); }
+}
+// a white wake behind the stern and foam at the bow that grow with speed; a radar that turns
+function updateShipFx(s, dt) {
+  if (!s.fx) {
+    const foam = new THREE.MeshBasicMaterial({ color: 0xf4f8fa, transparent: true, opacity: 0, depthWrite: false });
+    const wake = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), foam); wake.rotation.x = -Math.PI / 2; s.g.add(wake);
+    const bow = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), foam.clone()); bow.rotation.x = -Math.PI / 2; s.g.add(bow);
+    s.fx = { wake, bow };
+  }
+  const k = clamp(Math.abs(s.speed) / 15, 0, 1);
+  s.fx.wake.visible = s.fx.bow.visible = k > 0.03;
+  if (k > 0.03) {
+    const len = 30 + k * 160, w = s.B * (0.8 + k * 0.8);
+    s.fx.wake.scale.set(len, w, 1); s.fx.wake.position.set(-s.L / 2 - len / 2 + 6, 0.15, 0); s.fx.wake.material.opacity = 0.18 + k * 0.32;
+    s.fx.bow.scale.set(14, s.B * 0.5 + k * 10, 1); s.fx.bow.position.set(s.L / 2 - 4, 0.2, 0); s.fx.bow.material.opacity = k * 0.6;
+  }
+  if (s.radar) s.radar.rotation.y += dt * 1.5;
+  placeShip(s);
 }
 // move the ship and everything standing on it (soldiers, players, vehicles, props)
 function moveShip(s, dx, dz, dyaw) {
@@ -220,7 +278,12 @@ function moveShip(s, dx, dz, dyaw) {
 // turrets swing round to where you aim; click fires every turret that can bear
 function aimShipGuns(s, dt) {
   const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
-  const hit = rayHit(camera.position, dir, 2500, player.team), target = hit ? hit.point : camera.position.clone().addScaledVector(dir, 2500);
+  let hit = rayHit(camera.position, dir, 3000, player.team, {});
+  if (dir.y < 0) { const tw = (camera.position.y - WATER_Y) / -dir.y; if (!hit || tw < hit.dist) hit = { dist: tw, point: camera.position.clone().addScaledVector(dir, tw) }; }   // shells splash on the sea, not the seabed
+  const target = hit ? hit.point : camera.position.clone().addScaledVector(dir, 3000);
+  if (!s.marker) { s.marker = new THREE.Mesh(new THREE.RingGeometry(9, 12, 32), new THREE.MeshBasicMaterial({ color: 0xff4a3a, transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthTest: false })); s.marker.rotation.x = -Math.PI / 2; s.marker.renderOrder = 5; scene.add(s.marker); }
+  s.marker.visible = true; s.marker.position.set(target.x, Math.max(target.y, WATER_Y) + 0.4, target.z); s.marker.scale.setScalar(1 + target.distanceTo(camera.position) / 900);
+  s.onTarget = 0;
   s.fireT -= dt;
   let fired = 0;
   for (const t of s.turrets) {
@@ -228,10 +291,11 @@ function aimShipGuns(s, dt) {
     const want = wrapAngle(Math.atan2(-lx, -lz) - s.yaw);                       // the gun's heading relative to the ship
     const rel = wrapAngle(want - t.base);
     const canBear = Math.abs(rel) < 2.4;                                         // a turret can't fire through the ship's own superstructure
-    if (canBear) t.yaw += clamp(wrapAngle(want - t.yaw), -0.6 * dt, 0.6 * dt);
-    const dist = Math.hypot(lx, lz), wantP = clamp(Math.atan2(target.y - (s.mainY + 4.5 + WATER_Y), dist), -0.05, 0.6);
+    if (canBear) t.yaw += clamp(wrapAngle(want - t.yaw), -0.9 * dt, 0.9 * dt);
+    if (canBear && Math.abs(wrapAngle(want - t.yaw)) < 0.08) s.onTarget++;
+    const dist = Math.hypot(lx, lz), wantP = clamp(Math.atan2(target.y - (s.mainY + 4.5 + WATER_Y), dist), -0.08, 0.6);
     t.p += clamp(wantP - t.p, -0.4 * dt, 0.4 * dt);
-    t.g.rotation.y = t.yaw; t.pitch.rotation.x = t.p;
+    t.g.rotation.y = t.yaw; t.pitch.rotation.x = t.p;   /* barrels lift with the aim */
     if (mouse.left && s.fireT <= 0 && canBear && Math.abs(wrapAngle(want - t.yaw)) < 0.08) {
       for (const vv of [-3.2, 0, 3.2]) {
         const m = new THREE.Vector3(vv, 0, -22).applyEuler(new THREE.Euler(t.p, 0, 0)).add(new THREE.Vector3(0, 4.5, -5.5)).applyEuler(new THREE.Euler(0, t.yaw, 0)).add(new THREE.Vector3(t.u, s.mainY, 0));
@@ -243,13 +307,15 @@ function aimShipGuns(s, dt) {
       fired++;
     }
   }
-  if (fired) { s.fireT = 4; playAt('boom', player.pos, 1.3); camShake = Math.max(camShake, 0.12); showMessage('FIRE! Main guns reloading...', 1.5); }
+  if (fired) { s.fireT = 3; playAt('boom', player.pos, 1.3); camShake = Math.max(camShake, 0.12); showMessage('FIRE! Main guns reloading...', 1.5); }
 }
 function updateShipHud(s) {
   let el = document.getElementById('shipHud');
   if (!el) { el = document.createElement('div'); el.id = 'shipHud'; el.className = 'hud'; el.style.cssText = 'position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:rgba(0,0,0,.5);color:#fff;padding:8px 16px;border-radius:10px;font:600 13px system-ui,sans-serif;text-align:center;pointer-events:none'; document.body.appendChild(el); }
   el.style.display = 'block';
-  el.innerHTML = `<b>${s.name}</b> &nbsp; Speed ${Math.round(Math.abs(s.speed) * 1.94)} knots &nbsp; Throttle ${Math.round(s.throttle * 100)}%<br><span style="opacity:.8">W/S throttle &nbsp; A/D steer ${s.kind === 'battleship' ? '&nbsp; Click: fire the main guns' + (s.fireT > 0 ? ` (reloading ${s.fireT.toFixed(1)}s)` : '') : ''} &nbsp; E leave the wheel</span>`;
+  const rud = Math.round(s.rudder * 100), view = s.kind === 'battleship' ? (SH.view || 'chase') : (SH.view === 'guns' ? 'chase' : SH.view || 'chase');
+  const guns = s.turrets.length ? `<br>Guns: ${s.fireT > 0 ? `reloading ${s.fireT.toFixed(1)}s` : `<b style="color:#9be38a">READY</b>`} &nbsp; ${s.onTarget}/${s.turrets.length} turrets on target &nbsp; Click to fire${view === 'guns' ? ', right click to zoom' : ''}` : '';
+  el.innerHTML = `<b>${s.name}</b> &nbsp; ${Math.round(Math.abs(s.speed) * 1.94)} knots &nbsp; Throttle ${Math.round(s.throttle * 100)}% &nbsp; Rudder ${rud > 0 ? 'left ' + rud : rud < 0 ? 'right ' + -rud : 'centre'}${guns}<br><span style="opacity:.8">W/S throttle, X stop &nbsp; A/D steer &nbsp; C change view (${view === 'chase' ? 'behind the ship' : view === 'bridge' ? 'bridge' : 'gun sight'}) &nbsp; E leave the wheel</span>`;
 }
 function updateShipPrompt() {
   let near = null;
@@ -262,8 +328,9 @@ function updateShipPrompt() {
   const hud = document.getElementById('shipHud'); if (hud && !player.ship) hud.style.display = 'none';
 }
 addEventListener('keydown', e => {
+  if (e.code === 'KeyC' && player.ship && !e.repeat) { const opts = player.ship.turrets.length ? SHIP_VIEWS : ['chase', 'bridge']; SH.view = opts[(opts.indexOf(SH.view || 'chase') + 1) % opts.length]; return; }
   if (e.code !== 'KeyE' || e.repeat || typeof started === 'undefined' || !started) return;
-  if (player.ship) { player.ship.captain = null; player.ship = null; showMessage('You left the wheel', 1.5); return; }
+  if (player.ship) { if (player.ship.marker) player.ship.marker.visible = false; player.ship.captain = null; player.ship = null; if (camera.fov !== (SET.fov || 75)) { camera.fov = SET.fov || 75; camera.updateProjectionMatrix(); } showMessage('You left the wheel', 1.5); return; }
   if (SH.near && !(net.active && !net.isHost) && !SH.near.captain) { SH.near.captain = player; player.ship = SH.near; showMessage(`You have command of the ${SH.near.name.toLowerCase()}! W/S throttle, A/D steer`, 3); }
 });
 // online: the host sends where the ships are; everyone else moves theirs to match (carrying whoever is aboard)
