@@ -166,8 +166,8 @@ function applyCheatCommand(e, from) {
 // ---------- spawning vehicles (works online: the host makes them and tells everyone) ----------
 // every vehicle in the game, plus the three planes
 const CHEAT_VEHICLES = Object.keys(VTYPES).map(id => ({ id, name: VTYPES[id].name }))
-  .concat([{ id: 'plane', name: 'Old fighter plane' }, { id: 'f18', name: 'F-18 jet' }, { id: 'stealth', name: 'Stealth bomber' }]);
-const PLANE_SPAWN = { plane: 'prop', f18: 'f18', stealth: 'stealth' };
+  .concat([{ id: 'plane', name: 'Old fighter plane' }, { id: 'f18', name: 'F-18 Hornet' }, { id: 'f22', name: 'F-22 Raptor' }, { id: 'stealth', name: 'Stealth bomber' }]);
+const PLANE_SPAWN = { plane: 'prop', f18: 'f18', f22: 'f22', stealth: 'stealth' };
 const SPAWNED = [];   // [index, type, team, x*10, z*10, yaw*100] for every vehicle made from the console, in order
 const SPAWN_CAP = 30;
 function spawnSpot() {

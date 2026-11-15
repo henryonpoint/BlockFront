@@ -124,19 +124,32 @@ function jetModel(team, kind) {
   const P = VPAINT[team] || VPAINT.blue, g = new THREE.Group();
   const geo = vcached(kind + team, () => {
     const p = new Part();
-    if (kind === 'f18') {
-      const grey = 0x8a929c, dark = 0x5c636b;
-      p.cyl(0.55, 0.7, 6.0, grey, 0, 0, -0.6, RX, 0, 0, 1, 14); p.cyl(0.05, 0.55, 2.6, grey, 0, 0, -4.9, RX, 0, 0, 1, 14);   // fuselage, pointed nose
-      p.cyl(0.7, 0.6, 3.0, grey, 0, -0.05, 3.4, RX, 0, 0, 1, 14);
-      for (const s of [-1, 1]) {
-        p.add(new THREE.BoxGeometry(5.0, 0.12, 2.6), grey, 2.7 * s, -0.1, 1.0, 0, -0.38 * s, 0);                 // swept wings
-        p.box(0.06, 0.06, 1.2, P.team, 5.0 * s, -0.08, 1.5);                                                       // wingtip
-        p.add(new THREE.BoxGeometry(0.1, 2.0, 1.6), grey, 0.85 * s, 1.0, 4.0, 0, 0, 0.35 * s);                     // twin tails, canted out
-        p.box(0.08, 0.5, 1.0, P.team, 1.15 * s, 1.75, 4.2, 0, 0, 0.35 * s);
-        p.add(new THREE.BoxGeometry(2.2, 0.1, 1.3), grey, 1.6 * s, -0.1, 4.4, 0, -0.3 * s, 0);                    // tailplanes
-        p.box(0.6, 0.6, 2.2, dark, 0.75 * s, -0.25, -0.8);                                                         // intakes
-        p.cyl(0.42, 0.38, 0.6, VC.dark, 0.42 * s, -0.05, 5.0, RX, 0, 0, 1, 12);                                    // engine nozzles
+    if (kind === 'f18' || kind === 'f22') {
+      const F22 = kind === 'f22', main = F22 ? 0x6e747c : 0x8d96a0, dark = F22 ? 0x50565d : 0x6a737d, black = 0x1c1e22;
+      // a flat plate from a top-view outline (right half, mirrored), and a fin standing on edge
+      const plate = (half, y, t, col) => { const sh = new THREE.Shape(), pts = half.concat(half.slice().reverse().map(([x, z]) => [-x, z])); pts.forEach(([x, z], i) => i ? sh.lineTo(x, z) : sh.moveTo(x, z)); sh.closePath(); p.add(new THREE.ExtrudeGeometry(sh, { depth: t, bevelEnabled: false }), col, 0, y, 0, RX, 0, 0); };
+      const fin = (side, x, cant, outline, col) => { const sh = new THREE.Shape(); outline.forEach(([z, y], i) => i ? sh.lineTo(z, y) : sh.moveTo(z, y)); sh.closePath(); const g = new THREE.ExtrudeGeometry(sh, { depth: 0.08, bevelEnabled: false }); g.rotateY(-Math.PI / 2); g.rotateZ(cant * side); g.translate(x * side, 0, 0); p.add(g, col, 0, 0.2, 0); };
+      // fuselage: long and slim, flattened, with a sharp nose (six-sided on the F-22 for its angular stealth look)
+      const seg = F22 ? 6 : 14;
+      p.add(new THREE.CylinderGeometry(0.62, 0.7, 7.6, seg), main, 0, 0, 0.6, RX, 0, 0, 1.25, 1, 0.78);
+      p.add(new THREE.CylinderGeometry(0.08, 0.62, 2.8, seg), main, 0, 0, -4.6, -RX, 0, 0, 1.25, 1, 0.75);
+      p.add(new THREE.CylinderGeometry(0.05, 0.05, 0.5, 6), black, 0, 0, -6.2, RX, 0, 0);   // pitot tip
+      if (F22) {
+        plate([[0.3, -5.4], [1.0, -2.4], [5.4, 1.5], [5.3, 2.2], [1.0, 3.0], [0.2, 3.0]], 0.05, 0.12, main);          // diamond wing with chines
+        plate([[0.8, 3.1], [2.9, 4.5], [2.7, 5.4], [0.7, 5.1]], 0.0, 0.08, main);                                    // tailplanes
+        for (const sd of [-1, 1]) { fin(sd, 1.05, 0.45, [[2.2, 0], [4.4, 0], [4.9, 1.9], [3.7, 1.9]], main);
+          p.box(0.75, 0.75, 2.6, dark, 1.05 * sd, -0.15, -1.0, 0, 0, 0.2 * sd);                                   // angled intakes
+          p.box(0.6, 0.55, 0.12, black, 1.05 * sd, -0.15, -2.32, 0, 0, 0.2 * sd);
+          p.box(0.75, 0.32, 0.7, dark, 0.48 * sd, 0, 4.65); p.box(0.6, 0.2, 0.05, black, 0.48 * sd, 0, 5.02); }      // flat thrust nozzles
+      } else {
+        plate([[0.45, -4.6], [1.0, -1.4], [2.0, 0.0], [5.4, 1.5], [5.4, 2.3], [2.2, 2.6], [0.3, 2.6]], 0.02, 0.1, main);   // wings with long leading-edge strakes
+        plate([[0.6, 3.4], [2.3, 4.4], [2.4, 5.2], [0.6, 5.0]], -0.05, 0.08, main);                                // tailplanes
+        for (const sd of [-1, 1]) { fin(sd, 0.95, 0.35, [[2.0, 0], [4.5, 0], [4.9, 2.1], [4.0, 2.1]], main);
+          p.box(0.55, 0.6, 2.2, dark, 0.95 * sd, -0.4, -0.7); p.box(0.5, 0.5, 0.1, black, 0.95 * sd, -0.4, -1.82);   // intakes under the strakes
+          p.cyl(0.4, 0.36, 0.7, dark, 0.45 * sd, -0.02, 4.9, RX, 0, 0, 1, 12); p.cyl(0.32, 0.32, 0.05, black, 0.45 * sd, -0.02, 5.26, RX, 0, 0, 1, 12);   // round nozzles
+          p.box(0.12, 0.12, 0.9, 0xc8ccd0, 5.45 * sd, 0.05, 1.9); }                                               // wingtip missiles
       }
+      p.box(0.3, 0.04, 2.4, P.team, 0, 0.56, 1.4);   // team colour stripe along the spine
     } else {   // stealth bomber: a B-2 style flying wing, swept leading edge and a sawtooth trailing edge
       const grey = 0x3c4047, dark = 0x2b2e33, half = [[0, -5.6], [10.5, 2.3], [9.6, 3.2], [6.0, 0.9], [3.4, 3.3], [1.6, 1.8], [0, 3.0]];
       const sh = new THREE.Shape(); const pts = half.concat(half.slice(1, -1).reverse().map(([x, z]) => [-x, z]));
@@ -155,7 +168,7 @@ function jetModel(team, kind) {
   });
   const m = new THREE.Mesh(geo, VEH_MAT); m.castShadow = true; g.add(m);
   const canopy = new THREE.Mesh(new THREE.SphereGeometry(0.5, 12, 8), new THREE.MeshPhongMaterial({ color: 0x223344, transparent: true, opacity: 0.6, shininess: 100 }));
-  canopy.scale.set(0.9, 0.7, 2.0); canopy.position.set(0, kind === 'f18' ? 0.55 : 0.75, kind === 'f18' ? -2.8 : -2.2); g.add(canopy);
+  canopy.scale.set(0.8, 0.6, 2.2); canopy.position.set(0, kind === 'stealth' ? 0.75 : 0.62, kind === 'stealth' ? -2.2 : -3.4); g.add(canopy);
   const prop = new THREE.Object3D(); g.add(prop);
   const bomb = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 1.6, 10), new THREE.MeshLambertMaterial({ color: 0x30343a })); bomb.rotation.x = RX; bomb.position.set(0, -0.6, 0); g.add(bomb);
   const gunYaw = new THREE.Group(); gunYaw.position.set(0, 0.6, 2.5); g.add(gunYaw); const gunPitch = new THREE.Group(); gunYaw.add(gunPitch);
@@ -166,7 +179,8 @@ function jetModel(team, kind) {
 // speed (times the normal plane), toughness, bombs and how fast they reload
 const PLANE_KINDS = {
   prop: { name: 'Fighter plane', spd: 1, hp: 320, bombs: 1, regen: 25, model: team => makePlaneModel(team) },
-  f18: { name: 'F-18 jet', spd: 1.75, hp: 420, bombs: 2, regen: 15, model: team => jetModel(team, 'f18') },
+  f18: { name: 'F-18 Hornet', spd: 1.75, hp: 420, bombs: 2, regen: 15, model: team => jetModel(team, 'f18') },
+  f22: { name: 'F-22 Raptor', spd: 2.0, hp: 480, bombs: 2, regen: 12, model: team => jetModel(team, 'f22') },
   stealth: { name: 'Stealth bomber', spd: 1.35, hp: 700, bombs: 2, regen: 30, bombBig: true, model: team => jetModel(team, 'stealth') },
 };
 
