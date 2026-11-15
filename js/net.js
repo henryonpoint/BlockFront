@@ -182,7 +182,7 @@ async function netConnect(code, asHost) {
   try { game = await r.room.join(base); net.w1 = await r.room.join(base + '-w1'); net.w2 = await r.room.join(base + '-w2'); } catch (e) { game = null; }
   if (!game) { netNote(asHost ? 'Could not set up the game. Try again.' : 'Could not find a game with that code. Check it and try again.'); return false; }
   net.game = game; net.closeGame = r.close; net.active = true; net.jt = Date.now(); net.joinPerf = performance.now();
-  if (!asHost) net.noHostUntil = performance.now() + 8000;   // a joiner never takes over the battle while it is still settling in
+  if (!asHost) { net.isHost = false; net.hostId = null; net.noHostUntil = performance.now() + 8000; }   // a joiner never takes over the battle while it is still settling in
   if (asHost) { net.isHost = true; net.hostId = net.myId; return true; }
   // joining: wait until we can see the host, and read the game's map and mode
   for (let i = 0; i < 40; i++) {
