@@ -164,10 +164,10 @@ function applyCheatCommand(e, from) {
 }
 
 // ---------- spawning vehicles (works online: the host makes them and tells everyone) ----------
-const CHEAT_VEHICLES = [
-  { id: 'jeep', name: 'Jeep' }, { id: 'tank', name: 'Tank' }, { id: 'apc', name: 'Armored truck' }, { id: 'truck', name: 'Truck' }, { id: 'buggy', name: 'Buggy' },
-  { id: 'bike', name: 'Motorbike' }, { id: 'quad', name: 'Quad' }, { id: 'heli', name: 'Helicopter' }, { id: 'boat', name: 'Gun boat' }, { id: 'cart', name: 'Minecart' },
-];
+// every vehicle in the game, plus the three planes
+const CHEAT_VEHICLES = Object.keys(VTYPES).map(id => ({ id, name: VTYPES[id].name }))
+  .concat([{ id: 'plane', name: 'Old fighter plane' }, { id: 'f18', name: 'F-18 jet' }, { id: 'stealth', name: 'Stealth bomber' }]);
+const PLANE_SPAWN = { plane: 'prop', f18: 'f18', stealth: 'stealth' };
 const SPAWNED = [];   // [index, type, team, x*10, z*10, yaw*100] for every vehicle made from the console, in order
 const SPAWN_CAP = 30;
 function spawnSpot() {
@@ -176,8 +176,13 @@ function spawnSpot() {
   return { x: player.pos.x + fx * 6, z: player.pos.z + fz * 6 };
 }
 function hostSpawn(type, team, x, z, yaw) {
-  if (!VTYPES[type]) return null;
   if (SPAWNED.length >= SPAWN_CAP) return null;
+  if (PLANE_SPAWN[type]) {   // planes live in their own list
+    const pl = makePlane(team, x, z, yaw, 1e9, PLANE_SPAWN[type]); pl.parked = true; pl.homeTeam = team;
+    SPAWNED.push([pl.idx, 'plane:' + PLANE_SPAWN[type], team, r10(x), r10(z), Math.round(yaw * 100)]);
+    return pl;
+  }
+  if (!VTYPES[type]) return null;
   const water = VTYPES[type].boat;
   const v = makeGV(type, team, x, z, yaw, water ? WATER_Y : undefined);
   SPAWNED.push([v.idx, type, team, r10(x), r10(z), Math.round(yaw * 100)]);
@@ -185,14 +190,21 @@ function hostSpawn(type, team, x, z, yaw) {
 }
 function cheatSpawnVehicle(type) {
   type = String(type || '').toLowerCase();
-  if (!VTYPES[type]) return 'No vehicle called ' + type + '. Type vehicles for the list';
+  if (!VTYPES[type] && !PLANE_SPAWN[type]) return 'No vehicle called ' + type + '. Type vehicles for the list';
   if (!player.alive) return 'Deploy first';
+  const nm = PLANE_SPAWN[type] ? PLANE_KINDS[PLANE_SPAWN[type]].name : VTYPES[type].name;
   let s = spawnSpot();
-  if (VTYPES[type].boat) { const L = LAKES.slice().sort((a, b) => Math.hypot(a.x - player.pos.x, a.z - player.pos.z) - Math.hypot(b.x - player.pos.x, b.z - player.pos.z))[0]; if (waterDepth(s.x, s.z) < 1 && L) s = { x: L.x, z: L.z }; }
+  if (PLANE_SPAWN[type]) { const fx = -Math.sin(player.yaw), fz = -Math.cos(player.yaw); s = { x: player.pos.x + fx * 12, z: player.pos.z + fz * 12 }; }
+  if (VTYPES[type] && VTYPES[type].boat && waterDepth(s.x, s.z) < 1.2) {   // boats go in the nearest deep water
+    let best = null;
+    for (let r = 10; r <= 600 && !best; r += 10) for (let k = 0; k < 24; k++) { const a = k / 24 * Math.PI * 2, x = player.pos.x + Math.cos(a) * r, z = player.pos.z + Math.sin(a) * r; if (Math.abs(x) < EDGE && Math.abs(z) < EDGE && waterDepth(x, z) > 1.5) { best = { x, z }; break; } }
+    if (!best) return 'There is no water deep enough for a boat on this map';
+    s = best;
+  }
   const yaw = player.yaw;
-  if (net.active && !net.isHost) { netRequest(['vs', type, r10(s.x), r10(s.z), Math.round(yaw * 100), teamIdx(player.team)]); return 'Asking the host to drop a ' + VTYPES[type].name; }
+  if (net.active && !net.isHost) { netRequest(['vs', type, r10(s.x), r10(s.z), Math.round(yaw * 100), teamIdx(player.team)]); return 'Asking the host to drop a ' + nm; }
   const v = hostSpawn(type, player.team, s.x, s.z, yaw);
-  return v ? `${VTYPES[type].name} dropped next to you` : 'Too many spawned vehicles in this battle';
+  return v ? `${nm} dropped next to you${PLANE_SPAWN[type] ? ' (press E at it to fly)' : ''}` : 'Too many spawned vehicles in this battle';
 }
 function spawnRequest(e) {   // host: a joiner asked for a vehicle
   if (!net.cheatsAllowed) return;
@@ -201,6 +213,12 @@ function spawnRequest(e) {   // host: a joiner asked for a vehicle
 function applySpawned(list) {   // everyone else: make the host's spawned vehicles, in the same order
   if (!Array.isArray(list)) return;
   for (const [idx, type, team, x, z, yaw] of list) {
+    if (SPAWNED.some(e => e[0] === idx && e[1] === type)) continue;
+    if (String(type).startsWith('plane:')) {
+      if (idx !== planes.length) continue;
+      const pl = makePlane(team, x / 10, z / 10, yaw / 100, 1e9, type.slice(6)); pl.parked = true; pl.homeTeam = team;
+      SPAWNED.push([idx, type, team, x, z, yaw]); continue;
+    }
     if (idx < gvehicles.length || !VTYPES[type]) continue;
     if (idx !== gvehicles.length) break;   // wait until the ones before it exist
     makeGV(type, team, x / 10, z / 10, yaw / 100, VTYPES[type].boat ? WATER_Y : undefined);

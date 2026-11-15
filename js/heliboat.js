@@ -145,6 +145,7 @@ makeVehicleModel = function (type, team) {
 
 // ---------- moving ----------
 function moveVehicle(v, dt, inp) {
+  if (v.T.rocket) return simMiniRocket(v, dt, inp);
   if (v.T.heli) return simHeli(v, dt, inp);
   if (v.T.boat) return simBoat(v, dt, inp);
   return simVehicle(v, dt, inp);

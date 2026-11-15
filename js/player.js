@@ -773,7 +773,7 @@ function toggleBigMap(on) { bigOpen = on; $('bigmapWrap').style.display = on ? '
 // tap or click anywhere on the open map to close it (phones have no M key)
 ['pointerdown', 'touchstart'].forEach(ev => document.getElementById('bigmapWrap').addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); if (bigOpen) toggleBigMap(false); }, { passive: false }));
 const slotsEl = $('slots');
-WEAPONS.forEach((w, i) => { const d = document.createElement('div'); d.innerHTML = `<b>${(i + 1) % 10}</b>${w.name.replace('Grenade Launcher', 'Launcher').replace('Assault ', '')}`; slotsEl.appendChild(d); });
+WEAPONS.forEach((w, i) => { const d = document.createElement('div'); d.innerHTML = `<b>${i < 10 ? (i + 1) % 10 : '&middot;'}</b>${w.name.replace('Grenade Launcher', 'Launcher').replace('Assault ', '')}`; slotsEl.appendChild(d); });
 const pointsEl = $('points');
 POINTS_DEF.forEach(p => { const d = document.createElement('div'); d.className = 'pt'; d.innerHTML = `<div class="fill"></div><span>${p.n}</span>`; pointsEl.appendChild(d); });
 let hudT = 0;
@@ -795,7 +795,7 @@ function updateHUD(dt) {
   $('wammo').innerHTML = `${a.mag}<small> / ${a.reserve === Infinity ? '∞' : a.reserve}</small>`;
   const inv = BUILD_KEYS.filter(k => player.inventory[k] > 0).map(k => `${BUILDS[k].name} x${player.inventory[k]}`).join(', ');
   $('extras').textContent = `Grenades (G): ${player.grenades}   Sticky (X): ${player.stickies || 0}   Airstrikes (T): ${player.airstrikes}${player.nukes ? `   Nukes (Y): ${player.nukes}` : ''}` + (inv ? `   Build (V): ${inv}` : '');
-  [...slotsEl.children].forEach((d, i) => { d.className = (i === player.cur ? 'on ' : '') + (player.owned[WEAPONS[i].id] ? '' : 'locked'); });
+  [...slotsEl.children].forEach((d, i) => { const own = player.owned[WEAPONS[i].id]; d.className = (i === player.cur ? 'on ' : '') + (own ? '' : 'locked'); d.style.display = own || i < 10 ? '' : 'none'; });   // the extra weapons only show once you have them (scroll wheel picks them)
   points.forEach((p, i) => {
     const d = pointsEl.children[i];
     d.style.borderColor = p.owner ? TEAM_CSS[p.owner] : '#ddd';
@@ -932,6 +932,7 @@ function heliAimPoint(v) {
   return { point: hit ? hit.point : camera.position.clone().addScaledVector(dir, 700), hit };
 }
 function heliPilotWeapons(v, dt) {
+  if (v.T.unarmed) { if (heliMark) heliMark.visible = false; return; }   // balloons, blimps and skateboards have no guns
   v.fireT -= dt; v.gunT = (v.gunT || 0) - dt;
   const aim = heliAimPoint(v);
   // a red ring on the ground (or target) where the crosshair is pointing

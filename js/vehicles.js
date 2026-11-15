@@ -107,9 +107,10 @@ function makePlaneModel(team) {
   g.traverse(o => { if (o.isMesh) o.receiveShadow = true; });
   return { g, prop, bomb, canopy, gunYaw, gunPitch };
 }
-function makePlane(team, x, z, yaw, wait) {
-  const m = makePlaneModel(team);
-  const pl = { idx: planes.length, team, model: m, pos: new THREE.Vector3(), quat: new THREE.Quaternion(), speed: 0, throttle: 0, hp: 320, maxHp: 320, alive: true,
+function makePlane(team, x, z, yaw, wait, kind) {
+  const K = (typeof PLANE_KINDS !== 'undefined' && PLANE_KINDS[kind]) || null;
+  const m = K ? K.model(team) : makePlaneModel(team);
+  const pl = { idx: planes.length, team, model: m, kind: kind || 'prop', spdMul: K ? K.spd : 1, maxBombs: K ? K.bombs : 1, bombRegenT: K ? K.regen : 25, bombBig: !!(K && K.bombBig), pos: new THREE.Vector3(), quat: new THREE.Quaternion(), speed: 0, throttle: 0, hp: K ? K.hp : 320, maxHp: K ? K.hp : 320, alive: true,
     pilot: null, remote: null, onGround: true, spawn: { x, z, yaw }, gunT: 0, bombs: 1, bombT: 0, bombRegen: 0, respawnT: 0, waitT: wait,
     aiYaw: yaw, aiPitch: 0, aiBank: 0, groundYaw: yaw, wp: null, wpT: 0, smokeT: 0, lastAttacker: null, inP: 0, inR: 0, inY: 0 };
   resetPlane(pl, wait);
@@ -118,7 +119,8 @@ function makePlane(team, x, z, yaw, wait) {
 }
 function resetPlane(pl, wait = 6) {
   if (pl.homeTeam) pl.team = pl.homeTeam;
-  pl.alive = true; pl.hp = pl.maxHp; pl.speed = 0; pl.throttle = 0; pl.onGround = true; pl.bombs = 1; pl.waitT = wait;
+  if (pl.parked) wait = 1e9;   // spawned from the console: stays parked for a player
+  pl.alive = true; pl.hp = pl.maxHp; pl.speed = 0; pl.throttle = 0; pl.onGround = true; pl.bombs = pl.maxBombs || 1; pl.waitT = wait;
   pl.groundYaw = pl.aiYaw = pl.spawn.yaw; pl.aiPitch = 0; pl.aiBank = 0; pl.wp = null;
   pl.pos.set(pl.spawn.x, heightAt(pl.spawn.x, pl.spawn.z) + 1.6, pl.spawn.z);
   pl.quat.setFromEuler(new THREE.Euler(0, pl.spawn.yaw, 0, 'YXZ'));
@@ -185,17 +187,17 @@ function planeGuns(pl, shooter, accurate) {
 }
 function planeBomb(pl, shooter) {
   if (pl.bombs <= 0 || pl.bombT > 0) return;
-  pl.bombs--; pl.bombT = 0.5; pl.model.bomb.visible = false;
+  pl.bombs--; pl.bombT = 0.5; pl.model.bomb.visible = pl.bombs > 0;
   if (pl === player.vehicle || pl.pos.distanceTo(camera.position) < 140) sfxBombDrop();
   const v = planeFwd(pl).multiplyScalar(pl.speed * 0.9);
-  spawnBall(pl.pos.clone().add(new THREE.Vector3(0, -1.6, 0)), v, shooter, { type: 'bomb', bomb: true, r: 0.32, mass: 25, fuse: 14, color: 0x30343a, radius: 20, dmg: 260, power: 95, impact: true });   // big plane bombs: wide blast, and they leave a crater
+  spawnBall(pl.pos.clone().add(new THREE.Vector3(0, -1.6, 0)), v, shooter, { type: 'bomb', bomb: true, r: 0.32, mass: 25, fuse: 14, color: 0x30343a, radius: pl.bombBig ? 28 : 20, dmg: pl.bombBig ? 340 : 260, power: 95, impact: true });   // big plane bombs: wide blast, and they leave a crater
   playAt('thump', pl.pos, 0.7);
-  if (pl.pilot === player) showMessage('Bomb away! Next bomb loads in 25 seconds', 2);
+  if (pl.pilot === player) showMessage(pl.bombs > 0 ? `Bomb away! ${pl.bombs} left` : `Bomb away! Next bomb loads in ${pl.bombRegenT || 25} seconds`, 2);
 }
 function planeTick(pl, dt) {
   pl.model.prop.rotation.z += (5 + pl.speed) * dt;
   if (pl.hp < pl.maxHp * 0.45) { pl.smokeT -= dt; if (pl.smokeT <= 0) { pl.smokeT = 0.05; smokePuff(pl.pos.clone(), pl.hp < pl.maxHp * 0.2 ? 0x222222 : 0x777777, 0.6, 1.6, 0.2); } }
-  if (pl.bombs < 1) { pl.bombRegen += dt; if (pl.bombRegen > 25) { pl.bombRegen = 0; pl.bombs = 1; pl.model.bomb.visible = true; if (pl.pilot === player) showMessage('Bomb loaded', 1.5); } }
+  if (pl.bombs < (pl.maxBombs || 1)) { pl.bombRegen += dt; if (pl.bombRegen > (pl.bombRegenT || 25)) { pl.bombRegen = 0; pl.bombs++; pl.model.bomb.visible = true; if (pl.pilot === player) showMessage('Bomb loaded', 1.5); } }
   pl.bombT -= dt; pl.gunT -= dt;
 }
 
@@ -244,7 +246,7 @@ function easyFly(pl, dt) {
   // turn towards the aim, banking into the turn like a real plane, and level out when on course
   const err = wrapAngle(pl.aimYaw - yaw), yawRate = clamp(err * 1.6, -0.95, 0.95) * ctrl;
   yaw += yawRate * dt;
-  roll += (clamp(-yawRate * 1.15, -1.05, 1.05) - roll) * Math.min(1, dt * 3);
+  roll += (clamp(yawRate * 1.15, -1.05, 1.05) - roll) * Math.min(1, dt * 3);   // lean into the turn: turning right drops the right wing
   // nose towards the aim; a slow plane can't climb steeply (stall protection)
   const maxUp = pl.speed < 26 ? 0.15 : 0.7;
   let wantPitch = clamp(pl.aimPitch, -0.75, maxUp);
@@ -273,9 +275,9 @@ function updatePlayerPlane(pl, dt) {
   const yawIn = (keys.KeyQ ? 1 : 0) - (keys.KeyE ? 1 : 0);
   pl.inP = lerp(pl.inP, pitchIn, Math.min(1, dt * 5)); pl.inR = lerp(pl.inR, rollIn, Math.min(1, dt * 5)); pl.inY = lerp(pl.inY, yawIn, Math.min(1, dt * 5));
   const fwd = planeFwd(pl);
-  pl.speed += (pl.throttle * 52 - pl.speed) * dt * 0.4;
+  pl.speed += (pl.throttle * 52 * (pl.spdMul || 1) - pl.speed) * dt * 0.4;
   if (!pl.onGround) pl.speed -= fwd.y * 10 * dt;
-  pl.speed = clamp(pl.speed, 0, 70);
+  pl.speed = clamp(pl.speed, 0, 70 * (pl.spdMul || 1));
   if (pl.onGround) {
     if (pl.throttle < 0.05 || down) pl.speed = Math.max(0, pl.speed - 14 * dt);
     pl.groundYaw += (-pl.inR + pl.inY) * 0.9 * dt * clamp(pl.speed / 10, 0.3, 1);

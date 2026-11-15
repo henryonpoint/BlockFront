@@ -10,7 +10,7 @@ const VTYPES = {
     seats: [{ p: [0, 1.2, 0], role: 'drive', pose: 'hide', exposed: false }, { p: [0.55, 2.35, 0.9], role: 'gun', pose: 'stand', exposed: true }],
   },
   cart: {
-    name: 'Minecart', hp: 320, maxSpeed: 34, accel: 24, turn: 2.6, radius: 0.9, len: 2.3, wid: 1.4, bulletMult: 0.6, expMult: 1, camDist: 5.5,
+    name: 'Minecart', hp: 320, maxSpeed: 72, accel: 40, turn: 2.6, radius: 0.9, len: 2.3, wid: 1.4, bulletMult: 0.6, expMult: 1, camDist: 5.5,
     seats: [{ p: [0, 0.62, 0.35], role: 'drive', pose: 'sit', exposed: true }, { p: [0, 0.62, -0.45], role: 'ride', pose: 'sit', exposed: true }],
   },
   quad: {
@@ -244,9 +244,9 @@ function simVehicle(v, dt, inp) {
   if (!v.airborne && !(inp.brake && v.speed === 0) && inp.thr === 0) v.speed -= clamp((hF - hB) / T.len, -0.5, 0.5) * 3 * dt;
   v.steer = lerp(v.steer, inp.steer, Math.min(1, dt * 6));
   if (!v.airborne) v.yaw += v.steer * T.turn * dt * clamp(Math.abs(v.speed) / 6, 0, 1) * Math.sign(v.speed || 1);
-  if (v.type === 'cart' && under) cartRail(v, dt, inp);
   const px = v.pos.x, pz = v.pos.z;
-  v.pos.x += fx * v.speed * dt; v.pos.z += fz * v.speed * dt;
+  const railed = v.type === 'cart' && under && typeof railStep === 'function' && railStep(v, dt, inp);   // tunnel carts ride the rails
+  if (!railed) { if (v.type === 'cart') v.rail = null; if (v.type === 'cart' && under) cartRail(v, dt, inp); v.pos.x += fx * v.speed * dt; v.pos.z += fz * v.speed * dt; }
   // hitting buildings, trees and rocks
   const probe = (x, z) => {
     for (const off of [-half * 0.6, 0, half * 0.6]) {
@@ -260,7 +260,7 @@ function simVehicle(v, dt, inp) {
   };
   // minecarts in the tunnels don't crash into the walls: they slide along them and line up again
   const cartUnder = v.type === 'cart' && (under || (typeof TUN_Y !== 'undefined' && v.pos.y < TUN_Y + 6));
-  if (cartUnder) {
+  if (cartUnder && !railed) {
     // how many of the cart's four corners are over the tunnel floor: a move may not make that worse
     const fitsN = (x, z) => { let n = 0; for (const [a, b] of [[0.75, 1.15], [-0.75, 1.15], [0.75, -1.15], [-0.75, -1.15]]) { const cx = x + fx * b - fz * a, cz = z + fz * b + fx * a; if (undergroundAt(cx, cz, vy0)) n++; } return n; };
     const was = fitsN(px, pz), now = fitsN(v.pos.x, v.pos.z);
