@@ -1,5 +1,6 @@
 // ===================== intro.js : the opening credits =====================
-// Three short cards before the start screen: C.C.C.C, Netlify and Claude.
+// Three short cards before the start screen: C.C.C.C, GitHub and Claude.
+// A logo shows above each name if logos/github.png or logos/claude.png is in the game folder; if not, just the name shows.
 // Plays once per visit (a page reload for a new map skips it). Click, tap or any key skips it.
 (function () {
   let seen = false;
@@ -25,9 +26,10 @@
   #intro .ccc.go span { opacity: 1; transform: none; filter: none; }
   #intro .bar { width: 0; height: 3px; margin: 22px auto 0; background: linear-gradient(90deg, transparent, currentColor, transparent); transition: width 1.4s ease .5s; }
   #intro .card.on .bar { width: min(420px, 70vw); }
-  #intro .net { color: #32e6e2; }
+  #intro .net { color: #c9d1d9; }
   #intro .net .big { color: #fff; }
-  #intro .net .big b { color: #32e6e2; font-weight: 800; }
+  #intro .net .big b { color: #ffffff; font-weight: 800; }
+  #intro .logo { display: block; height: clamp(60px, 12vw, 120px); width: auto; margin: 0 auto 18px; }
   #intro .cla { color: #e8875a; }
   #intro .cla .big { color: #fff; }
   #intro .cla .big b { color: #e8875a; font-weight: 800; }
@@ -39,8 +41,8 @@
   const letters = 'C.C.C.C'.split('').map(ch => `<span class="${ch === '.' ? 'dot' : ''}">${ch}</span>`).join('');
   el.innerHTML = `<canvas></canvas>
     <div class="card" id="introA"><div class="big ccc">${letters}</div><div class="small">presents</div></div>
-    <div class="card net" id="introB"><div class="tag">Online on</div><div class="big"><b>Netlify</b></div><div class="bar"></div><div class="small">Where the game lives online</div></div>
-    <div class="card cla" id="introC"><div class="tag">Built with</div><div class="big"><b>Claude</b></div><div class="bar"></div><div class="small">Code, maps and soldiers' brains</div></div>
+    <div class="card net" id="introB"><div class="tag">Online on</div><img class="logo" src="logos/github.png" alt="" onerror="this.remove()"><div class="big"><b>GitHub</b></div><div class="bar"></div><div class="small">Where the game lives online</div></div>
+    <div class="card cla" id="introC"><div class="tag">Built with</div><img class="logo" src="logos/claude.png" alt="" onerror="this.remove()"><div class="big"><b>Claude</b></div><div class="bar"></div><div class="small">Code, maps and soldiers' brains</div></div>
     <div class="skip">Click or press any key to skip</div>`;
   (document.body || document.documentElement).appendChild(el);
 
@@ -71,7 +73,7 @@
 
   const cards = [
     { id: 'introA', tint: [232, 196, 106], ms: 2300, start: c => { const w = c.querySelector('.ccc'); setTimeout(() => w.classList.add('go'), 60); w.querySelectorAll('span').forEach((s, i) => { s.style.transitionDelay = (0.08 + i * 0.11) + 's'; }); } },
-    { id: 'introB', tint: [50, 230, 226], ms: 2100 },
+    { id: 'introB', tint: [201, 209, 217], ms: 2100 },
     { id: 'introC', tint: [232, 135, 90], ms: 2300 },
   ];
   const timers = [];

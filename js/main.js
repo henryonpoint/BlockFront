@@ -53,6 +53,8 @@ document.querySelectorAll('#teamPick .chip').forEach(ch => ch.addEventListener('
 }));
 try { const saved = localStorage.getItem('bf_name'); if (saved) $('nameIn').value = saved; } catch (e) { }
 $('nameIn').addEventListener('keydown', e => e.stopPropagation());
+// remember the name as soon as it is typed, so picking a map (which reloads the page) keeps it
+$('nameIn').addEventListener('input', () => { try { const v = $('nameIn').value.replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 16); if (v) localStorage.setItem('bf_name', v); else localStorage.removeItem('bf_name'); } catch (e) { } });
 // kind: 'solo', 'host' or 'join'. opts: { code, pub, name } for online games
 async function launch(kind, opts = {}) {
   if (kind === true) kind = 'join';
