@@ -7,6 +7,10 @@ Object.assign(VTYPES, {
     name: 'Race car', hp: 300, maxSpeed: 62, accel: 30, turn: 2.2, radius: 1.6, len: 4.4, wid: 1.9, bulletMult: 0.9, expMult: 1, camDist: 8,
     seats: [{ p: [0, 0.55, 0.2], role: 'drive', pose: 'sit', exposed: true }],
   },
+  timecar: {
+    name: 'Time Racer', hp: 360, maxSpeed: 68, accel: 32, turn: 2.0, radius: 1.7, len: 4.3, wid: 1.9, bulletMult: 0.8, expMult: 1, camDist: 8,
+    seats: [{ p: [-0.38, 0.85, 0.1], role: 'drive', pose: 'sit', exposed: false }, { p: [0.38, 0.85, 0.1], role: 'ride', pose: 'sit', exposed: false }],
+  },
   speedboat: {
     name: 'Speed boat', hp: 380, maxSpeed: 46, accel: 22, turn: 1.6, radius: 2.0, len: 5.6, wid: 2.0, bulletMult: 0.7, expMult: 1, camDist: 10, boat: true,
     seats: [{ p: [0, 0.95, 0.2], role: 'drive', pose: 'sit', exposed: true }, { p: [-0.5, 0.95, 1.4], role: 'ride', pose: 'sit', exposed: true }, { p: [0.5, 0.95, 1.4], role: 'ride', pose: 'sit', exposed: true }],
@@ -17,7 +21,7 @@ Object.assign(VTYPES, {
   },
   apache: {
     name: 'Apache', hp: 1500, maxSpeed: 58, accel: 12, turn: 1.5, radius: 3.0, len: 10, wid: 2.4, bulletMult: 0.22, expMult: 0.6, camDist: 16, heli: true, rocketT: 0.28,
-    seats: [VTYPES.heli.seats[0], VTYPES.heli.seats[2]],
+    seats: [{ p: [0, 1.55, -0.85], role: 'drive', pose: 'sit', exposed: false }, { p: [0, 1.25, -2.15], role: 'ride', pose: 'sit', exposed: false }],   // pilot behind, gunner in front
   },
   hoverboard: {
     name: 'Flying skateboard', hp: 150, maxSpeed: 100, accel: 55, turn: 4.2, radius: 0.9, len: 1.6, wid: 0.6, bulletMult: 1, expMult: 1, camDist: 6, heli: true, unarmed: true, agile: true,
@@ -35,40 +39,9 @@ Object.assign(VTYPES, {
 
 const makeVehicleModelPre = makeVehicleModel;
 makeVehicleModel = function (type, team) {
-  const SPECIAL = ['racecar', 'speedboat', 'blackhawk', 'hoverboard', 'balloon', 'blimp', 'apache'];
+  const SPECIAL = ['racecar', 'speedboat', 'blackhawk', 'hoverboard', 'balloon', 'blimp', 'apache', 'timecar'];
   if (!SPECIAL.includes(type)) return makeVehicleModelPre(type, team);
-  if (type === 'apache') {   // an attack helicopter: dark olive, slimmer, with stub wings full of rockets and missiles
-    const out = makeVehicleModelPre('heli', team);
-    out.g.traverse(o => {
-      if (!o.isMesh || !o.geometry.attributes.color || o.material === VEH_GLOW) return;
-      o.geometry = o.geometry.clone(); const c = o.geometry.attributes.color;
-      for (let i = 0; i < c.count; i++) { const r = c.getX(i), g = c.getY(i), b = c.getZ(i), l = (r + g + b) / 3; if (l > 0.85) continue; c.setXYZ(i, 0.12 + l * 0.32, 0.15 + l * 0.36, 0.08 + l * 0.22); }
-    });
-    out.body.scale.set(0.82, 0.95, 1.08);
-    const p = new Part(), oc = 0x3a4228, dk = 0x22261a;
-    for (const sd of [-1, 1]) {
-      p.box(1.9, 0.12, 0.9, oc, sd * 1.45, 0.95, -0.2, 0, 0, sd * 0.12);                                   // stub wing
-      for (const dx of [0.95, 1.85]) {
-        p.cyl(0.22, 0.22, 1.5, dk, sd * dx, 0.62, -0.25, Math.PI / 2, 0, 0, 1, 10);                        // rocket pod
-        p.cyl(0.18, 0.18, 0.04, 0x111111, sd * dx, 0.62, -1.01, Math.PI / 2, 0, 0, 1, 10);
-      }
-      for (const dy of [0.42, 0.72]) p.cyl(0.07, 0.07, 1.1, 0x6a6e60, sd * 2.35, dy, -0.2, Math.PI / 2, 0, 0, 1, 6);   // missiles on the wingtips
-    }
-    p.box(0.3, 0.3, 0.5, dk, 0, 0.35, -3.3); p.cyl(0.05, 0.05, 1.2, 0x111111, 0, 0.3, -3.9, Math.PI / 2, 0, 0, 1, 6);   // chin gun
-    p.ball(0.32, 0x1a1c18, 0, 1.0, -4.0, 1, 1, 1);                                                          // nose sensor ball
-    const add = new THREE.Mesh(p.build(), VEH_MAT); add.castShadow = true; out.body.add(add);
-    return out;
-  }
-  if (type === 'blackhawk') {   // the helicopter, bigger and painted black
-    const out = makeVehicleModelPre('heli', team);
-    out.g.traverse(o => {
-      if (!o.isMesh || !o.geometry.attributes.color || o.material === VEH_GLOW) return;
-      o.geometry = o.geometry.clone(); const c = o.geometry.attributes.color;
-      for (let i = 0; i < c.count; i++) { const r = c.getX(i), g = c.getY(i), b = c.getZ(i), l = (r + g + b) / 3; if (l > 0.85) continue; c.setXYZ(i, r * 0.3 + 0.03, g * 0.3 + 0.03, b * 0.3 + 0.035); }
-    });
-    out.g.scale.setScalar(1.12);
-    return out;
-  }
+  if (type === 'blackhawk' || type === 'apache') return heliCustomModel(type, team);
   const P = VPAINT[team] || VPAINT.blue, g = new THREE.Group(), body = new THREE.Group(); g.add(body);
   const wheels = [], out = { g, body, wheels };
   const mesh = (geo, mat, parent = body, x = 0, y = 0, z = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; parent.add(m); return m; };
@@ -87,6 +60,24 @@ makeVehicleModel = function (type, team) {
     });
     for (const [x, z, r] of [[-0.95, -1.7, 0.36], [0.95, -1.7, 0.36], [-0.95, 1.4, 0.42], [0.95, 1.4, 0.42]]) wheels.push(mesh(wheelGeo(r, 0.42), VEH_MAT, body, x, r, z));
     for (const s of [-0.3, 0.3]) glow.box(0.12, 0.06, 0.03, VC.tail, s, 0.8, 2.25);
+  } else if (type === 'timecar') {   // an original time machine: a stainless steel wedge with glowing blue strips and an energy core
+    main = vcached('timecar' + team, () => {
+      const p = new Part(), steel = 0xc6cacf, dark = 0x24262a;
+      p.box(1.9, 0.55, 4.2, steel, 0, 0.62, 0); p.box(1.85, 0.3, 1.4, steel, 0, 0.82, -1.5, 0.18, 0, 0);    // body, sloping nose
+      p.box(1.6, 0.5, 1.6, steel, 0, 1.12, 0.25, -0.12, 0, 0); p.box(1.5, 0.42, 1.2, 0x2a3440, 0, 1.15, -0.3, 0.45, 0, 0);   // cabin roof, raked windscreen
+      for (let i = 0; i < 6; i++) p.box(1.45, 0.04, 0.1, dark, 0, 1.18 - i * 0.05, 0.95 + i * 0.12, -0.5, 0, 0);   // louvres over the back window
+      p.box(1.9, 0.12, 0.2, dark, 0, 0.5, -2.08); p.box(1.9, 0.18, 0.25, dark, 0, 0.62, 2.1);               // bumpers
+      for (const sd of [-1, 1]) { p.box(0.04, 0.06, 3.4, dark, sd * 0.96, 0.55, 0); p.box(0.3, 0.06, 0.25, dark, sd * 0.7, 0.5, -2.1); }   // side trim, grille
+      p.box(1.0, 0.35, 0.55, dark, 0, 1.0, 1.7);                                                             // the box for the energy core
+      return p;
+    });
+    for (const [x, z] of [[-0.95, -1.35], [0.95, -1.35], [-0.95, 1.35], [0.95, 1.35]]) wheels.push(mesh(wheelGeo(0.36, 0.3), VEH_MAT, body, x, 0.36, z));
+    const glowMat = new THREE.MeshBasicMaterial({ color: 0x3ad8ff, transparent: true, opacity: 0.85 });
+    const strips = new THREE.Group(); body.add(strips);
+    for (const sd of [-1, 1]) { const st = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.05, 3.6), glowMat); st.position.set(sd * 0.98, 0.42, 0); strips.add(st); }
+    const core = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.5, 12), glowMat); core.rotation.z = Math.PI / 2; core.position.set(0, 1.22, 1.7); strips.add(core);
+    for (const sd of [-0.55, 0.55]) glow.box(0.3, 0.1, 0.03, VC.lamp, sd, 0.72, -2.12);
+    out.timeGlow = glowMat;
   } else if (type === 'speedboat') {
     main = vcached('speedboat' + team, () => {
       const p = new Part();
@@ -141,6 +132,21 @@ function updateSpecials(dt) {
   for (const v of gvehicles) {
     if (!v.alive) continue;
     if (v.type === 'balloon' && v.model.flame) { const up = driverOf(v) && driverOf(v).isPlayer ? keys.Space : v.vel && v.vel.y > 1; v.model.flame.visible = !!up || Math.random() < 0.05; v.model.flame.scale.setScalar(0.8 + Math.random() * 0.5); }
+    if (v.type === 'timecar') {   // hold it at top speed for 2 seconds and it jumps through time: 250 m ahead in a flash
+      const drv = driverOf(v), fast = drv && v.speed > v.T.maxSpeed * 0.9;
+      v.charge = fast ? (v.charge || 0) + dt : Math.max(0, (v.charge || 0) - dt * 2);
+      if (v.model.timeGlow) { v.model.timeGlow.opacity = 0.5 + Math.min(1, v.charge / 2) * 0.5 * (0.6 + Math.random() * 0.4); v.model.timeGlow.color.setHex(v.charge > 1.2 ? 0xffffff : 0x3ad8ff); }
+      if (v.charge > 0.4 && Math.random() < v.charge * dt * 6) burst(v.pos.clone().add(new THREE.Vector3(rand(-1, 1), 0.6, rand(-2, 2))), 3, 0x6ae4ff, 3, 0.25, 0.05);   // blue sparks
+      if (v.charge > 2 && drv && (drv.isPlayer || !net.active || net.isHost)) {
+        v.charge = 0;
+        const fx = -Math.sin(v.yaw), fz = -Math.cos(v.yaw), from = v.pos.clone();
+        let tx = clamp(v.pos.x + fx * 250, -EDGE + 20, EDGE - 20), tz = clamp(v.pos.z + fz * 250, -EDGE + 20, EDGE - 20);
+        if (waterDepth(tx, tz) > 0.5 || blockedAt(tx, tz, heightAt(tx, tz), 2, true)) { tx = clamp(v.pos.x + fx * 120, -EDGE + 20, EDGE - 20); tz = clamp(v.pos.z + fz * 120, -EDGE + 20, EDGE - 20); }
+        v.pos.set(tx, heightAt(tx, tz), tz); v.lastGround = v.pos.y;
+        for (const p of [from, v.pos]) { burst(p.clone().add(new THREE.Vector3(0, 1, 0)), 30, 0x6ae4ff, 12, 0.8, 0.2); playAt('laser', p, 1.2); }
+        if (drv.isPlayer) { showMessage('TIME JUMP!', 1.5); camShake = Math.max(camShake, 0.08); }
+      }
+    }
     if (v.type === 'hoverboard') {
       v.model.body.position.y = Math.sin(simTime * 3 + v.idx) * 0.05;
       const yr = dt > 0 ? wrapAngle(v.yaw - (v._lastYaw === undefined ? v.yaw : v._lastYaw)) / dt : 0; v._lastYaw = v.yaw;
@@ -347,4 +353,75 @@ function railStep(v, dt, inp) {
   v.pos.x = R.a.x + ux * R.t; v.pos.z = R.a.z + uz * R.t;
   v.yaw += wrapAngle(Math.atan2(-ux, -uz) - v.yaw) * Math.min(1, dt * 14);
   return true;
+}
+
+
+// ---------- the two military helicopters, built to look like the real ones ----------
+function heliCustomModel(type, team) {
+  const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
+  const out = { g, body, wheels: [] };
+  const mesh = (geo, parent = body) => { const m = new THREE.Mesh(geo, VEH_MAT); m.castShadow = true; m.receiveShadow = true; parent.add(m); return m; };
+  const AP = type === 'apache', glassC = 0x1c2630, frameC = 0x1a1c18;
+  mesh(vcached(type + team, () => {
+    const p = new Part();
+    if (AP) {
+      // AH-64 Apache: a narrow, angular body, two seats one behind the other under flat glass panels
+      const c = 0x3b4230, d = 0x2b3024, t = 0x4a523d;
+      p.box(1.15, 1.25, 4.6, c, 0, 1.15, -0.9); p.box(1.0, 1.0, 1.4, c, 0, 1.0, -3.9, 0.12, 0, 0);          // fuselage and nose
+      p.box(0.9, 0.55, 0.9, d, 0, 0.55, -4.25); p.box(0.55, 0.5, 0.55, 0x222222, 0, 0.75, -4.75);          // sensor turret on the nose
+      p.box(1.05, 0.62, 1.15, glassC, 0, 1.98, -2.15, 0.15, 0, 0); p.box(1.05, 0.75, 1.3, glassC, 0, 2.3, -0.85, 0.12, 0, 0);   // stepped canopies
+      for (const z of [-2.75, -1.55, -0.25]) p.box(1.1, 0.08, 0.08, frameC, 0, z < -1 ? 2.3 : 2.66, z);
+      for (const sd of [-1, 1]) {
+        p.box(0.55, 0.65, 2.6, t, sd * 0.85, 1.75, 0.35); p.cyl(0.24, 0.24, 0.3, 0x1a1a1a, sd * 0.85, 1.75, 1.75, Math.PI / 2, 0, 0, 1, 8);   // engines either side, exhausts
+        p.box(1.7, 0.12, 0.8, c, sd * 1.4, 1.3, -0.3);                                                      // stub wing
+        p.cyl(0.22, 0.22, 1.4, d, sd * 1.2, 0.98, -0.35, Math.PI / 2, 0, 0, 1, 8); p.cyl(0.2, 0.2, 0.04, 0x111111, sd * 1.2, 0.98, -1.06, Math.PI / 2, 0, 0, 1, 8);   // rocket pods
+        for (const dy of [0.95, 1.15]) p.box(0.12, 0.12, 1.1, 0x5a5e52, sd * 2.1, dy, -0.35);               // missiles on the tips
+        p.box(0.08, 0.7, 0.08, frameC, sd * 0.9, 0.45, -1.6); p.cyl(0.3, 0.3, 0.2, 0x151515, sd * 0.95, 0.3, -1.6, 0, 0, Math.PI / 2, 1, 10);   // main wheels
+      }
+      p.box(0.3, 0.3, 0.6, d, 0, 0.35, -3.0); p.cyl(0.05, 0.05, 1.4, 0x111111, 0, 0.32, -3.9, Math.PI / 2, 0, 0, 1, 6);   // chin gun
+      p.box(0.5, 0.5, 6.0, c, 0, 1.45, 4.3); p.box(0.16, 1.6, 1.0, c, 0, 2.35, 7.2, -0.35, 0, 0);          // tail boom, swept fin
+      p.box(2.0, 0.08, 0.6, c, 0, 1.25, 7.0);                                                                // tail stabiliser
+      p.cyl(0.18, 0.18, 0.12, 0x151515, 0, 0.25, 6.6, 0, 0, Math.PI / 2, 1, 8);                               // tail wheel
+      p.cyl(0.18, 0.22, 0.7, d, 0, 2.6, -0.1, 0, 0, 0, 1, 8); p.box(0.5, 0.3, 0.5, d, 0, 3.0, -0.1);          // rotor mast and its sight
+      p.box(0.04, 0.3, 0.3, VPAINT[team] ? VPAINT[team].team : 0x2f6fe0, 0.6, 1.3, 0.3);                       // team mark
+    } else {
+      // UH-60 Black Hawk: a long low cabin with big sliding doors, engines on the roof, a tail that rises to a
+      // tall fin with the tail rotor on the right and a big flat stabiliser
+      const c = 0x2c3129, d = 0x20241e, t = 0x3a4035;
+      p.box(2.4, 1.85, 4.8, c, 0, 1.5, -0.2); p.box(2.2, 0.35, 4.6, d, 0, 0.5, -0.2);                       // cabin, belly
+      p.box(2.2, 1.5, 1.7, c, 0, 1.4, -3.3, 0.1, 0, 0); p.box(1.9, 0.9, 0.9, c, 0, 1.0, -4.3, 0.25, 0, 0);    // cockpit and sloping nose
+      p.box(2.1, 0.9, 1.4, glassC, 0, 2.0, -3.4, -0.35, 0, 0); for (const sd of [-1, 1]) p.box(0.06, 0.8, 1.3, glassC, sd * 1.12, 1.7, -3.3);   // windscreen and side windows
+      for (const sd of [-1, 1]) {
+        p.box(0.06, 1.25, 1.7, 0x15181a, sd * 1.22, 1.55, 0.05);                                            // open door gaps
+        p.box(0.08, 0.1, 4.0, frameC, sd * 1.22, 2.25, 0.0);                                                // door rails
+        p.box(0.9, 0.6, 2.6, t, sd * 0.6, 2.65, 0.3); p.cyl(0.26, 0.26, 0.3, 0x111111, sd * 0.6, 2.65, 1.65, Math.PI / 2, 0, 0, 1, 8);   // twin engines and exhausts
+        p.box(0.1, 0.9, 0.1, frameC, sd * 1.3, 0.55, -2.4); p.cyl(0.36, 0.36, 0.25, 0x151515, sd * 1.35, 0.36, -2.4, 0, 0, Math.PI / 2, 1, 10);   // main wheels on struts
+        p.box(1.3, 0.1, 0.6, c, sd * 1.75, 1.95, -0.6); p.cyl(0.2, 0.2, 1.1, d, sd * 2.1, 1.65, -0.6, Math.PI / 2, 0, 0, 1, 8);   // small stub wings with pods
+      }
+      p.box(1.4, 0.4, 1.0, d, 0, 2.55, -1.2);                                                                  // roof fairing
+      p.box(0.75, 0.75, 6.2, c, 0, 1.9, 4.9, -0.07, 0, 0);                                                   // tail boom, rising slightly
+      p.box(0.2, 2.1, 1.3, c, 0, 2.9, 8.4, -0.3, 0, 0);                                                       // tall swept tail fin
+      p.box(2.8, 0.09, 0.85, c, 0, 2.05, 8.3);                                                                 // stabiliser
+      p.box(0.1, 0.5, 0.1, frameC, 0, 0.95, 7.0); p.cyl(0.2, 0.2, 0.15, 0x151515, 0, 0.7, 7.0, 0, 0, Math.PI / 2, 1, 8);   // tail wheel
+      p.box(0.04, 0.6, 0.6, VPAINT[team] ? VPAINT[team].team : 0x2f6fe0, 1.22, 2.0, -1.6);                     // team mark
+    }
+    return p;
+  }));
+  // rotors (the main rotor and the tail rotor are what spin)
+  const rotor = new THREE.Group(); rotor.position.set(0, AP ? 3.2 : 3.25, AP ? -0.1 : 0.0); body.add(rotor);
+  mesh(vcached(type + 'Rotor', () => { const p = new Part(); p.cyl(0.25, 0.25, 0.2, 0x1e1e1e, 0, 0, 0, 0, 0, 0, 1, 10); for (let i = 0; i < 4; i++) { const a = i / 4 * Math.PI * 2, R = AP ? 2.6 : 2.95; p.box(0.32, 0.05, R * 2, 0x1c1d1f, Math.sin(a) * R, 0.02, Math.cos(a) * R, 0, a, 0); } return p; }), rotor);
+  const tail = new THREE.Group(); tail.position.set(AP ? -0.22 : 0.22, AP ? 2.55 : 3.1, AP ? 7.45 : 8.75); body.add(tail);
+  mesh(vcached(type + 'Tail', () => { const p = new Part(); p.cyl(0.08, 0.08, 0.14, 0x1e1e1e, 0, 0, 0, 0, 0, Math.PI / 2); for (let i = 0; i < 2; i++) p.box(0.04, AP ? 1.3 : 1.6, 0.16, 0x1c1d1f, 0, 0, 0, i * Math.PI / 2 + (AP ? 0.6 : 0), 0, 0); return p; }), tail);
+  const podL = new THREE.Object3D(), podR = new THREE.Object3D();
+  podL.position.set(AP ? -1.2 : -2.1, AP ? 0.98 : 1.65, -1.2); podR.position.set(AP ? 1.2 : 2.1, AP ? 0.98 : 1.65, -1.2); body.add(podL, podR);
+  out.rotor = rotor; out.tail = tail; out.pods = [podL, podR];
+  if (!AP) {   // door guns in both doors, for the gunner seats
+    const P2 = VPAINT[team] || VPAINT.blue;
+    const gun = (x) => { const yw = new THREE.Group(); yw.position.set(x, 1.75, 0.0); body.add(yw); const pt = new THREE.Group(); yw.add(pt); mesh(hmgGeo(false, P2), pt); const mz = new THREE.Object3D(); mz.position.z = -1.95; pt.add(mz); return [yw, pt, mz]; };
+    const [a1, b1, c1] = gun(-1.3), [a2, b2, c2] = gun(1.3);
+    Object.assign(out, { mgYaw: a1, mgPitch: b1, mgMuzzle: c1, mgBase: 1.75, mg2Yaw: a2, mg2Pitch: b2, mg2Muzzle: c2 });
+  }
+  g.traverse(o => { if (o.isMesh) o.userData.isVehiclePart = true; });
+  scene.add(g);
+  return out;
 }
