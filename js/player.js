@@ -913,6 +913,14 @@ function boardPlane(pl) {
 function deployPlayer() {
   player.glider = false; player.gliding = false;
   if (player.planeGun) { player.planeGun.gunner = null; player.planeGun = null; }
+  if (DOGFIGHT) {   // a dogfight: take over one of your team's planes, already flying
+    spawnChar(player, 'base'); refillAmmo();
+    const pl = planes.find(p => p.team === player.team && p.alive && !p.pilot && !p.remote);
+    $('death').style.display = 'none'; uiOpen = null; player.wantDeploy = false;
+    if (pl) { boardPlane(pl); pl.throttle = 1; pl.waitT = 999; pl.aimYaw = undefined; showMessage('Dogfight! Shoot down the enemy planes. First team to ' + tdmTarget() + ' wins', 4); }
+    else showMessage('Every plane is in the air. Wait for one to come back', 3);
+    playing = true; lockPointer(); return;
+  }
   const wantPlane = player.spawnPref === 'plane';
   spawnChar(player, wantPlane ? 'base' : player.spawnPref); refillAmmo();
   if (wantPlane) {

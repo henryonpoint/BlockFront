@@ -29,7 +29,7 @@ function chooseWorld(key, val) {
 let allPoints = null, appliedPoints = 0;
 const KOTH_TIME = 150;
 const holdScore = { blue: 0, red: 0, green: 0, yellow: 0 };
-function tdmTarget() { return 40 + BATTLE.soldiers * 3; }
+function tdmTarget() { return DOGFIGHT ? 30 : 40 + BATTLE.soldiers * 3; }
 function centerPoint() { return points.find(p => p.name === 'C') || points[0]; }
 function buildPointHud() {
   pointsEl.innerHTML = '';

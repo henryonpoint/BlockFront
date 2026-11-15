@@ -125,9 +125,21 @@ function resetPlane(pl, wait = 6) {
   pl.pos.set(pl.spawn.x, heightAt(pl.spawn.x, pl.spawn.z) + 1.6, pl.spawn.z);
   pl.quat.setFromEuler(new THREE.Euler(0, pl.spawn.yaw, 0, 'YXZ'));
   planeBodyVisible(pl, true); pl.model.g.visible = true; pl.model.bomb.visible = true;
+  if (DOGFIGHT) {   // straight into the air, flying towards the enemy
+    pl.onGround = false; pl.waitT = 0; pl.pos.set(pl.spawn.x, 130 + (pl.idx % 4) * 14, pl.spawn.z);
+    pl.speed = 45 * (pl.spdMul || 1); pl.throttle = 1; pl.aiYaw = pl.spawn.yaw; pl.aiPitch = 0; pl.climbT = 0;
+    pl.quat.setFromEuler(new THREE.Euler(0, pl.spawn.yaw, 0, 'YXZ'));
+  }
   pl.model.g.position.copy(pl.pos); pl.model.g.quaternion.copy(pl.quat);
 }
 function buildPlanes() {
+  if (DOGFIGHT) {   // the dogfight: a squadron per team, starting in the air (players take over a plane when they deploy)
+    for (const t of ['blue', 'red']) for (let i = 0; i < 9; i++) {
+      const B = BASES[t], s = teamSide(t), kind = JETFIGHT ? (i % 2 ? 'f22' : 'f18') : 'prop';
+      makePlane(t, B.x + (i - 4) * 45, B.z - s * 120, s > 0 ? 0 : Math.PI, 0, kind);
+    }
+    return;
+  }
   [[30, 6], [52, 30], [70, 55]].forEach(([off, wait]) => makePlane('blue', RUNWAYS.blue.x + off, RUNWAYS.blue.z, Math.PI / 2, wait));
   [[-30, 6], [-52, 30], [-70, 55]].forEach(([off, wait]) => makePlane('red', RUNWAYS.red.x + off, RUNWAYS.red.z, -Math.PI / 2, wait));
   if (NORMANDY) {   // a big air battle over the beach: more fighters on both sides, up quickly
@@ -159,6 +171,7 @@ function destroyPlane(pl, attacker) {
   if (attacker === player && attacker.team !== pl.team) addMoney(300, 'Plane destroyed');
   netPlaneDown(pl, attacker);
   if (!net.active || net.isHost) addKillfeed(attacker && attacker !== pl.pilot ? attacker : null, { name: teamName(pl.team) + ' plane', team: pl.team }, false);
+  if (DOGFIGHT && !pl.pilot && attacker && attacker.team && attacker.team !== pl.team && (!net.active || net.isHost)) { teamKills[attacker.team]++; if (attacker.kills !== undefined) attacker.kills++; }   // computer planes count in a dogfight
   if (pl.pilot) { const p = pl.pilot; pl.pilot = null; p.vehicle = null; if (p.alive) kill(p, attacker && attacker !== p ? attacker : null, new THREE.Vector3(0, 1, 0), 10); }
   if (pl.gunner) { const g = pl.gunner; pl.gunner = null; g.planeGun = null; if (g.alive) kill(g, attacker && attacker !== g ? attacker : null, new THREE.Vector3(0, 1, 0), 10); }
 }
@@ -368,6 +381,11 @@ function updatePlayerPlane(pl, dt) {
 
 // ----- AI flying -----
 function chooseAIWaypoint(pl) {
+  if (DOGFIGHT) {   // nothing to bomb: always hunt the nearest enemy plane
+    let best = null, bd = Infinity; for (const p of planes) if (p.alive && p.team !== pl.team && !p.onGround) { const d = p.pos.distanceTo(pl.pos); if (d < bd) { bd = d; best = p; } }
+    if (best) { pl.wp = { plane: best }; pl.wpT = 8; return; }
+    pl.wp = { x: rand(-300, 300), z: rand(-300, 300), alt: 140 }; pl.wpT = 10; return;
+  }
   const foes = planes.filter(p => p.alive && p.team !== pl.team && !p.onGround && p.pos.distanceTo(pl.pos) < 320);
   if (foes.length && (Math.random() < 0.5 || pl.bombs === 0)) { pl.wp = { plane: pick(foes) }; pl.wpT = 10; return; }
   let cands = points.filter(p => (p.owner && p.owner !== pl.team) || foesIn(p, pl.team) > 0);
@@ -415,7 +433,7 @@ function updateAIPlane(pl, dt) {
   const wantPitch = clamp(Math.atan2(wantY - pl.pos.y, Math.max(hd, 60)), -0.3, danger ? 0.75 : 0.5);
   pl.aiPitch = lerp(pl.aiPitch, wantPitch, dt * (danger ? 3 : 1.5));
   pl.quat.setFromEuler(new THREE.Euler(pl.aiPitch, pl.aiYaw, pl.aiBank, 'YXZ'));
-  pl.speed = lerp(pl.speed, 42, dt * 0.5);
+  pl.speed = lerp(pl.speed, 42 * (pl.spdMul || 1), dt * 0.5);   // jets fly faster, for the computer too
   pl.pos.addScaledVector(planeFwd(pl), pl.speed * dt);
   // last-moment pull up: never fly into the ground just ahead
   { let g = skyAt(pl.pos.x, pl.pos.z); for (const d of [15, 35, 60]) g = Math.max(g, skyAt(pl.pos.x + fx0 * d, pl.pos.z + fz0 * d)); const need = g + 12 - pl.pos.y; if (need > 0) { pl.pos.y += Math.min(need, 30 * dt); pl.aiPitch = Math.max(pl.aiPitch, 0.5); } }
