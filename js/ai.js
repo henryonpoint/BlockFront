@@ -115,9 +115,11 @@ function spotNear(spot) {
   }
   return { x: spot.x + 4, z: spot.z + 4 };
 }
+let _spawnFor = null;   // who is being spawned (players start on a carrier's flight deck, soldiers in its hangar)
 function spawnChar(c, pref) {
-  const sp = findSpawn(c.team, pref);
-  c.pos.set(sp.x, heightAt(sp.x, sp.z), sp.z);
+  if ((WAKE || NORMANDY) && typeof SH !== 'undefined' && !SH.built && typeof buildShips === 'function') buildShips();   // the ships (and the base carrier) exist before anyone spawns on them
+  _spawnFor = c; const sp = findSpawn(c.team, pref);
+  c.pos.set(sp.x, sp.y !== undefined ? sp.y : heightAt(sp.x, sp.z), sp.z);   // a spot on a ship comes with its deck height
   c.maxHp = c.isPlayer ? 100 : 150;
   c.hp = c.maxHp; c.armor = c.isPlayer ? c.armor : 0; c.alive = true; c.vehicle = null; c.turret = null;
   c.vel.set(0, 0, 0);

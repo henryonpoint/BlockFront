@@ -13,44 +13,16 @@ function wkText(text, w, h, bg, fg) {
 
 // ---------- the aircraft carrier ----------
 function wkCarrier() {
-  const C = CARRIER, D = C.deck, grey = wkMat(0x5f666e), dark = wkMat(0x3f454c);
-  // hull: just wider than the deck and topping out right under it, so the steel sides hide the ground's edge
-  const hull = new THREE.Mesh(new THREE.BoxGeometry(C.hl * 2 + 2, D + 7, C.hw * 2 + 3), grey); hull.position.set(C.x, (D - 7) / 2 - 0.12, C.z); hull.castShadow = true; hull.receiveShadow = true; scene.add(hull);
-  // the bow: a pointed wedge under an overhanging flight deck
-  const bs = new THREE.Shape(); bs.moveTo(0, -C.hw - 1.5); bs.lineTo(-26, 0); bs.lineTo(0, C.hw + 1.5); bs.lineTo(0, -C.hw - 1.5);
-  const bg = new THREE.ExtrudeGeometry(bs, { depth: D + 6.6, bevelEnabled: false }); bg.rotateX(Math.PI / 2);
-  const bow = new THREE.Mesh(bg, grey); bow.position.set(C.x - C.hl - 1, D - 0.15, C.z); bow.castShadow = true; scene.add(bow);
-  const fdeck = new THREE.Mesh(new THREE.BoxGeometry(18, 0.6, C.hw * 2), wkMat(0x5d6369)); fdeck.position.set(C.x - C.hl - 8, D - 0.3, C.z); scene.add(fdeck);
-  const stripe = new THREE.Mesh(new THREE.BoxGeometry(C.hl * 2 + 2.2, 0.9, C.hw * 2 + 3.2), wkMat(0x2a2e33)); stripe.position.set(C.x, -0.2, C.z); scene.add(stripe);   // waterline
-  const num = new THREE.Mesh(new THREE.PlaneGeometry(10, 5), wkText('12', 10, 5, '#5f666e', '#f2f2f2')); num.position.set(C.x - C.hl + 14, D - 3, C.z + C.hw + 1.55); scene.add(num);
-  // deck markings
-  const line = (x, z, w, d, col) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshBasicMaterial({ color: col })); m.rotation.x = -Math.PI / 2; m.position.set(x, D + 0.04, z); scene.add(m); };
-  for (let x = -C.hl + 6; x < C.hl - 6; x += 12) line(C.x + x, C.z + 0, 6, 0.4, 0xf2f2f2);
-  line(C.x, C.z - C.hw + 0.8, C.hl * 2 - 6, 0.3, 0xe8c840); line(C.x, C.z + C.hw - 0.8, C.hl * 2 - 6, 0.3, 0xe8c840);
-  const big = new THREE.Mesh(new THREE.PlaneGeometry(12, 6), wkText('12', 12, 6, '#5d6369', '#f2f2f2')); big.rotation.x = -Math.PI / 2; big.rotation.z = -Math.PI / 2; big.position.set(C.x + C.hl - 14, D + 0.05, C.z); scene.add(big);
-  // the island: bridge, funnel, mast and radar on the north side of the deck
-  const ix = C.x + 30, iz = C.z - C.hw + 3.4;
-  addBlock(ix, iz, 22, 7, 5.5, grey, { y: D });
-  addBlock(ix - 2, iz, 14, 5, 5, grey, { y: D + 7 });
-  addMesh(new THREE.BoxGeometry(10, 2.2, 5.6), dark, ix - 4, D + 13.2, iz);                     // bridge windows
-  addMesh(new THREE.BoxGeometry(8, 9, 4.6), grey, ix + 6, D + 16, iz).rotation.z = -0.12;       // funnel
-  addMesh(new THREE.BoxGeometry(8.2, 1.2, 4.8), wkMat(0x2a2e33), ix + 6.6, D + 20.6, iz);
-  addMesh(new THREE.CylinderGeometry(0.25, 0.35, 16, 6), grey, ix - 6, D + 20, iz);
-  const radar = addMesh(new THREE.BoxGeometry(5, 1.6, 0.3), dark, ix - 6, D + 27, iz); WAKE_SMOKE.push({ radar });
-  const isl = new THREE.Mesh(new THREE.PlaneGeometry(5, 2.2), wkText('CV-12', 5, 2.2, '#5f666e', '#f2f2f2')); isl.position.set(ix - 6, D + 9.5, iz + 2.8); scene.add(isl);
-  WAKE_SMOKE.push({ x: ix + 6.8, y: D + 21, z: iz, t: 0, dark: true });
-  // flag
-  addMesh(new THREE.CylinderGeometry(0.08, 0.08, 6, 6), MATS.steel, ix + 12, D + 10, iz);
-  const fl = addMesh(new THREE.PlaneGeometry(2.6, 1.6), new THREE.MeshLambertMaterial({ color: TEAM_COLOR.blue, side: THREE.DoubleSide }), ix + 13.3, D + 12.3, iz); fl.userData.static = false; baseFlags.push(fl);
-  // anti-aircraft guns on the deck corners, and gun tubs along the sides
-  for (const [dx, dz] of [[-C.hl + 6, -C.hw + 3], [-C.hl + 6, C.hw - 3], [C.hl - 30, C.hw - 3]]) makeTurret(C.x + dx, C.z + dz, 'mg', dx < 0 ? Math.PI / 2 : -Math.PI / 2);
-  makeTurret(C.x - 55, C.z + C.hw - 3, 'launcher', 0);
-  for (let i = 0; i < 6; i++) { const x = C.x - 80 + i * 32; addMesh(new THREE.CylinderGeometry(1.6, 1.6, 1.2, 10), grey, x, D - 1.5, C.z + C.hw + 2.6); addMesh(new THREE.CylinderGeometry(0.12, 0.12, 2.6, 6), dark, x, D - 0.6, C.z + C.hw + 3.6).rotation.x = 1.1; }
-  // crates and a few parked planes' worth of gear at the stern
-  for (let i = 0; i < 3; i++) addCrateStack(C.x + 60 + i * 3, C.z + C.hw - 4, 2);
+  // the carrier itself is a full ship (ships.js: buildShips). Here: its deck guns, flag, smoke, the stern ramp and the boat dock
+  const C = CARRIER, D = C.deck, grey = wkMat(0x5f666e);
+  for (const [dx, dz] of [[-C.hl + 8, -C.hw + 4], [-C.hl + 8, C.hw - 4], [C.hl - 30, C.hw - 4]]) { const t = makeTurret(C.x + dx, C.z + dz, 'mg', dx < 0 ? Math.PI / 2 : -Math.PI / 2); t.y = D; t.g.position.y = D; }
+  { const t = makeTurret(C.x - 55, C.z + C.hw - 4, 'launcher', 0); t.y = D; t.g.position.y = D; }
+  addMesh(new THREE.CylinderGeometry(0.08, 0.08, 6, 6), MATS.steel, C.x + 2, D + 23, C.z - 15);
+  const fl = addMesh(new THREE.PlaneGeometry(2.6, 1.6), new THREE.MeshLambertMaterial({ color: TEAM_COLOR.blue, side: THREE.DoubleSide }), C.x + 3.3, D + 25.3, C.z - 15); fl.userData.static = false; baseFlags.push(fl);
+  WAKE_SMOKE.push({ x: C.x + 17, y: D + 16, z: C.z - 15, t: 0, dark: true });
   // the stern ramp walls and the wooden dock posts
   const rx0 = C.x + C.hl, rz = C.z + 9;
-  for (const s of [-1, 1]) { const w = new THREE.Mesh(new THREE.BoxGeometry(47, 1, 0.3), grey); w.position.set(rx0 + 23, D / 2 + 1, rz + s * 4.6); w.rotation.z = -Math.atan2(D - 0.5, 46); scene.add(w); }
+  for (const s of [-1, 1]) { const w = new THREE.Mesh(new THREE.BoxGeometry(47, 1, 0.3), grey); w.position.set(rx0 + 23, (C.hangar + 0.5) / 2 + 1, rz + s * 4.6); w.rotation.z = -Math.atan2(C.hangar - 0.5, 46); scene.add(w); }
   for (let x = rx0 + 46; x <= rx0 + 70; x += 4) for (const s of [-1, 1]) addMesh(new THREE.CylinderGeometry(0.25, 0.25, 4, 6), wkMat(0x5a4028), x, -1, C.z + 8 + s * 13);
   const sign = new THREE.Mesh(new THREE.PlaneGeometry(9, 1.8), wkText('BOATS', 9, 1.8, '#20507a', '#ffffff')); sign.position.set(rx0 + 58, 3.2, C.z - 5.2); scene.add(sign);
   addMesh(new THREE.CylinderGeometry(0.1, 0.1, 3, 6), MATS.steel, rx0 + 58, 1.6, C.z - 5.3);
@@ -176,7 +148,7 @@ function buildWakeVehicles() {
   // blue: landing boats at the dock, helicopters on deck
   const dockX = C.x + C.hl + 58;
   for (const [x, z, yaw] of [[dockX - 6, C.z + 26, 0], [dockX + 6, C.z + 26, 0], [dockX + 18, C.z + 26, 0], [dockX + 22, C.z + 4, Math.PI / 2], [dockX + 22, C.z + 16, Math.PI / 2], [dockX - 6, C.z - 10, Math.PI]]) if (waterDepth(x, z) > 1.2) makeGV('boat', 'blue', x, z, yaw, WATER_Y);
-  for (const x of [C.x - 82, C.x + 72]) { const v = makeGV('heli', 'blue', x, C.z + C.hw - 6, Math.PI / 2); }
+  // (the blue helicopters are parked on the carrier when the ships are built)
   // red: jeeps, trucks and tanks at the base and along the island, boats in the lagoon, one helicopter
   const tryPark = (type, x, z, yaw) => { for (let k = 0; k < 20; k++) { const px = x + rand(-10, 10), pz = z + rand(-10, 10); if (vehicleSpotFree(px, pz, 3.5)) { makeGV(type, 'red', px, pz, yaw); return true; } } return false; };
   const B = BASES.red;
