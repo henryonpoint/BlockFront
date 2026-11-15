@@ -103,7 +103,7 @@ function updatePolish(dt) {
   if (bannerT > 0) { bannerT -= dt; if (bannerT <= 0) $('killBanner').classList.remove('show'); }
   if (!player.alive) { streak = 0; multi = 0; }
   // god mode: full health, endless money, ammo and throwables
-  if (started && godOn()) {
+  if (started && BATTLE.god && !net.active) {
     player.hp = 100; player.armor = 100; player.money = 999999;
     player.grenades = Math.max(player.grenades, 9); player.stickies = Math.max(player.stickies || 0, 9); player.airstrikes = Math.max(player.airstrikes, 9); player.nukes = Math.max(player.nukes || 0, 9);
     for (const w of WEAPONS) { const a = player.ammo[w.id]; if (a) { a.mag = w.mag; if (isFinite(w.reserve)) a.reserve = w.reserve; } }

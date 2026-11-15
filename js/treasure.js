@@ -6,6 +6,23 @@
 const CHESTS = new Map();      // id -> { id, x, z, value, g }
 const TREASURE = { n: 12, nextId: 1, respawn: [], awarded: [], seenAward: new Set(), asked: new Map() };
 let _chestGeo = null;
+let _bagGeo = null;
+function bagModel() {
+  if (!_bagGeo) {
+    const P = new Part();
+    P.add(new THREE.SphereGeometry(0.42, 12, 10), 0x3f7a3a, 0, 0.38, 0, 0, 0, 0, 1, 0.9, 1);   // the bag
+    P.cyl(0.14, 0.22, 0.22, 0x3f7a3a, 0, 0.82, 0); P.cyl(0.16, 0.16, 0.06, 0xc8a040, 0, 0.78, 0);   // neck and tie
+    P.box(0.3, 0.3, 0.02, 0xf2f2ee, 0, 0.42, 0.4);                                                   // a white patch for the $ sign
+    _bagGeo = P.build();
+  }
+  const g = new THREE.Group();
+  const m = new THREE.Mesh(_bagGeo, new THREE.MeshLambertMaterial({ vertexColors: true, emissive: 0x0c2a0c })); m.castShadow = true; g.add(m);
+  const t = canvasTex(64, 64, c => { c.fillStyle = '#2e7d32'; c.font = '800 54px system-ui, Arial, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('$', 32, 36); });
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.28, 0.28), new THREE.MeshBasicMaterial({ map: t, transparent: true })); sign.position.set(0, 0.42, 0.42); g.add(sign);
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.5, 18, 10, 1, true), new THREE.MeshBasicMaterial({ color: 0x66ff88, transparent: true, opacity: 0.16, depthWrite: false, side: THREE.DoubleSide }));
+  beam.position.y = 9; g.add(beam);
+  scene.add(g); return g;
+}
 function chestModel() {
   if (!_chestGeo) {
     const P = new Part(), wood = 0x7a4a24, dark = 0x5a3418, gold = 0xe8c040;
@@ -32,8 +49,8 @@ function chestSpot() {
   }
   return null;
 }
-function addChest(id, x, z, value) {
-  const c = { id, x, z, value, g: chestModel() };
+function addChest(id, x, z, value, bag) {
+  const c = { id, x, z, value, bag: !!bag, g: bag ? bagModel() : chestModel() };
   c.g.position.set(x, heightAt(x, z), z); c.g.rotation.y = (id * 2.399) % 6.28;
   CHESTS.set(id, c); return c;
 }
@@ -48,26 +65,26 @@ function grantChest(id, peerId, name) {
   TREASURE.awarded.push([id, peerId, c.value, String(name || 'Someone').slice(0, 16), simTime]);
   while (TREASURE.awarded.length > 8) TREASURE.awarded.shift();
   removeChest(id);
-  TREASURE.respawn.push(simTime + rand(30, 60));
-  if (peerId === net.myId) gotTreasure(c.value, id);
-  else showMessage(`${typeof chatClean === 'function' ? chatClean(name) : name} found a treasure chest with $${c.value}!`, 2.5);
+  if (!c.bag) TREASURE.respawn.push(simTime + rand(30, 60));
+  if (peerId === net.myId) gotTreasure(c.value, id, c.bag);
+  else showMessage(`${typeof chatClean === 'function' ? chatClean(name) : name} ${c.bag ? 'picked up a money bag' : 'found a treasure chest'} with $${c.value}!`, 2.5);
 }
-function gotTreasure(value, id) {
+function gotTreasure(value, id, bag) {
   if (TREASURE.seenAward.has(id)) return; TREASURE.seenAward.add(id);
-  addMoney(value, 'Treasure chest'); SFX.cash && SFX.cash();
-  showMessage(`Treasure! +$${value}`, 3);
+  addMoney(value, bag ? 'Money bag' : 'Treasure chest'); SFX.cash && SFX.cash();
+  showMessage(bag ? `Money bag! +$${value}` : `Treasure! +$${value}`, 3);
 }
 // for the host's updates: the chests, and who got the last few
 function treasureState() {
-  return { c: [...CHESTS.values()].map(c => [c.id, Math.round(c.x * 5), Math.round(c.z * 5), c.value]), a: TREASURE.awarded.filter(e => simTime - e[4] < 6).map(e => e.slice(0, 4)) };
+  return { c: [...CHESTS.values()].map(c => c.bag ? [c.id, Math.round(c.x * 5), Math.round(c.z * 5), c.value, 1] : [c.id, Math.round(c.x * 5), Math.round(c.z * 5), c.value]), a: TREASURE.awarded.filter(e => simTime - e[4] < 6).map(e => e.slice(0, 4)) };
 }
 function applyTreasure(T) {
   if (!T || !Array.isArray(T.c)) return;
   const want = new Set(T.c.map(e => e[0]));
   for (const id of [...CHESTS.keys()]) if (!want.has(id)) removeChest(id);
-  for (const [id, x, z, value] of T.c) { const c = CHESTS.get(id); if (c && (Math.abs(c.x - x / 5) > 0.5 || Math.abs(c.z - z / 5) > 0.5 || c.value !== value)) removeChest(id); if (!CHESTS.has(id)) addChest(id, x / 5, z / 5, value); }   // the host's copy always wins
+  for (const [id, x, z, value, bag] of T.c) { const c = CHESTS.get(id); if (c && (Math.abs(c.x - x / 5) > 0.5 || Math.abs(c.z - z / 5) > 0.5 || c.value !== value)) removeChest(id); if (!CHESTS.has(id)) addChest(id, x / 5, z / 5, value, bag); }   // the host's copy always wins
   for (const [id, peer, value, name] of (T.a || [])) {
-    if (peer === net.myId) gotTreasure(value, id);
+    if (peer === net.myId) gotTreasure(value, id, CHESTS.get(id) && CHESTS.get(id).bag);
     else if (!TREASURE.seenAward.has('o' + id)) { TREASURE.seenAward.add('o' + id); showMessage(`${typeof chatClean === 'function' ? chatClean(name) : name} found a treasure chest with $${value}!`, 2.5); }
   }
 }
@@ -80,9 +97,10 @@ function updateTreasure(dt) {
   if (host && !net.joining) {
     if (!TREASURE.started) {   // (a new host after a hand-over keeps the chests it already knows about)
       TREASURE.started = true; TREASURE.nextId = Math.max(TREASURE.nextId, ...[...CHESTS.keys()].map(k => k + 1));
-      for (let i = CHESTS.size; i < TREASURE.n; i++) hostSpawnChest();
+      for (let i = [...CHESTS.values()].filter(c => !c.bag).length; i < TREASURE.n; i++) hostSpawnChest();
     }
-    TREASURE.respawn = TREASURE.respawn.filter(t => { if (simTime >= t) { if (CHESTS.size < TREASURE.n) hostSpawnChest(); return false; } return true; });
+    for (const c of [...CHESTS.values()]) if (c.bag && c.expire && simTime > c.expire) removeChest(c.id);
+    TREASURE.respawn = TREASURE.respawn.filter(t => { if (simTime >= t) { if ([...CHESTS.values()].filter(c => !c.bag).length < TREASURE.n) hostSpawnChest(); return false; } return true; });
   }
   // spin and bob, and grab one when you walk into it
   for (const c of CHESTS.values()) {
@@ -94,4 +112,22 @@ function updateTreasure(dt) {
       else if (!TREASURE.asked.has(c.id) || simTime - TREASURE.asked.get(c.id) > 2) { TREASURE.asked.set(c.id, simTime); netRequest(['tc', c.id]); showMessage('Opening the chest...', 1); }
     }
   }
+}
+
+// ---------- money bags ----------
+// Taken out by another real player (online): you lose all your money, and it drops where you fell as a money
+// bag that any real player can pick up (computer soldiers can't). Bags vanish after three minutes.
+function dropMoneyBag(x, z, amount) {   // host
+  if (amount <= 0) return;
+  const c = addChest(TREASURE.nextId++, x, z, Math.round(amount), true);
+  c.expire = simTime + 180;
+}
+function dropRequest(e) { dropMoneyBag(e[2] / 10, e[3] / 10, Math.min(1e7, e[4] | 0)); }   // host: a joiner fell and dropped their money
+function onKilledByPlayer(attacker) {
+  if (!net.active || !attacker || !attacker.isRemote) return;
+  const amount = player.money; if (amount <= 0) return;
+  player.money = 0;
+  showMessage(`${attacker.name} took you out: you dropped your $${amount}!`, 3);
+  if (net.isHost) dropMoneyBag(player.pos.x, player.pos.z, amount);
+  else netRequest(['md', r10(player.pos.x), r10(player.pos.z), amount]);
 }

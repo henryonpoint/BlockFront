@@ -3,7 +3,7 @@
 // player who joined first (the host) also runs the soldiers, planes and points.
 const net = {
   active: false, isHost: true, joinPerf: 0, w1: null, w2: null, myId: Math.random().toString(36).slice(2, 10), jt: 0, game: null,
-  seq: 0, fx: [], hits: [], dd: [], req: [], kf: [], chat: [], lastSnap: [null, null], snapAt: [0, 0], snapGap: [250, 250], seen: {}, remotes: new Map(), sendT: 0, hostId: null, status: '',
+  seq: 0, fx: [], hits: [], dd: [], req: [], kf: [], chat: [], cmd: [], lastSnap: [null, null], snapAt: [0, 0], snapGap: [250, 250], seen: {}, remotes: new Map(), sendT: 0, hostId: null, status: '',
 };
 const NPC_POOL = 40;
 const TEAM_POOL = (typeof FOUR !== 'undefined' && FOUR) ? 24 : NPC_POOL;   // 4 teams share the work, so each gets fewer   // most computer soldiers a team can have (see the battle setup)
@@ -84,12 +84,12 @@ function buildPresence() {
   if (p.planeGun) { o.m = 5; o.pg = p.planeGun.idx; }
   if (p.vehicle) { const pl = p.vehicle; o.m = 2; o.pi = pl.idx; o.pl = [r10(pl.pos.x), r10(pl.pos.y), r10(pl.pos.z), Math.round(pl.quat.x * 1000), Math.round(pl.quat.y * 1000), Math.round(pl.quat.z * 1000), Math.round(pl.quat.w * 1000), Math.round(pl.speed), pl.onGround ? 1 : 0, pl.bombs]; }
   const recent = (list, age) => list.filter(e => simTime - e[e.length - 1] < age).map(e => e.slice(0, -1));
-  o.fx = recent(net.fx, 1.2); o.h = recent(net.hits, 2); o.dd = recent(net.dd, 3); o.rq = recent(net.req, 3); o.ch = recent(net.chat, 6);
+  o.fx = recent(net.fx, 1.2); o.h = recent(net.hits, 2); o.dd = recent(net.dd, 3); o.rq = recent(net.req, 3); o.ch = recent(net.chat, 6); o.cm = recent(net.cmd, 3);
   o.b = myBuilds().slice(-24).map(b => [b.id.split('-')[1] | 0, BUILD_KEYS.indexOf(b.type), r10(b.x), r10(b.z), b.rot]);
   o.hc = net.isHost && !document.hidden ? 1 : 0;
   o.hb = net.tick || 0; o.aw = document.hidden ? 1 : 0;
   o.age = Math.round((performance.now() - net.joinPerf) / 100);
-  return fitSize(o, ['fx', 'h', 'dd', 'rq', 'b', 'ch']);
+  return fitSize(o, ['fx', 'h', 'dd', 'rq', 'b', 'ch', 'cm']);
 }
 const _enc = new TextEncoder();
 function fitSize(o, lists) {
@@ -119,6 +119,8 @@ function buildWorld1() {
     o.FPS = Math.round(typeof fpsNow === 'function' ? fpsNow() : 0);
     if (typeof towerMask === 'function' && TOWERS.length) o.TW = towerMask();
     if (typeof treasureState === 'function') o.TR = treasureState();
+    o.CHT = net.allowCheats ? 1 : 0; net.cheatsAllowed = !!net.allowCheats;
+    if (typeof SPAWNED !== 'undefined' && SPAWNED.length) o.VS = SPAWNED;
     o.CF = [BATTLE.points, BATTLE.soldiers, BATTLE.diff]; o.HS = [Math.round(holdScore.blue), Math.round(holdScore.red)]; if (typeof clownNetState === 'function') o.CL = clownNetState();
   }
   return fitSize(o, ['KF']);
@@ -140,7 +142,7 @@ function buildWorld2() {
 }
 
 // ---------- connecting ----------
-const GAME_BUILD = 21;   // bump when vehicles or the world change, so mismatched versions never mix
+const GAME_BUILD = 22;   // bump when vehicles or the world change, so mismatched versions never mix
 // the version number on the start screen and pause menu, so everyone can check they are on the same one
 const GAME_DATE = 'Nov 15, 2026';
 setTimeout(() => { const v = document.getElementById('verTag'); if (v) v.textContent = `Version ${GAME_BUILD}  \u00b7  ${GAME_DATE}${window.STANDALONE ? '' : '  \u00b7  Claude'}`; const p = document.getElementById('verPause'); if (p) p.textContent = `Version ${GAME_BUILD}`; }, 0);
@@ -383,6 +385,7 @@ function netUpdate(dt) {
     // effects they made
     for (const e of newEntries(P.id, 'fx', P.fx)) applyFx(e, c);
     for (const e of newEntries(P.id, 'h', P.h)) applyHitEntry(e, c);
+    for (const e of newEntries(P.id, 'cm', P.cm)) if (typeof applyCheatCommand === 'function') applyCheatCommand(e, c);
     // chat from real players (cleaned again here, whatever their game sent)
     for (const e of newEntries(P.id, 'ch', P.ch)) if (typeof chatLine === 'function' && typeof e[1] === 'string') chatLine(r.name, c.team, e[1].slice(0, 80));
     if (net.isHost) {
@@ -391,7 +394,7 @@ function netUpdate(dt) {
         if (killer) { teamKills[killer.team]++; if (killer === player) { player.kills++; addMoney(e[2] ? 150 : 100, e[2] ? 'Headshot' : 'Elimination'); SFX.kill(); } }
         hostKillfeed(killer, c, e[2]); addKillfeed(killer, c, e[2]);
       }
-      for (const e of newEntries(P.id, 'rq', P.rq)) if (e[1] === 'tw') { if (typeof towerRequest === 'function') towerRequest(e); } else if (e[1] === 'tc') { if (typeof treasureRequest === 'function') treasureRequest(e, c); } else if (e[1] === 'hj') { const v = gvehicles[e[2]]; if (v && v.alive) for (const o of occupants(v)) if (o.team !== c.team && !o.isPlayer && !o.isRemote) { leaveSeat(o); o.noVehT = simTime + 30; } } else if (e[1] === 'rec') recruitNPC(e[2]); else if (e[1] === 'wh' && typeof whistleForVehicle === 'function') { const v = gvehicles[e[2]]; if (v && v.alive) whistleForVehicle(v, teamOf(e[3]), v.pos); }
+      for (const e of newEntries(P.id, 'rq', P.rq)) if (e[1] === 'tw') { if (typeof towerRequest === 'function') towerRequest(e); } else if (e[1] === 'tc') { if (typeof treasureRequest === 'function') treasureRequest(e, c); } else if (e[1] === 'vs') { if (typeof spawnRequest === 'function') spawnRequest(e); } else if (e[1] === 'md') { if (typeof dropRequest === 'function') dropRequest(e, c); } else if (e[1] === 'hj') { const v = gvehicles[e[2]]; if (v && v.alive) for (const o of occupants(v)) if (o.team !== c.team && !o.isPlayer && !o.isRemote) { leaveSeat(o); o.noVehT = simTime + 30; } } else if (e[1] === 'rec') recruitNPC(e[2]); else if (e[1] === 'wh' && typeof whistleForVehicle === 'function') { const v = gvehicles[e[2]]; if (v && v.alive) whistleForVehicle(v, teamOf(e[3]), v.pos); }
     }
     // their buildings
     const want = new Set();
@@ -491,6 +494,8 @@ function applySnapshot(P, dt) {
   applyRestOfSnapshot(P);
   if (P.TW && typeof applyTowerMask === 'function') applyTowerMask(P.TW);
   if (P.TR && typeof applyTreasure === 'function') applyTreasure(P.TR);
+  if (P.CHT !== undefined) net.cheatsAllowed = !!P.CHT;
+  if (P.VS && typeof applySpawned === 'function') applySpawned(P.VS);
 }
 function applyNpcSnap(d, i) {
   {

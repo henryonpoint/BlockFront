@@ -5,7 +5,7 @@ const POINT_SETS = { 3: ['A', 'C', 'E'], 5: ['A', 'B', 'C', 'D', 'E'], 7: ['A', 
 const SOLDIER_CHOICES = [6, 10, 14, 20, 30, 40];
 const BATTLE = { points: 7, soldiers: 14, diff: 'normal', clown: false, god: false };
 // god mode only works in your own solo battles, so it never spoils an online game
-const godOn = () => BATTLE.god && !net.active;
+const godOn = () => (BATTLE.god && !net.active) || (typeof CHEAT !== 'undefined' && CHEAT.god && cheatsOK());   // the console's god mode works online when the host allows cheats
 // how good the computer soldiers are at fighting real players (fights between computer soldiers stay the same)
 const DIFFS = {
   easy: { name: 'Easy', acc: -0.18, dmg: 0.6, react: 1.6 },

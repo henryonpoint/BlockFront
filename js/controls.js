@@ -4,7 +4,7 @@
 const ACTIONS = [
   ['KeyW', 'Move forward'], ['KeyS', 'Move back'], ['KeyA', 'Move left'], ['KeyD', 'Move right'],
   ['Space', 'Jump / helicopter up'], ['ShiftLeft', 'Run / helicopter down'], ['KeyC', 'Crouch'], ['KeyR', 'Reload'],
-  ['KeyE', 'Use / get in'], ['KeyF', 'Switch seat'], ['KeyG', 'Grenade'], ['KeyT', 'Airstrike'], ['KeyH', 'Whistle (team into your vehicle)'], ['KeyX', 'Sticky bomb'], ['KeyY', 'Mini nuke'], ['Enter', 'Chat (online games)'],
+  ['KeyE', 'Use / get in'], ['KeyF', 'Switch seat'], ['KeyG', 'Grenade'], ['KeyT', 'Airstrike'], ['KeyH', 'Whistle (team into your vehicle)'], ['KeyX', 'Sticky bomb'], ['KeyY', 'Mini nuke'], ['Enter', 'Chat (online games)'], ['Backquote', 'Console and cheats'],
   ['KeyB', 'Shop'], ['KeyV', 'Place what you built'], ['Tab', 'Scoreboard'], ['KeyM', 'Big map'], ['KeyN', 'Music on or off'],
 ];
 let BINDS = {};    // game key -> the key the player chose

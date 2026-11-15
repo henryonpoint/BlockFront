@@ -613,6 +613,7 @@ function showDeployScreen(first) {
   $('death').style.display = 'flex';
 }
 function onPlayerDeath(attacker) {
+  if (typeof onKilledByPlayer === 'function') onKilledByPlayer(attacker);
   $('deathTitle').textContent = "You're down!";
   zoom = false; ads = false; mouse.left = false; cancelPlace(); player.wantDeploy = false;
   uiOpen = 'death'; try { document.exitPointerLock(); } catch (e) { }
