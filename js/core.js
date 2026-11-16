@@ -272,6 +272,9 @@ const WAKE_ISLES = [
   { kind: 'rocks', x: 462, z: -70, r: 42 },        // a rocky outcrop with a lighthouse
   { kind: 'sandbar', x: -470, z: 80, r: 85 },      // a long low sandbar with palms and a wreck
   { kind: 'jungle', x: -330, z: 360, r: 52 },      // a hilly jungle island with a hidden bunker
+  { kind: 'jungle', x: -440, z: -330, r: 52 },     // a Wilkes-like islet off the tip of the west arm
+  { kind: 'sandbar', x: 170, z: -380, r: 62 },     // a Peale-like low island off the mouth of the lagoon
+  { kind: 'rocks', x: -150, z: -400, r: 30 },      // rocks with a light, between them
 ];
 function wakeIsles(x, z) {
   let h = -99;
@@ -393,7 +396,7 @@ function rawHeight(x, z) {
     if (x >= C.x + C.hl && x < C.x + C.hl + 46 && Math.abs(z - (C.z + 9)) < 4.5) return lerp(C.deck, 0.5, (x - C.x - C.hl) / 46);
     if (x >= C.x + C.hl + 46 && x < C.x + C.hl + 70 && Math.abs(z - (C.z + 8)) < 13) return 0.45;
     // the atoll: jungle in the middle, sandy beaches, shallow water, then the deep ocean
-    const d = wakeDist(x, z), bump = vnoise(x * 0.03 + 4, z * 0.03 - 7) * 3.2 + vnoise(x * 0.09, z * 0.09) * 0.8;
+    const d = wakeDist(x, z) * 0.62, bump = vnoise(x * 0.03 + 4, z * 0.03 - 7) * 3.2 + vnoise(x * 0.09, z * 0.09) * 0.8;   // a wide atoll: the land runs about 33 m either side of its spine
     const sea = -14 + vnoise(x * 0.01, z * 0.01) * 4;
     let g;
     if (d < 20) g = 3.2 + bump * smooth(14, 4, d) * smooth(6, 30, pathDist(x, z));

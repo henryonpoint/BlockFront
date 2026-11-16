@@ -214,6 +214,24 @@ function jetModel(team, kind) {
         for (const sd of [-1, 1]) { p.box(0.7, 0.015, 1.6, panel, 0.55 * sd, -0.5, 0.2); p.box(0.03, 0.015, 1.6, black, 0.9 * sd, -0.5, 0.2); }   // weapon bay doors underneath
         p.box(1.6, 0.015, 0.03, panel, 0, -0.5, -0.6); p.box(1.6, 0.015, 0.03, panel, 0, -0.5, 1.0);
       }
+    } else if (kind === 'harrier') {   // AV-8B Harrier II: high swept wing that droops at the tips, big intakes either side of the cockpit, four swivelling nozzles
+      const main = 0x6e7880, dark = 0x525a62, black = 0x1c1e22, plate = (half, y, t, col, droop = 0) => { const sh = new THREE.Shape(), pts = half.concat(half.slice().reverse().map(([x, z]) => [-x, z])); pts.forEach(([x, z], i) => i ? sh.lineTo(x, z) : sh.moveTo(x, z)); sh.closePath(); const gg = new THREE.ExtrudeGeometry(sh, { depth: t, bevelEnabled: false }); gg.rotateX(Math.PI / 2); p.add(gg, col, 0, y, 0, droop, 0, 0); };
+      p.add(new THREE.CylinderGeometry(0.62, 0.72, 7.2, 14), main, 0, 0, 0.4, RX, 0, 0, 1.05, 1, 1.0);
+      p.add(new THREE.CylinderGeometry(0.1, 0.62, 2.6, 14), main, 0, 0.05, -4.3, -RX, 0, 0, 1, 1, 0.95);
+      p.add(new THREE.CylinderGeometry(0.3, 0.12, 2.2, 10), main, 0, 0.15, 5.0, RX, 0, 0, 1, 1, 1);   // tail cone
+      plate([[0.5, -0.8], [1.2, -0.6], [4.4, 1.6], [4.3, 2.3], [1.0, 1.7], [0.5, 1.7]], 0.72, 0.1, main);   // shoulder wing
+      for (const sd of [-1, 1]) {
+        p.box(0.1, 0.06, 1.5, main, 4.2 * sd, 0.45, 1.9, 0, 0, sd * 0.35);   // drooping tip
+        p.add(new THREE.CylinderGeometry(0.62, 0.62, 2.4, 12, 1, true, 0, Math.PI), dark, 0.78 * sd, 0.05, -1.6, RX, 0, sd > 0 ? 0 : Math.PI, 0.9, 1, 1.1);   // intake
+        p.cyl(0.5, 0.5, 0.1, black, 0.82 * sd, 0.05, -2.82, RX, 0, 0, 1, 12);
+        for (const z of [-0.6, 1.2]) { p.cyl(0.24, 0.26, 0.7, dark, 0.85 * sd, -0.4, z, 0.3, 0, 0, 1, 10); p.cyl(0.2, 0.2, 0.05, black, 0.85 * sd, -0.72, z + 0.1, 0.3, 0, 0, 1, 10); }   // the four nozzles
+        p.box(0.1, 0.5, 0.6, dark, 3.0 * sd, 0.3, 1.6); p.cyl(0.08, 0.08, 1.5, 0xd8dadc, 3.0 * sd, 0.0, 1.3, RX, 0, 0, 1, 8);   // pylon, missile
+        p.box(0.08, 0.5, 0.25, black, 4.0 * sd, 0.3, 2.0);   // outrigger wheel
+      }
+      plate([[0.3, 4.6], [1.9, 5.5], [1.9, 6.0], [0.3, 5.8]], 0.25, 0.08, main, -0.15);   // tailplane (drooping)
+      { const sh = new THREE.Shape(); [[4.2, 0], [5.9, 0], [6.4, 2.0], [5.4, 2.0]].forEach(([z, y], i) => i ? sh.lineTo(z, y) : sh.moveTo(z, y)); sh.closePath(); const gg = new THREE.ExtrudeGeometry(sh, { depth: 0.1, bevelEnabled: false }); gg.rotateY(-Math.PI / 2); p.add(gg, main, 0.05, 0.4, 0); }   // tail fin
+      p.box(0.3, 0.04, 2.6, P.team, 0, 0.66, 1.2); p.box(0.04, 0.04, 1.6, black, 0, 0.98, -3.0); p.add(new THREE.CylinderGeometry(0.06, 0.32, 1.0, 12), 0x5a646c, 0, 0.05, -5.15, -RX, 0, 0, 1, 1, 0.95);
+      p.box(0.5, 0.3, 1.4, dark, 0, -0.65, 0.5);   // gun pods underneath
     } else {   // stealth bomber: a B-2 style flying wing, swept leading edge and a sawtooth trailing edge
       const grey = 0x3c4047, dark = 0x2b2e33, half = [[0, -5.6], [10.5, 2.3], [9.6, 3.2], [6.0, 0.9], [3.4, 3.3], [1.6, 1.8], [0, 3.0]];
       const sh = new THREE.Shape(); const pts = half.concat(half.slice(1, -1).reverse().map(([x, z]) => [-x, z]));
@@ -313,6 +331,7 @@ const PLANE_KINDS = {
   f22: { name: 'F-22 Raptor', spd: 2.0, hp: 480, bombs: 2, regen: 12, model: team => jetModel(team, 'f22') },
   triplane: { name: 'Red triplane', spd: 0.72, hp: 200, bombs: 0, regen: 999, model: team => ww1Model(team, 'triplane') },
   biplane: { name: 'Biplane', spd: 0.78, hp: 220, bombs: 0, regen: 999, model: team => ww1Model(team, 'biplane') },
+  harrier: { name: 'AV-8B Harrier', spd: 1.5, hp: 420, bombs: 2, regen: 15, vtol: true, model: team => jetModel(team, 'harrier') },
   stealth: { name: 'Stealth bomber', spd: 1.35, hp: 700, bombs: 2, regen: 30, bombBig: true, model: team => jetModel(team, 'stealth') },
 };
 

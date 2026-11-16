@@ -142,8 +142,9 @@ function buildPlanes() {
     }
     return;
   }
-  [[30, 6], [52, 30], [70, 55]].forEach(([off, wait]) => makePlane('blue', RUNWAYS.blue.x + off, RUNWAYS.blue.z, RUNWAYS.blue.carrier ? 0 : Math.PI / 2, wait, AFGHAN ? 'f18' : undefined));
-  [[-30, 6], [-52, 30], [-70, 55]].forEach(([off, wait]) => makePlane('red', RUNWAYS.red.x + off, RUNWAYS.red.z, -Math.PI / 2, wait, AFGHAN ? 'f18' : undefined));   /* Desert Combat: modern jets */
+  const HK = { blue: ['f18', 'harrier', 'f22'], red: ['f22', 'harrier', 'f18'] };   /* Houston: modern jets, and a Harrier each */
+  [[30, 6], [52, 30], [70, 55]].forEach(([off, wait], i) => makePlane('blue', RUNWAYS.blue.x + off, RUNWAYS.blue.z, RUNWAYS.blue.carrier ? 0 : Math.PI / 2, wait, HOUSTON ? HK.blue[i] : AFGHAN ? 'f18' : undefined));
+  [[-30, 6], [-52, 30], [-70, 55]].forEach(([off, wait], i) => makePlane('red', RUNWAYS.red.x + off, RUNWAYS.red.z, -Math.PI / 2, wait, HOUSTON ? HK.red[i] : AFGHAN ? 'f18' : undefined));   /* Desert Combat: modern jets */
   if (NORMANDY) {   // a big air battle over the beach: more fighters on both sides, up quickly
     [[8, 1], [-14, 12]].forEach(([off, wait]) => makePlane('blue', RUNWAYS.blue.x + off, RUNWAYS.blue.z, 0, wait));
     [[-8, 1], [14, 12]].forEach(([off, wait]) => makePlane('red', RUNWAYS.red.x + off, RUNWAYS.red.z, -Math.PI / 2, wait));
@@ -274,7 +275,7 @@ let cockpitFull = false;   // the third view: the full cockpit, with dashboard, 
 // each kind of plane has its own cockpit, built like the real one. tub: floor, walls, seat, stick and the nose ahead
 // (shown in both cockpit views); full: the dashboard, sights and canopy frame (the full cockpit view only)
 const _cockpits = {};
-function cockpitStyle(pl) { const k = pl && pl.kind; return k === 'triplane' || k === 'biplane' ? k : k === 'f18' || k === 'f22' || k === 'stealth' ? k : 'prop'; }
+function cockpitStyle(pl) { const k = pl && (pl.kind === 'harrier' ? 'f18' : pl.kind); return k === 'triplane' || k === 'biplane' ? k : k === 'f18' || k === 'f22' || k === 'stealth' ? k : 'prop'; }
 function cockpitModel() {
   const st = cockpitStyle(player.vehicle || (_cockpit && { kind: _cockpit.userData.style }));
   if (_cockpit && _cockpit.userData.style === st) return _cockpit;
@@ -435,7 +436,7 @@ function updatePlayerPlane(pl, dt) {
   if (pl.model.g.userData.ab) { pl.model.g.userData.ab.visible = pl.ab; if (pl.ab) pl.model.g.userData.ab.scale.set(1, 1, 0.8 + Math.random() * 0.5); }
   if (pl.ab) camShake = Math.max(camShake, 0.01);
   // missile lock: keep an enemy near your nose and it locks on (a beep while locking, a steady tone once locked)
-  if (jetAB && typeof missileTarget === 'function') {
+  if ((jetAB || pl.kind === 'harrier') && typeof missileTarget === 'function') {
     const t = missileTarget(pl);
     if (t && t === pl.lockTgt) pl.lockT += dt; else { pl.lockTgt = t; pl.lockT = 0; }
     pl.locked = !!t && pl.lockT >= 1.2;
@@ -446,6 +447,8 @@ function updatePlayerPlane(pl, dt) {
     const g = planeLeadTarget(pl), had = pl.gunLock; pl.gunLock = g ? g.t : null;
     if (g && g.t !== had && typeof tn === 'function' && actx) { tn('square', 1300, 1300, 0.07, 0.15); tn('square', 1700, 1700, 0.07, 0.15, 0.09); }
   }
+  if (pl.kind === 'harrier' && !pl.vtolHint) { pl.vtolHint = true; showMessage('AV-8B Harrier: press J to hover (take off straight up, land anywhere)', 4); }
+  if (pl.hover) harrierHover(pl, dt); else {
   pl.speed += (pl.throttle * 52 * (pl.spdMul || 1) * (pl.ab ? 1.6 : 1) - pl.speed) * dt * (pl.ab ? 0.8 : 0.4);
   if (!pl.onGround) pl.speed -= fwd.y * 10 * dt;
   pl.speed = clamp(pl.speed, 0, 70 * (pl.spdMul || 1) * (pl.ab ? 1.6 : 1));
@@ -482,12 +485,42 @@ function updatePlayerPlane(pl, dt) {
     }
     if (!planeGroundCheck(pl)) return;
   }
+  }
   if ((mouse.left || keys.Space) && pl.gunT <= 0) planeGuns(pl, player, true);
-  const jet = pl.kind === 'f18' || pl.kind === 'f22';
+  const jet = pl.kind === 'f18' || pl.kind === 'f22' || pl.kind === 'harrier';
   if ((mouse.right || keys.KeyX) && !pl.onGround) { if (jet) planeMissile(pl); else planeBomb(pl, player); }   // modern fighters fire guided missiles
   planeTick(pl, dt);
   if (planeView === 'cockpit' && typeof cockpitCamera === 'function') cockpitCamera(pl);
 }
+
+// ----- the Harrier's hover: its nozzles swing down and it hangs in the air like a helicopter -----
+// W/S forward and back, A/D turn, Q/E slide sideways, Shift up, C down. J again to swing the nozzles back and fly.
+function harrierHover(pl, dt) {
+  if (pl.hYaw === undefined) { const e = new THREE.Euler().setFromQuaternion(pl.quat, 'YXZ'); pl.hYaw = e.y; }
+  const fwdIn = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0), turn = (keys.KeyA ? 1 : 0) - (keys.KeyD ? 1 : 0), side = (keys.KeyE ? 1 : 0) - (keys.KeyQ ? 1 : 0);
+  const up = keys.ShiftLeft || keys.ShiftRight || keys.ArrowUp, down = keys.KeyC || keys.ArrowDown;
+  pl.hYaw += turn * 1.3 * dt;
+  const fx = -Math.sin(pl.hYaw), fz = -Math.cos(pl.hYaw); pl.hv = pl.hv || new THREE.Vector3();
+  pl.hv.x = lerp(pl.hv.x, (fx * fwdIn - fz * side) * 16, Math.min(1, dt * 1.8)); pl.hv.z = lerp(pl.hv.z, (fz * fwdIn + fx * side) * 16, Math.min(1, dt * 1.8));
+  pl.hv.y = lerp(pl.hv.y, (up ? 8 : 0) - (down ? 8 : 0), Math.min(1, dt * 3));
+  pl.pos.addScaledVector(pl.hv, dt);
+  const g = Math.max(heightAt(pl.pos.x, pl.pos.z), typeof groundAt === 'function' ? groundAt(pl.pos.x, pl.pos.z) : -99) + 1.6;
+  for (const o of nearbyColliders(pl.pos.x, pl.pos.z)) if (o.kind === 'box' && pl.pos.x > o.minX - 1 && pl.pos.x < o.maxX + 1 && pl.pos.z > o.minZ - 1 && pl.pos.z < o.maxZ + 1 && pl.pos.y > o.maxY - 0.5) { if (pl.pos.y < o.maxY + 1.6) { pl.pos.y = o.maxY + 1.6; pl.hv.y = Math.max(0, pl.hv.y); } }   // land on a roof
+  if (pl.pos.y < g) { pl.pos.y = g; pl.hv.y = Math.max(0, pl.hv.y); }
+  pl.onGround = pl.pos.y <= g + 0.05 && !up;
+  if (pl.pos.y > 260) pl.pos.y = 260;
+  pl.pos.x = clamp(pl.pos.x, -HALF - 30, HALF + 30); pl.pos.z = clamp(pl.pos.z, -HALF - 30, HALF + 30);
+  pl.speed = Math.hypot(pl.hv.x, pl.hv.z); pl.throttle = 0.5;
+  pl.quat.setFromEuler(new THREE.Euler(-fwdIn * 0.1, pl.hYaw, -side * 0.14 - turn * 0.06, 'YXZ'));
+  if (pl.groundYaw !== undefined) pl.groundYaw = pl.hYaw;
+  if (!pl.onGround && Math.random() < dt * 20) smokePuff(new THREE.Vector3(pl.pos.x, g - 1.2, pl.pos.z).add(new THREE.Vector3(rand(-2, 2), 0, rand(-2, 2))), 0xd8d2c4, rand(0.8, 1.6), 0.8, 0.6);   // the jets blasting the ground
+}
+addEventListener('keydown', e => {
+  if (e.code !== 'KeyJ' || e.repeat || typeof player === 'undefined' || !player.vehicle || player.vehicle.kind !== 'harrier') return;
+  const pl = player.vehicle;
+  if (!pl.hover) { pl.hover = true; pl.hYaw = undefined; pl.hv = planeFwd(pl).multiplyScalar(Math.min(pl.speed, 30) * 0.5); pl.hv.y = pl.onGround ? 4 : 0; pl.onGround = false; showMessage('Hover: W/S move, A/D turn, Q/E slide, Shift up, C down. J to fly', 3); }
+  else { pl.hover = false; pl.speed = Math.max(pl.speed, 34); pl.throttle = 1; pl.onGround = false; pl.aimYaw = undefined; pl.quat.setFromEuler(new THREE.Euler(0.05, pl.hYaw || 0, 0, 'YXZ')); showMessage('Nozzles back: flying', 1.5); }
+});
 
 // ----- AI flying -----
 function chooseAIWaypoint(pl) {

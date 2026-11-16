@@ -101,10 +101,24 @@ function hedgehog(x, z) {
 }
 // a concrete bunker with a dark firing slit, facing the beach (south)
 function casemate(x, z) {
+  if (NORMANDY) return casemateHollow(x, z);
   addBlock(x, z, 11, 4.2, 8, LV.concrete);
   const gy = heightAt(x, z + 4.1);
   addMesh(new THREE.BoxGeometry(6, 0.7, 0.3), LV.dark, x, gy + 2.3, z + 4.05, false);
   addMesh(new THREE.BoxGeometry(12, 0.5, 9), LV.concrete, x, heightAt(x, z) + 4.4, z, true);   // overhanging roof
+}
+
+// a Normandy bunker you can go into: thick walls, a door at the back, and a long firing slit facing the beach
+function casemateHollow(x, z) {
+  const y = Math.min(heightAt(x - 5.5, z - 4), heightAt(x + 5.5, z - 4), heightAt(x - 5.5, z + 4), heightAt(x + 5.5, z + 4), heightAt(x, z)) - 0.4, H = 4.4, C = LV.concrete;
+  addBlock(x - 3.2, z - 3.7, 4.6, H, 0.8, C, { y }); addBlock(x + 3.2, z - 3.7, 4.6, H, 0.8, C, { y }); addBlock(x, z - 3.7, 1.8, H - 2.6, 0.8, C, { y: y + 2.6 });   // back wall with a doorway
+  addBlock(x - 5.1, z, 0.8, H, 8, C, { y }); addBlock(x + 5.1, z, 0.8, H, 8, C, { y });   // side walls
+  const fy = Math.max(heightAt(x - 2.2, z + 2.6), heightAt(x + 2.2, z + 2.6)), sl0 = fy + 1.2 - y, sl1 = fy + 2.1 - y;   // the slit at eye height for the men inside
+  addBlock(x, z + 3.7, 11, sl0, 0.9, C, { y }); addBlock(x, z + 3.7, 11, Math.max(0.3, H + Math.max(0, sl1 - H + 0.4) - sl1), 0.9, C, { y: y + sl1 });   // front wall below and above the slit
+  addMesh(new THREE.BoxGeometry(12.4, 0.6, 9.4), C, x, y + H + 0.3, z, true);   // the roof, overhanging
+  addBlock(x, z, 11, 0.6, 8, LV.hidden, { y: y + H });                          // (you can stand on the roof)
+  addMesh(new THREE.BoxGeometry(9, 0.7, 0.2), LV.dark, x, fy + 1.65, z + 4.18, false);   // the dark slit
+  NDEF.posts.push({ x: x - 2.2, z: z + 2.6, y: heightAt(x - 2.2, z + 2.6), kind: 'bunker' }, { x: x + 2.2, z: z + 2.6, y: heightAt(x + 2.2, z + 2.6), kind: 'bunker' });
 }
 
 // ---------- the three maps ----------
@@ -204,7 +218,7 @@ function buildNormandy() {
   // concrete bunkers along the top of the bluffs, looking down at the sand
   for (let x = -500; x <= 500; x += 40) { const z = 198 + rand(-5, 5); if (lvFree(x, z, 6)) casemate(x, z); }          // a wall of bunkers along the bluffs
   for (let x = -460; x <= 460; x += 60) { const z = 165 + rand(-6, 6); if (lvFree(x + 20, z, 6)) casemate(x + 20, z); }   // a second line behind
-  for (let i = 0; i < 40; i++) { const x = rand(-500, 500), z = rand(205, 228); if (lvFree(x, z, 2)) for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; addBlock(x + Math.cos(a) * 2.2, z + Math.sin(a) * 2.2, 1.4, 0.9, 1.4, MATS.sandbag || LV.hedge); } }   // sandbagged gun pits
+  for (let i = 0; i < 40; i++) { const x = rand(-500, 500), z = rand(205, 228); if (lvFree(x, z, 2)) NDEF.posts.push({ x, z, y: heightAt(x, z), kind: 'foxhole' }); if (lvFree(x, z, 2)) for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; addBlock(x + Math.cos(a) * 2.2, z + Math.sin(a) * 2.2, 1.4, 0.9, 1.4, MATS.sandbag || LV.hedge); } }   // sandbagged gun pits
   // hedgerows: thick earth banks topped with bushes, boxing in the fields inland
   for (let z = 100; z > -500; z -= 75) for (let x = -520; x < 520; x += 8) {
     if (!lvFree(x, z, 2) || waterDepth(x, z) > 0) continue;
@@ -214,7 +228,7 @@ function buildNormandy() {
     if (!lvFree(x, z, 2) || Math.random() < 0.15) continue;
     addBlock(x, z, 2.2, 1.8 + vnoise(x * 0.3, z * 0.3) * 0.8, 9, LV.hedge);
   }
-  buildLandingCraft();
+  buildLandingCraft(); installNormandyDefense();
   // airfields: big arched hangars and a control tower beside each runway
   for (const t of ['red']) {   // only the defenders have airfields; blue's planes come from the carrier
     const r = RUNWAYS[t], side = t === 'blue' ? -1 : 1, hz = r.z + side * (r.wid / 2 + 22);
@@ -1341,4 +1355,68 @@ function buildBerlinMore() {
       const y = heightAt(x, z); for (const sd of [-1, 1]) P.box(0.08, 0.9, 3.2, 0x2a3a4a, x + sd * 0.9, y + 0.45, z); P.box(1.8, 0.08, 3.2, 0x2a2a2a, x, y - 0.6, z, 0.4); P.cyl(0.06, 0.06, 2.8, 0x2a3a4a, x + 1.1, y + 1.4, z - 1.6);
       const sg = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.7, 0.08), uMat); sg.position.set(x + 1.1, y + 3, z - 1.6); scene.add(sg); made++; }
     scene.add(new THREE.Mesh(P.build(), VEH_MAT)); }
+}
+
+// ===================== Normandy: the defenders hold the line =====================
+// Most of the German soldiers start in fixed firing positions: inside the bunkers behind their slits, in the
+// foxholes along the top of the bluffs, and crouched behind the sea wall at the top of the sand. They open fire
+// on the landing boats as they come in and on everyone crossing the beach. While Germany still holds a bunker
+// point on the bluffs (C, D or E), fallen defenders are replaced in the line.
+const NDEF = { posts: [], installed: false };
+function normandyPosts() {
+  for (let x = -EDGE + 10; x < EDGE - 10; x += 16) { if (pathDist(x, 240) < 10) continue; NDEF.posts.push({ x, z: 238.6, y: heightAt(x, 238.6), kind: 'wall' }); }   // behind the sea wall
+  NDEF.posts.forEach((p, i) => { p.i = i; p.by = null; });
+}
+function ndefLineHeld() { return points.some(p => ['C', 'D', 'E'].includes(p.name) && p.owner === 'red'); }
+function ndefThink(n) {
+  const S = ROLE_STATS[n.role] || ROLE_STATS.rifle, range = n.role === 'sniper' ? 220 : 160, eye = new THREE.Vector3(n.pos.x, n.pos.y + 1.65, n.pos.z);   // they rise up to look over the wall
+  let best = null, bd = range;
+  for (const c of chars) {
+    if (!c.alive || c.team === n.team || c.vehicle || c.inactive) continue;
+    if (c.pos.z < n.pos.z - 30) continue;   // looking out to sea and down the beach
+    const d = c.pos.distanceTo(n.pos); if (d >= bd) continue;
+    if (los(eye, c.chest())) { best = c; bd = d; }
+  }
+  if (best && best !== n.prevTgt && (best.isPlayer || best.isRemote)) n.fireT = Math.max(n.fireT, rand(0.3, 0.8) * DIFF().react);
+  n.prevTgt = best; n.target = best; n.tgtVisible = !!best;
+}
+function ndefUpdate(n, dt) {
+  const P = n.nPost, S = ROLE_STATS[n.role] || ROLE_STATS.rifle;
+  n.thinkT -= dt; if (n.thinkT <= 0) { n.thinkT = rand(0.3, 0.45); ndefThink(n); }
+  if (n.target && !n.target.alive) { n.target = null; n.tgtVisible = false; }
+  n.pos.x += (P.x - n.pos.x) * Math.min(1, dt * 3); n.pos.z += (P.z - n.pos.z) * Math.min(1, dt * 3);
+  const fl = pushOut(n.pos, 0.35, n.pos.y); n.pos.y = lerp(n.pos.y, fl, Math.min(1, dt * 10));
+  const tgt = n.tgtVisible ? n.target : null;
+  const face = tgt ? Math.atan2(tgt.pos.x - n.pos.x, tgt.pos.z - n.pos.z) : 0 + Math.sin(simTime * 0.3 + n.npcIdx) * 0.5;   // facing the sea (+z)
+  n.heading += wrapAngle(face - n.heading) * Math.min(1, dt * 6); n.moving = false;
+  // behind the wall and in the foxholes they duck down between bursts; in the bunkers they stand at the slit
+  n.crouch = P.kind !== 'bunker' && !tgt;   // down behind cover until there is someone to shoot at, then up to fire
+  // dug in and aiming down at the sand they are far steadier at range than a soldier on the move
+  const d = tgt ? tgt.pos.distanceTo(n.pos) : 0, S2 = Object.assign({}, S, { acc: S.acc + d / (n.role === 'sniper' ? 330 : 170) - d / 420, dmg: S.dmg * 1.35 });
+  npcShoot(n, S2, dt);
+  animateNPC(n, dt, 0, !!tgt);
+}
+function installNormandyDefense() {
+  if (NDEF.installed || !NORMANDY) return; NDEF.installed = true;
+  normandyPosts();
+  const upd = updateNPC;
+  updateNPC = function (n, dt) {
+    if (n.team === 'red' && !n.inactive) {
+      if (n.nPost === undefined) { const free = NDEF.posts.filter(p => !p.by); const red = npcs.filter(q => q.team === 'red'); const idx = red.indexOf(n); n.nPost = idx < Math.min(red.length * 0.8, NDEF.posts.length) && free.length ? free[Math.floor(Math.random() * free.length)] : null; if (n.nPost) n.nPost.by = n; }
+      if (n.nPost && n.alive) {
+        if (!ndefLineHeld() && !n.nPostKeep) { n.nPost.by = null; n.nPost = null; }   // the bluffs have fallen: fight on like everyone else
+        else { ndefUpdate(n, dt); return; }
+      }
+    }
+    return upd(n, dt);
+  };
+  const sc = spawnChar;
+  spawnChar = function (c, pref) {
+    const r = sc.apply(this, arguments);
+    if (NORMANDY && c.nPost && ndefLineHeld()) { c.pos.set(c.nPost.x, c.nPost.y, c.nPost.z); c.heading = 0; }   // back into the line
+    return r;
+  };
+  // the boats give some cover: soldiers still in a landing boat take far less from the shooting
+  const dm = damage;
+  damage = function (c, amount, attacker) { if (c && c.inBoat && attacker && attacker.team === 'red') amount *= 0.3; return dm.apply(this, [c, amount, ...Array.prototype.slice.call(arguments, 2)]); };
 }

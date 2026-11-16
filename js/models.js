@@ -20,8 +20,8 @@ if (typeof ZD30 !== 'undefined' && ZD30) {   // Zero Dark 30: the team in dark g
 // black leather belts and jackboots. A small coloured armband still shows the team at a glance.
 const WW2S = typeof GERMANY !== 'undefined' && (GERMANY || NORMANDY);
 const TEAM_LOOK_WW2 = {
-  blue: { uni: 0x6e6846, uni2: 0x5c5638, armor: 0x4d5531, armorD: 0x3c4326, accent: 0x5b8ad8, web: 0x9a8a5c, boot: 0x5a3c26 },
-  red: { uni: 0x69705f, uni2: 0x5a6052, armor: 0x4c524c, armorD: 0x3a3f3a, accent: 0xc8463c, web: 0x1c1b19, boot: 0x141312 },
+  blue: { uni: 0x80724e, uni2: 0x6a5e40, armor: 0x535d34, armorD: 0x404828, accent: 0x5b8ad8, web: 0xae9e6c, boot: 0x5a3c26 },   // US: brown olive drab, olive helmets, khaki webbing
+  red: { uni: 0x56606a, uni2: 0x48515a, armor: 0x3b4146, armorD: 0x2b2f33, accent: 0xc8463c, web: 0x1c1b19, boot: 0x141312 },   // German: blue-grey field grey, dark grey helmets, black leather
 };
 const GEARC = { olive: 0x4f5536, tan: 0x9a8560, dark: 0x1d1c1a, steel: 0x6a7078, gun: 0x25272b, gun2: 0x3a3d43, wood: 0x7a4a24, lens: 0x58c8ff, red: 0xff4a3a };
 

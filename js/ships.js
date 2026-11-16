@@ -95,7 +95,7 @@ function buildBattleship(x, z, yaw, team) {
   s.walls.push({ u0: -23, u1: -17, v0: -3, v1: 3, y0: mainY + 12, y1: mainY + 20 });          // funnel
   s.helm = { u: 2, v: 0, y: mainY + 12 };                                                       // the wheel, in front of the bridge
   const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.6, 0.08, 6, 16), new THREE.MeshLambertMaterial({ color: 0x6b4a2a })); wheel.position.set(2, mainY + 13.2, 0); wheel.rotation.y = Math.PI / 2; g.add(wheel);
-  addShipDeckRamps(s);
+  addShipDeckRamps(s); battleshipExtras(s);
   SHIPS2.push(s); placeShip(s); return s;
 }
 function buildCarrier(x, z, yaw, team) {
@@ -125,7 +125,7 @@ function buildCarrier(x, z, yaw, team) {
   // jets parked on the flight deck and in the hangar
   for (const [u, v, h] of [[-80, -10, mainY], [-62, -10, mainY], [-44, -10, mainY], [-80, 4, mainY], [-62, 4, mainY], [30, 6, mainY], [-40, -4, hangY], [-10, 4, hangY], [20, -4, hangY], [50, 4, hangY]]) {
     if (typeof PLANE_KINDS === 'undefined') break;
-    const j = PLANE_KINDS.f18.model(team); scene.remove(j.g); j.g.position.set(u, h + 1.6, v); j.g.rotation.y = Math.PI / 2; j.g.scale.setScalar(0.9); g.add(j.g);
+    const j = PLANE_KINDS[NORMANDY ? 'prop' : 'f18'].model(team);   // WWII propeller fighters on the Normandy carrier scene.remove(j.g); j.g.position.set(u, h + 1.6, v); j.g.rotation.y = Math.PI / 2; j.g.scale.setScalar(0.9); g.add(j.g);
   }
   const lamp = new THREE.MeshBasicMaterial({ color: 0xfff2c8 });   // lights along the hangar ceiling
   for (let u = -95; u < 85; u += 10) for (const v of [-8, 8]) { const l = new THREE.Mesh(new THREE.BoxGeometry(3, 0.1, 0.5), lamp); l.position.set(u, mainY - 0.55, v); g.add(l); }
@@ -137,7 +137,7 @@ function buildCarrier(x, z, yaw, team) {
   s.walls.push({ u0: -100, u1: 85, v0: -17, v1: -16, y0: hangY, y1: mainY - 0.4, door: { u0: 84, u1: 86, v0: -18, v1: -10 } });
   s.helm = { u: 6, v: 9, y: mainY };                                                            // the steering station by the island
   const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.6, 0.08, 6, 16), new THREE.MeshLambertMaterial({ color: 0x6b4a2a })); wheel.position.set(6, mainY + 1.2, 9); wheel.rotation.y = Math.PI / 2; g.add(wheel);
-  addShipDeckRamps(s);
+  addShipDeckRamps(s); carrierExtras(s);
   SHIPS2.push(s); placeShip(s); return s;
 }
 // a boarding ramp from the water up to the main deck on the left side, so swimmers and boats can get aboard
@@ -197,6 +197,48 @@ function buildShips() {
   installShipHooks();
   if (NORMANDY) { buildBattleship(-420, 470, -Math.PI / 2, 'blue'); buildCarrier(410, 475, Math.PI / 2, 'blue'); }
   if (WAKE) buildBattleship(-410, 470, -Math.PI / 2, 'blue');
+}
+
+// ---------- finer, more true-to-life detail on the warships (looks only: decks, walls and hulls are unchanged) ----------
+function shipGun5(P, u, v, y, facing, grey, dark) {   // a twin 5-inch gun turret
+  P.box(3.6, 1.9, 4.2, grey, u, y + 0.95, v); P.box(3.7, 0.25, 4.3, dark, u, y + 1.95, v);
+  for (const o of [-0.7, 0.7]) P.cyl(0.18, 0.2, 4.2, dark, u + o, y + 1.1, v + facing * 3.9, Math.PI / 2, 0, 0, 1, 8);
+}
+function shipBofors(P, u, v, y, grey, dark) {   // a quad 40 mm anti-aircraft mount in its round tub
+  P.cyl(1.5, 1.6, 1.0, grey, u, y + 0.5, v, 0, 0, 0, 1, 12); P.box(1.4, 0.8, 1.2, dark, u, y + 1.2, v);
+  for (const o of [-0.45, -0.15, 0.15, 0.45]) P.cyl(0.07, 0.07, 2.2, dark, u + o, y + 1.6, v + (v > 0 ? 1 : -1) * 1.0, Math.PI / 2 - 0.5 * (v > 0 ? 1 : -1), 0, 0, 1, 6);
+}
+function shipFloatplane(P, u, v, y, col) {   // a little scout seaplane on the stern catapult
+  P.box(1.0, 0.04, 22, 0x4a4e54, u, y + 0.6, v, 0, Math.PI / 2, 0);   // catapult rail (across the stern)
+  P.cyl(0.45, 0.35, 6.5, col, u, y + 1.6, v, 0, 0, Math.PI / 2, 1, 10); P.box(1.6, 0.12, 10, col, u - 0.6, y + 2.1, v); P.box(1.2, 1.2, 0.1, col, u + 3, y + 2.1, v);
+  P.box(4.6, 0.5, 0.7, 0xb0b4b8, u - 0.3, y + 0.6, v); for (const sd of [-1, 1]) P.box(0.5, 0.3, 0.4, 0xb0b4b8, u - 0.6, y + 1.6, v + sd * 4.6);
+  P.cyl(0.25, 0.25, 0.2, 0x2a2a2a, u - 3.3, y + 1.6, v, 0, 0, Math.PI / 2, 1, 8);
+}
+function battleshipExtras(s) {
+  const P = new Part(), grey = 0x7a8088, dark = 0x4e545c, navy = 0x3e4752, mY = s.mainY;
+  shipSlab(P, s, 3.6, 3.4, navy, -0.06);                                              // dark camouflage band along the waterline
+  for (const [u, w, a] of [[60, 14, 0.35], [10, 18, -0.3], [-40, 16, 0.25]]) for (const sd of [-1, 1]) P.box(w, 2.2, 0.08, navy, u, mY - 3.2, sd * (s.halfW(u) + 0.06), 0, 0, a * sd);   // dazzle slashes
+  // the tripod foremast with the main gun director on top
+  for (const [du, dv] of [[0, 0], [-3, -2.2], [-3, 2.2]]) { const len = 14; P.cyl(0.35, 0.45, len, dark, -2 + du * 0.5, mY + 21 + len / 2 - 2, dv * 0.5, du * 0.02, 0, dv * 0.02, 1, 8); }
+  P.box(5, 2.6, 4, dark, -2, mY + 33.5, 0); P.box(9, 0.8, 0.8, dark, -2, mY + 35.3, 0);
+  // twin 5-inch turrets on the first superstructure level, quad 40 mm mounts round the deck
+  for (const v of [-9, 9]) for (const u of [-24, -10, 4]) shipGun5(P, u, v, mY + 6, v > 0 ? 1 : -1, grey, dark);
+  for (const [u, v] of [[34, -11], [34, 11], [-44, -11], [-44, 11], [-70, -10], [-70, 10], [62, -9], [62, 9]]) shipBofors(P, u, v, mY, grey, dark);
+  shipFloatplane(P, -84, 0, mY, 0x8a9298);
+  P.cyl(0.08, 0.08, 6, dark, 92, mY + 3, 0); P.box(0.05, 1.4, 2.2, 0xd8d8d8, 92, mY + 5.6, 1.1);   // jack staff at the bow
+  P.cyl(0.08, 0.08, 7, dark, -94, mY + 3.5, 0);
+  const m = new THREE.Mesh(P.build(), VEH_MAT); m.castShadow = true; s.g.add(m);
+}
+function carrierExtras(s) {
+  const P = new Part(), grey = 0x737a82, dark = 0x4e545c, mY = s.mainY;
+  if (NORMANDY) { shipSlab(P, s, mY + 0.66, 0.05, 0x8a7556, 0.4); for (let u = -108; u < 108; u += 1.6) P.box(0.05, 0.02, s.halfW(u) * 2 - 1.2, 0x6e5c40, u, mY + 0.7, 0); }   // a WWII wooden flight deck
+  shipSlab(P, s, 3.0, 3.2, 0x3e4752, 2.95);                                                // dark band at the waterline
+  // a tripod mast with a radar dish, guns fore and aft of the island, and 40 mm mounts on sponsons along the sides
+  for (const dv of [-1.6, 1.6]) P.cyl(0.3, 0.4, 16, dark, -10 + (dv > 0 ? 1 : -1) * 0.6, mY + 28, 15 + dv * 0.4, 0, 0, dv * 0.04, 1, 8);
+  P.add(new THREE.SphereGeometry(1.8, 12, 6, 0, Math.PI * 2, 0, Math.PI * 0.35), 0x5a6068, -10, mY + 37, 15, -1.2, 0, 0);
+  shipGun5(P, 12, 15, mY, 1, grey, dark); shipGun5(P, -34, 15, mY, 1, grey, dark);
+  for (let u = -96; u < 78; u += 22) for (const sd of [-1, 1]) { const v = sd * (s.halfW(u) + 2.6); P.box(5, 0.4, 4, grey, u, mY - 1.6, v); shipBofors(P, u, v, mY - 1.4, grey, dark); }
+  const m = new THREE.Mesh(P.build(), VEH_MAT); m.castShadow = true; s.g.add(m);
 }
 // ---------- moving, carrying, steering, firing ----------
 function updateShips(dt) {

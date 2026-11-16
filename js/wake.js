@@ -46,6 +46,19 @@ function wkCarrier() {
   for (const [dx, dz] of [[-C.hl + 6, -C.hw + 3], [-C.hl + 6, C.hw - 3], [C.hl - 30, C.hw - 3]]) makeTurret(C.x + dx, C.z + dz, 'mg', dx < 0 ? Math.PI / 2 : -Math.PI / 2);
   makeTurret(C.x - 55, C.z + C.hw - 3, 'launcher', 0);
   for (let i = 0; i < 6; i++) { const x = C.x - 80 + i * 32; addMesh(new THREE.CylinderGeometry(1.6, 1.6, 1.2, 10), grey, x, D - 1.5, C.z + C.hw + 2.6); addMesh(new THREE.CylinderGeometry(0.12, 0.12, 2.6, 6), dark, x, D - 0.6, C.z + C.hw + 3.6).rotation.x = 1.1; }
+  // a WWII wooden flight deck, anti-aircraft gun galleries along both sides, a dark camouflage band, radar on the mast
+  { const t = canvasTex(256, 64, (g2, W, H) => { g2.fillStyle = '#8a7556'; g2.fillRect(0, 0, W, H); for (let y = 0; y < H; y += 4) { g2.fillStyle = `rgba(60,44,28,${0.25 + Math.random() * 0.2})`; g2.fillRect(0, y, W, 1); } for (let i = 0; i < 40; i++) { g2.fillStyle = 'rgba(60,44,28,0.3)'; g2.fillRect(Math.random() * W, Math.floor(Math.random() * 16) * 4, 1, 4); } });
+    t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(C.hl / 8, C.hw / 3);
+    const wd = new THREE.Mesh(new THREE.PlaneGeometry(C.hl * 2, C.hw * 2), new THREE.MeshLambertMaterial({ map: t })); wd.rotation.x = -Math.PI / 2; wd.position.set(C.x, D + 0.02, C.z); wd.receiveShadow = true; scene.add(wd); }
+  { const P = new Part();
+    for (let x = -C.hl + 12; x < C.hl - 12; x += 18) for (const sd of [-1, 1]) {
+      const z = C.z + sd * (C.hw + 3.2); P.box(6, 0.4, 3.6, 0x5f666e, C.x + x, D - 1.4, z); P.cyl(1.3, 1.4, 0.9, 0x5f666e, C.x + x, D - 0.75, z, 0, 0, 0, 1, 10);
+      for (const o of [-0.4, -0.13, 0.13, 0.4]) P.cyl(0.07, 0.07, 2.0, 0x3f454c, C.x + x + o, D - 0.2, z + sd * 0.9, Math.PI / 2 - 0.5 * sd, 0, 0, 1, 6);
+    }
+    for (const sd of [-1, 1]) P.box(C.hl * 2, 3.0, 0.08, 0x3e4752, C.x, 1.4, C.z + sd * (C.hw + 1.56));   // camouflage band
+    P.add(new THREE.SphereGeometry(1.6, 12, 6, 0, Math.PI * 2, 0, Math.PI * 0.35), 0x4a5058, ix - 6, D + 29, iz, -1.2, 0, 0);
+    for (const dz of [-1.6, 1.6]) P.cyl(0.2, 0.3, 12, 0x3f454c, ix - 6.5, D + 21, iz + dz * 0.4, dz * 0.03, 0, 0, 1, 6);
+    const m = new THREE.Mesh(P.build(), VEH_MAT); m.castShadow = true; scene.add(m); }
   // crates and a few parked planes' worth of gear at the stern
   for (let i = 0; i < 3; i++) addCrateStack(C.x + 60 + i * 3, C.z + C.hw - 4, 2);
   // the stern ramp walls and the wooden dock posts
