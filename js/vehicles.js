@@ -125,7 +125,7 @@ function resetPlane(pl, wait = 6) {
   pl.pos.set(pl.spawn.x, heightAt(pl.spawn.x, pl.spawn.z) + 1.6, pl.spawn.z);
   pl.quat.setFromEuler(new THREE.Euler(0, pl.spawn.yaw, 0, 'YXZ'));
   planeBodyVisible(pl, true); pl.model.g.visible = true; pl.model.bomb.visible = true;
-  if (DOGFIGHT || (RUNWAYS[pl.team] && RUNWAYS[pl.team].carrier && !pl.parked)) {   // straight into the air (dogfights, and planes launched from a carrier), flying towards the enemy
+  if (!pl.parked && wait < 1e8 && (DOGFIGHT || (RUNWAYS[pl.team] && RUNWAYS[pl.team].carrier))) {   /* a plane dropped from the cheat menu (parked) waits on the ground, even in a dogfight */   // straight into the air (dogfights, and planes launched from a carrier), flying towards the enemy
     pl.onGround = false; pl.waitT = 0; pl.pos.set(pl.spawn.x, Math.max(130, skyAt(pl.spawn.x, pl.spawn.z) + 90) + (pl.idx % 4) * 14, pl.spawn.z);   /* always well above the hills */
     pl.speed = 45 * (pl.spdMul || 1); pl.throttle = 1; pl.aiYaw = pl.spawn.yaw; pl.aiPitch = 0; pl.climbT = 0;
     pl.quat.setFromEuler(new THREE.Euler(0, pl.spawn.yaw, 0, 'YXZ'));
