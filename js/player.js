@@ -273,7 +273,7 @@ function updatePlayer(dt) {
   const water = waterDepth(player.pos.x, player.pos.z) > 0.7;
   if (player.crouch && (player.vehicle || player.gv || player.turret || player.planeGun || !player.alive)) toggleCrouch(false);
   crouchK += ((player.crouch ? 1 : 0) - crouchK) * Math.min(1, dt * 12);
-  const speed = (player.crouch ? 2.8 : keys.ShiftLeft || keys.ShiftRight ? 8.5 : 5.6) * (water ? (waterDepth(player.pos.x, player.pos.z) > 1.35 ? 0.42 : 0.6) : 1) * (zoom ? 0.5 : ads ? 0.65 : 1) * (player.slowT > 0 ? 0.45 : 1);
+  const speed = (player.crouch ? 2.8 : keys.ShiftLeft || keys.ShiftRight ? 8.5 : 5.6) * (water ? (waterDepth(player.pos.x, player.pos.z) > 1.35 ? 0.42 : 0.6) : 1) * (zoom ? 0.5 : ads ? 0.65 : 1) * (player.slowT > 0 ? 0.45 : 1) * (player.speedMul || 1);
   bloom *= Math.exp(-dt * 4);
   buildEffectsOnChar(player, dt);
   updatePlacing(dt);

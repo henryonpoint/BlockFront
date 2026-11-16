@@ -126,6 +126,7 @@ function prismGeo(span, rise, length) {
 function groundMin(x, z, hw, hd) {
   return Math.min(heightAt(x - hw, z - hd), heightAt(x + hw, z - hd), heightAt(x - hw, z + hd), heightAt(x + hw, z + hd), heightAt(x, z));
 }
+let FLOWER_MATS = null;
 function addMesh(geo, mat, x, y, z, shadow = true) {
   const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z);
   m.castShadow = shadow; m.receiveShadow = true; m.userData.static = true; scene.add(m); return m;
@@ -414,7 +415,7 @@ function house(x, z, w, d, h, opts = {}) {
   }
   if (!GERMANY && Math.random() < 0.6) for (const sx of [-w / 4, w / 4]) {   /* window boxes with flowers (not in wartime Berlin) */
     const fb = addMesh(new THREE.BoxGeometry(1.4, 0.3, 0.35), MATS.darkWood, x + sx, base + 0.4 + 1.2, z + face * (d / 2 + 0.18), false);
-    for (let i = 0; i < 4; i++) addMesh(new THREE.SphereGeometry(0.13, 6, 4), new THREE.MeshLambertMaterial({ color: pick([0xe53935, 0xffeb3b, 0xffffff, 0xab47bc]) }), x + sx - 0.5 + i * 0.33, base + 0.4 + 1.42, z + face * (d / 2 + 0.18), false);
+    for (let i = 0; i < 4; i++) addMesh(new THREE.SphereGeometry(0.13, 6, 4), pick(FLOWER_MATS || (FLOWER_MATS = [0xe53935, 0xffeb3b, 0xffffff, 0xab47bc].map(c => new THREE.MeshLambertMaterial({ color: c })))),   /* shared, so they merge into a handful of draws */ x + sx - 0.5 + i * 0.33, base + 0.4 + 1.42, z + face * (d / 2 + 0.18), false);
   }
   return m;
 }

@@ -144,8 +144,13 @@ function zOpen(b, ghost, byEnemy) {
   if (b.done) return; b.done = true;
   scene.remove(b.mesh); const i = solidMeshes.indexOf(b.mesh); if (i >= 0) solidMeshes.splice(i, 1);
   b.bb.minY = b.bb.maxY = -999; world.removeBody(b.body);
-  if (b.charge) { scene.remove(b.charge); b.charge = null; }
   const p = new THREE.Vector3(b.x, b.y + 1.2, b.z);
+  if (b.soft && !b.charge) {   // the lock breaks and the door crashes in
+    for (let i = 0; i < 10; i++) burst(p.clone().add(new THREE.Vector3(rand(-0.4, 0.4), rand(-0.9, 0.9), rand(-0.4, 0.4))), 3, 0x7a5434, 4, 0.3, 0.06);
+    if (typeof SFX !== 'undefined' && SFX.hit) SFX.hit();
+    zNoise(p, 10, 0.7); ZD.noise = (ZD.noise || 0) + 0.5; showMessage('Door is open!', 1.5); return;
+  }
+  if (b.charge) { scene.remove(b.charge); b.charge = null; }
   explosion(p, 4.5, 8, byEnemy ? null : (player.team === 'blue' ? player : null), byEnemy ? 0 : 90, !!ghost || !!byEnemy);
   for (let i = 0; i < 6; i++) smokePuff(p.clone().add(new THREE.Vector3(rand(-1.5, 1.5), rand(-0.5, 1.5), rand(-1.5, 1.5))), 0x8a8478, rand(1, 2), 3, 0.6);
   ZD.blown++; zNoise(p, 12, 1.15); ZD.noise = (ZD.noise || 0) + 3;
@@ -276,8 +281,49 @@ function zGateLook(b, w) {
   const m = new THREE.Mesh(P.build(), VEH_MAT); b.mesh.add(m); b.mesh.material = ZM.hidden;
 }
 // doorways between rooms: a painted frame, a lintel, and the wooden door standing open against the wall
+// doors that are shut and locked: break the lock with gunfire or the knife, or set a charge on them
+const ZD_LOCKED = [[0, 9, 10], [0, 10, 13], [0, 16, 14], [1, 5, 14], [1, 11, 13], [1, 17, 13], [2, 12, 16], [2, 15, 15]];
+function zLockedDoor(k, r, c, ew) {
+  const CS = ZC.CS, y0 = zfy(k), x = zcx(c), z = zcz(r), t = 0.07;
+  const b = ew ? zBreachable('locked door', x - CS / 2 + 0.06, x + CS / 2 - 0.06, z - t, z + t, y0, y0 + 2.2, ZM.door, '')
+               : zBreachable('locked door', x - t, x + t, z - CS / 2 + 0.06, z + CS / 2 - 0.06, y0, y0 + 2.2, ZM.door, '');
+  b.locked = true; b.soft = true; b.hp = 300;
+  const P = new Part(), w = CS - 0.16;   // panels on both faces, a handle and a padlocked hasp
+  for (const f of [1, -1]) {
+    for (const [yy, h] of [[0.45, 0.7], [-0.45, 0.85]]) ew ? P.box(w - 0.3, h, 0.02, 0x4a3220, 0, yy, f * (t + 0.01)) : P.box(0.02, h, w - 0.3, 0x4a3220, f * (t + 0.01), yy, 0);
+    ew ? P.box(0.05, 0.14, 0.05, 0xb8a060, w / 2 - 0.12, 0, f * (t + 0.03)) : P.box(0.05, 0.14, 0.05, 0xb8a060, f * (t + 0.03), 0, w / 2 - 0.12);
+    ew ? P.box(0.08, 0.1, 0.04, 0x8a8a84, w / 2 - 0.12, -0.18, f * (t + 0.03)) : P.box(0.04, 0.1, 0.08, 0x8a8a84, f * (t + 0.03), -0.18, w / 2 - 0.12);
+  }
+  const m = new THREE.Mesh(P.build(), VEH_MAT); b.mesh.add(m);
+  return b;
+}
+function zRayBox(o, d, bb, maxD) {   // where a ray first meets a box, or null
+  let t0 = 0, t1 = maxD;
+  for (const [oa, da, lo, hi] of [[o.x, d.x, bb.minX, bb.maxX], [o.y, d.y, bb.minY, bb.maxY], [o.z, d.z, bb.minZ, bb.maxZ]]) {
+    if (Math.abs(da) < 1e-9) { if (oa < lo || oa > hi) return null; continue; }
+    let a = (lo - oa) / da, c = (hi - oa) / da; if (a > c) [a, c] = [c, a];
+    t0 = Math.max(t0, a); t1 = Math.min(t1, c); if (t0 > t1) return null;
+  }
+  return t0;
+}
+function zDoorRay(o, d, maxD, best) {
+  for (const b of ZD.breaches) {
+    if (!b.locked || b.done) continue;
+    const t = zRayBox(o, d, b.bb, maxD);
+    if (t !== null && t < (best ? best.dist + 0.05 : maxD)) best = { dist: t, point: o.clone().addScaledVector(d, t), zdDoor: b };
+  }
+  return best;
+}
+function zDoorHit(b, hit, wpn) {
+  if (b.done) return;
+  b.hp -= (wpn && wpn.dmg) || 30;
+  burst(hit.point, 5, 0x8a6a44, 3, 0.25, 0.05);
+  zNoise(hit.point, wpn && wpn.knife ? 4 : 6, 0.3);
+  if (b.hp <= 0) { zOpen(b); netFx(['zb', ZD.breaches.indexOf(b)]); }
+  else if (wpn && !wpn.knife && b.hp < 150 && !b.cracked) { b.cracked = true; showMessage('The lock is giving way...', 1.2); }
+}
 function zInteriorDoors() {
-  const P = new Part(), CS = ZC.CS;
+  const P = new Part(), CS = ZC.CS, locked = new Set(ZD_LOCKED.map(q => q.join(',')));
   for (const [k, g] of ZD_GRID.entries()) {
     const F = zfy(k) - ZC.fb, H = g.length, W = g[0].length;
     for (let r = 1; r < H - 1; r++) for (let c = 1; c < W - 1; c++) {
@@ -285,21 +331,90 @@ function zInteriorDoors() {
       const ew = g[r][c - 1] === '#' && g[r][c + 1] === '#' && g[r - 1][c] !== '#' && g[r + 1][c] !== '#';   // a gap in a wall running east-west
       const ns = g[r - 1][c] === '#' && g[r + 1][c] === '#' && g[r][c - 1] !== '#' && g[r][c + 1] !== '#';   // a gap in a wall running north-south
       if ((!ew && !ns) || (k === 1 && r === 6 && c === 22)) continue;   // (that one is the stair landing, not a door)
-      const x = (c + 0.5) * CS, z = (r + 0.5) * CS, wall = 0xf4f0e6, wood = pick([0x7a5434, 0x6a4a2e, 0x8a6a48]);
+      const x = (c + 0.5) * CS, z = (r + 0.5) * CS, wall = 0xf4f0e6, wood = pick([0x7a5434, 0x6a4a2e, 0x8a6a48]), shut = locked.has(k + ',' + r + ',' + c);
+      if (shut) zLockedDoor(k, r, c, ew);
       if (ew) {
         P.box(CS, wallTopOf(k) - 2.25, CS, ZD.paintHex[k], x, F + (2.25 + wallTopOf(k)) / 2, z);   // lintel
         for (const sd of [-1, 1]) P.box(0.08, 2.25, CS + 0.02, wall, x + sd * (CS / 2 - 0.04), F + 1.125, z);
-        P.box(0.05, 2.1, CS - 0.16, wood, x - CS / 2 + 0.12, F + 1.05, z + (CS - 0.16) / 2 + 0.05);   // the door, swung open against the wall
+        if (!shut) P.box(0.05, 2.1, CS - 0.16, wood, x - CS / 2 + 0.12, F + 1.05, z + (CS - 0.16) / 2 + 0.05);   // the door, swung open against the wall
       } else {
         P.box(CS, wallTopOf(k) - 2.25, CS, ZD.paintHex[k], x, F + (2.25 + wallTopOf(k)) / 2, z);
         for (const sd of [-1, 1]) P.box(CS + 0.02, 2.25, 0.08, wall, x, F + 1.125, z + sd * (CS / 2 - 0.04));
-        P.box(CS - 0.16, 2.1, 0.05, wood, x + (CS - 0.16) / 2 + 0.05, F + 1.05, z - CS / 2 + 0.12);
+        if (!shut) P.box(CS - 0.16, 2.1, 0.05, wood, x + (CS - 0.16) / 2 + 0.05, F + 1.05, z - CS / 2 + 0.12);
       }
     }
   }
   const m = new THREE.Mesh(P.build(), VEH_MAT); m.position.set(ZC.HX0, ZC.fb, ZC.HZ0); scene.add(m);
 }
 function wallTopOf(k) { return 3.7; }
+// the things a big family leaves about: carpets and runners, prayer mats, cushions, blankets, shoes by the door,
+// clothes on hooks and on a line, wall hangings and calligraphy, a clock, thermos flasks and tea glasses, toys
+const ZRUG = [0x7a2420, 0x8a3a24, 0x5a2a3a, 0x2a3a5a, 0x6a4a2a, 0x3a5a4a, 0x9a6a30];
+function zRugAt(P, x, z, w, d, F, col) {   // a patterned carpet: field, border and a medallion
+  const c = col || pick(ZRUG), b = pick([0xd8b860, 0xe0d0b0, 0x2a2a3a, 0x9a2a24]);
+  P.box(w, 0.018, d, b, x, F + 0.01, z); P.box(w - 0.16, 0.02, d - 0.16, c, x, F + 0.012, z);
+  P.box(w - 0.3, 0.022, 0.04, b, x, F + 0.014, z - d / 2 + 0.2); P.box(w - 0.3, 0.022, 0.04, b, x, F + 0.014, z + d / 2 - 0.2);
+  P.box(Math.min(w, d) * 0.35, 0.024, Math.min(w, d) * 0.35, b, x, F + 0.015, z, 0, Math.PI / 4, 0);
+  P.box(Math.min(w, d) * 0.2, 0.026, Math.min(w, d) * 0.2, c, x, F + 0.016, z, 0, Math.PI / 4, 0);
+}
+function zLivedIn(P) {
+  const CS = ZC.CS;
+  // runners down the halls and corridors
+  for (const [k, c0, c1, r0, r1] of [[0, 11, 12, 1, 13], [0, 1, 24, 14, 15], [1, 1, 24, 6, 7], [1, 11, 12, 8, 20], [2, 13, 24, 13, 14]]) {
+    const F = zfy(k) - ZC.fb, x0 = c0 * CS, x1 = (c1 + 1) * CS, z0 = r0 * CS, z1 = (r1 + 1) * CS, long = (x1 - x0) > (z1 - z0);
+    const n = Math.max(1, Math.round((long ? x1 - x0 : z1 - z0) / 6));
+    for (let i = 0; i < n; i++) {
+      const t = (i + 0.5) / n, x = long ? lerp(x0, x1, t) : (x0 + x1) / 2, z = long ? (z0 + z1) / 2 : lerp(z0, z1, t);
+      zRugAt(P, x, z, long ? (x1 - x0) / n - 0.6 : (x1 - x0) * 0.6, long ? (z1 - z0) * 0.6 : (z1 - z0) / n - 0.6, F);
+    }
+  }
+  for (const R of ZD_ROOMS) {
+    const F = zfy(R.k) - ZC.fb, X0 = R.c0 * CS, X1 = (R.c1 + 1) * CS, Z0 = R.r0 * CS, Z1 = (R.r1 + 1) * CS, cx = (X0 + X1) / 2, cz = (Z0 + Z1) / 2, w = X1 - X0, d = Z1 - Z0;
+    const big = w > 3.5 && d > 3;
+    // on the walls: a framed verse of calligraphy, a woven hanging or a calendar, a clock
+    if (R.name !== 'bath' && R.name !== 'storage' && R.name !== 'store') {
+      const fw = Math.min(1.1, w * 0.3); P.box(fw + 0.08, 0.5, 0.03, 0x6a4a24, X0 + w * 0.3, F + 1.75, Z0 + 0.02); P.box(fw, 0.42, 0.035, pick([0x1e5a3a, 0x1a1a1a, 0xe8e0c8]), X0 + w * 0.3, F + 1.75, Z0 + 0.03);
+      for (let i = 0; i < 4; i++) P.box(fw * 0.16, 0.05, 0.04, 0xd8c070, X0 + w * 0.3 - fw * 0.3 + i * fw * 0.2, F + 1.75 + (i % 2 ? 0.05 : -0.04), Z0 + 0.04);   // the gold script
+      if (big) { P.box(0.03, 1.2, Math.min(1.6, d * 0.4), pick(ZRUG), X0 + 0.02, F + 1.6, cz); P.box(0.035, 1.0, Math.min(1.4, d * 0.34), pick([0xd8b860, 0xe0d0b0]), X0 + 0.025, F + 1.6, cz); }   // a hanging carpet
+      if (Math.random() < 0.6) { P.cyl(0.15, 0.15, 0.04, 0xf2f0e8, X1 - 0.9, F + 2.4, Z0 + 0.03, Math.PI / 2, 0, 0, 1, 14); P.box(0.015, 0.1, 0.01, 0x1a1a1a, X1 - 0.9, F + 2.43, Z0 + 0.06); }   // a clock
+      P.box(0.04, 0.04, 0.6, 0x8a6a44, X1 - 0.03, F + 1.85, Z0 + 0.6);   // a row of hooks, and what hangs on them
+      for (let i = 0; i < 3; i++) P.box(0.05, rand(0.6, 0.9), 0.32, pick([0xe8e4d8, 0x3a4a6a, 0x7a3a4a, 0x5a6a4a, 0x2a2a2e]), X1 - 0.07, F + 1.45, Z0 + 0.4 + i * 0.22);
+    }
+    // on the floor: shoes left by the door, cushions, a folded pile of quilts, prayer mats facing west
+    for (let i = 0; i < (R.name === 'bath' ? 1 : 3); i++) { const sx = cx + rand(-w / 3, w / 3), sz = Z1 - 0.25; for (const o of [-0.06, 0.06]) P.box(0.09, 0.05, 0.24, pick([0x2a2a2a, 0x6a4a30, 0x8a2a2a, 0x3a5a8a]), sx + o, F + 0.025, sz, 0, rand(-0.3, 0.3), 0); }
+    if (R.name === 'bedroom' || R.name === 'master' || R.name === 'living' || R.name === 'classroom') {
+      for (let i = 0; i < 3; i++) P.box(0.5, 0.14, 0.5, pick([0x8a2a2a, 0xa07a30, 0x3a5a7a, 0x6a3a6a]), X0 + 0.45 + i * 0.6, F + 0.07, Z0 + 0.45);   // floor cushions
+      for (let i = 0; i < 4; i++) P.box(0.9, 0.09, 0.6, pick([0xd04a4a, 0x4a7ab0, 0xe0c050, 0x6aa06a, 0xe8e4d8]), X1 - 0.65, F + 0.05 + i * 0.09, Z1 - 0.55);   // folded quilts
+      P.box(0.62, 0.015, 1.1, pick([0x1e5a3a, 0x7a2420, 0x2a3a5a]), X0 + w * 0.6, F + 0.03, cz, 0, Math.PI / 2, 0);   // a prayer mat
+      P.box(0.2, 0.016, 0.3, 0xd8b860, X0 + w * 0.6 - 0.3, F + 0.04, cz);
+      if (big) { P.cyl(0.07, 0.07, 0.3, pick([0xd0d0d0, 0x2a6a4a, 0xb02a2a]), cx + 0.6, F + 0.15, cz - 0.5, 0, 0, 0, 1, 10); for (let i = 0; i < 3; i++) P.cyl(0.03, 0.025, 0.08, 0xd8a050, cx + 0.8 + i * 0.1, F + 0.04, cz - 0.4, 0, 0, 0, 1, 8); P.box(0.4, 0.02, 0.3, 0xb8b8b0, cx + 0.85, F + 0.012, cz - 0.4); }   // thermos and tea glasses on a tray
+    }
+    if (R.name === 'bedroom' && R.k < 2) {   // the children's things
+      for (let i = 0; i < 4; i++) P.box(rand(0.12, 0.25), rand(0.1, 0.2), rand(0.12, 0.25), pick([0xe04a4a, 0x3a8ad0, 0xf0c030, 0x4ac04a]), cx + rand(-w / 4, w / 4), F + 0.08, cz + rand(-d / 4, d / 4), 0, rand(0, 3), 0);
+      P.ball(0.12, pick([0xe04a4a, 0xf0f0f0, 0x3a8ad0]), cx + rand(-0.8, 0.8), F + 0.12, cz + rand(0.2, 0.8));   // a ball
+      if (Math.random() < 0.5) { P.box(0.8, 0.45, 0.5, 0x8a6a44, X0 + 0.5, F + 0.3, cz); P.box(0.75, 0.04, 0.45, 0xe8e0d0, X0 + 0.5, F + 0.55, cz); }   // a cradle
+    }
+    if (R.name === 'bedroom' || R.name === 'master') {   // a washing line strung across a corner, clothes drying
+      P.box(0.01, 0.01, d * 0.6, 0xd0d0d0, X1 - 0.5, F + 2.2, cz);
+      for (let i = 0; i < 4; i++) P.box(0.04, rand(0.5, 0.8), 0.35, pick([0xe8e4d8, 0x5a7ab0, 0xb04a6a, 0x6a6a4a, 0xd8a038]), X1 - 0.5, F + 1.85, cz - d * 0.22 + i * d * 0.15);
+      P.box(0.4, 0.5, 0.3, pick([0x3a2a20, 0x5a3a2a]), X0 + 0.3, F + 0.25, Z1 - 0.3); P.box(0.36, 0.3, 0.02, 0x6a8090, X0 + 0.3, F + 0.75, Z1 - 0.44);   // a small chest and a hand mirror on it
+      // the window: heavy curtains drawn
+      P.box(w * 0.5, 1.4, 0.04, pick([0x6a2a2a, 0x2a4a3a, 0x4a3a6a, 0x8a7a5a]), cx, F + 1.75, Z1 - 0.04);
+      P.box(w * 0.55, 0.06, 0.06, 0x6a5a40, cx, F + 2.5, Z1 - 0.05);
+    }
+    if (R.name === 'kitchen' || R.name === 'kitchenette') {
+      for (let i = 0; i < 5; i++) P.cyl(0.12, 0.1, 0.12, pick([0xa8a8a0, 0x7a7a74, 0xb88a50]), X0 + 0.4 + i * 0.35, F + 1.85, Z0 + 0.15, 0, 0, 0, 1, 10);   // pots on a shelf
+      P.box(w - 0.4, 0.04, 0.3, 0x6a5038, cx, F + 1.78, Z0 + 0.15);
+      for (let i = 0; i < 6; i++) P.box(0.3, 0.3, 0.3, pick([0xd8d0b0, 0xb8a888]), X1 - 0.3, F + 0.15 + (i % 3) * 0.3, Z1 - 0.3 - Math.floor(i / 3) * 0.32);   // sacks of flour and rice
+      P.box(0.6, 0.02, 0.6, 0x1a1a1a, cx, F + 0.012, Z1 - 0.6); P.cyl(0.25, 0.25, 0.02, 0xd0c8a0, cx, F + 0.03, Z1 - 0.6, 0, 0, 0, 1, 14);   // a mat with a round of bread dough
+    }
+    if (R.name === 'living' || R.name === 'media' || R.name === 'study') {
+      P.box(0.4, 0.04, 0.4, 0x8a6a44, cx, F + 0.42, cz); for (const [ox, oz] of [[-0.17, -0.17], [0.17, -0.17], [-0.17, 0.17], [0.17, 0.17]]) P.box(0.03, 0.42, 0.03, 0x6a4a30, cx + ox, F + 0.21, cz + oz);   // a little table
+      P.cyl(0.25, 0.25, 0.03, 0xf2f0e8, cx, F + 3.4, cz, 0, 0, 0, 1, 12); for (const a of [0, 2.1, 4.2]) P.box(0.9, 0.01, 0.12, 0xd8d0c0, cx + Math.cos(a) * 0.45, F + 3.38, cz + Math.sin(a) * 0.45, 0, -a, 0);   // a ceiling fan
+    }
+    if (R.name === 'bath') { P.box(0.05, 0.3, 0.6, 0xe8e4d8, X1 - 0.03, F + 1.6, cz); P.cyl(0.06, 0.06, 0.2, 0x3a8a4a, X0 + 0.25, F + 0.1, Z0 + 0.25, 0, 0, 0, 1, 8); P.box(0.3, 0.22, 0.2, 0xd04a4a, X0 + 0.3, F + 0.11, Z1 - 0.3); }   // towel, a lota (water jug), a plastic stool
+  }
+}
 // furniture by room: low beds and mattresses, cupboards, carpets and floor cushions, a kitchen with a gas stove,
 // washrooms, the children's classroom with a whiteboard, his study with crude wooden shelves and a computer
 function zFurnish() {
@@ -338,11 +453,14 @@ function zFurnish() {
       if (R.name === 'media') { P.box(0.6, 0.4, 0.4, 0x2a2a2a, x1 - 0.4, F + 0.2, z1 - 0.3); P.box(0.7, 0.5, 0.06, 0x111111, x1 - 0.4, F + 0.65, z1 - 0.12); }
     }
   }
+  zLivedIn(P);
   const m = new THREE.Mesh(P.build(), VEH_MAT); m.position.set(ZC.HX0, ZC.fb, ZC.HZ0); m.receiveShadow = true; scene.add(m);
   // a few rooms still have a lamp burning (most of the house was dark: the power was cut that night)
   ZD.houseLights = [];
   const pickL = [ZD_ROOMS.findIndex(R => R.name === 'kitchen'), ZD_ROOMS.findIndex(R => R.k === 1 && R.name === 'classroom'), ZD_ROOMS.findIndex(R => R.name === 'master'), ZD_ROOMS.findIndex(R => R.name === 'study')];
-  for (const i of pickL) { if (i < 0) continue; const [x, F, z] = lamps[i], L = new THREE.PointLight(0xffc880, 0.9, 9, 1.8); L.position.set(ZC.HX0 + x, ZC.fb + F + 2.6, ZC.HZ0 + z); scene.add(L); ZD.houseLights.push(L); }
+  // (two real lights at most, moved to whichever lamps are nearest you: every extra light costs every pixel on screen)
+  ZD.lampSpots = pickL.filter(i => i >= 0).map(i => { const [x, F, z] = lamps[i]; return new THREE.Vector3(ZC.HX0 + x, ZC.fb + F + 2.6, ZC.HZ0 + z); });
+  for (let i = 0; i < 2; i++) { const L = new THREE.PointLight(0xffc880, 0.9, 9, 1.8); L.position.copy(ZD.lampSpots[i] || ZD.lampSpots[0]); scene.add(L); ZD.houseLights.push(L); }
 }
 
 // ---------- walls, gates, the guest house and the yards ----------
@@ -625,10 +743,65 @@ function zTargetDown(name, fromNet) {
   if (ZD.down) return;
   ZD.down = true; ZD.downBy = name || 'The team'; ZD.downT = simTime;
   const g = ZD.target && ZD.target.g; if (g) { g.rotation.x = -Math.PI / 2; g.position.y = ZD.target.at.y + 0.2; }
-  showMessage(`${ZD.downBy}: "For God and country. Geronimo, Geronimo, Geronimo... Geronimo E-KIA." Now get to the landing zone north of the compound!`, 9);
+  showMessage(`${ZD.downBy}: "For God and country. Geronimo, Geronimo, Geronimo... Geronimo E-KIA." Bag him (E) and drag him to the helicopter north of the compound!`, 9);
   if (typeof unlock === 'function' && !fromNet) try { unlock('zd30'); } catch (e) { }
   if (!fromNet) netFx(['zk', ZD.downBy]);
   if (typeof SFX !== 'undefined' && SFX.capture) SFX.capture();
+}
+// ---------- the body: bag him and drag him to the helicopter ----------
+function zBagMake() {
+  if (ZD.bag) return ZD.bag;
+  const P = new Part(), wh = 0xeeeeea;
+  P.cyl(0.3, 0.3, 1.7, wh, 0, 0.26, 0, Math.PI / 2, 0, 0, 1, 12, 0.8, 1);
+  P.ball(0.3, wh, 0, 0.26, 0.85); P.ball(0.3, wh, 0, 0.26, -0.85);
+  for (const z of [-0.5, 0, 0.5]) P.cyl(0.31, 0.31, 0.06, 0x9a9a94, 0, 0.26, z, Math.PI / 2, 0, 0, 1, 12, 0.8, 1);   // straps
+  P.box(0.06, 0.04, 0.5, 0x6a6a64, 0.1, 0.5, 1.05); P.box(0.06, 0.04, 0.5, 0x6a6a64, -0.1, 0.5, 1.05);   // the handles you pull it by
+  const m = new THREE.Mesh(P.build(), VEH_MAT); m.castShadow = true;
+  const at = ZD.target ? ZD.target.at : new THREE.Vector3();
+  m.position.set(at.x, at.y, at.z); scene.add(m);
+  if (ZD.target && ZD.target.g) ZD.target.g.visible = false;
+  ZD.bag = { m, pos: m.position, carrier: null };
+  return ZD.bag;
+}
+function zNearBag(c) {
+  if (!ZD.down || !c || !c.alive) return false;
+  const at = ZD.bag ? ZD.bag.pos : ZD.target && ZD.target.at; if (!at) return false;
+  return Math.hypot(c.pos.x - at.x, c.pos.z - at.z) < 2.3 && Math.abs(c.pos.y - at.y) < 1.4;
+}
+function zBagGrab(c, fromNet) {
+  const B = zBagMake(); if (B.carrier && B.carrier !== c) return;
+  B.carrier = c;
+  if (c === player) { player.speedMul = 0.55; showMessage('You have him. Drag him to the helicopter! (E to drop him and fight)', 3); }
+  if (!fromNet) netFx(['zg']);
+}
+function zBagDrop(fromNet, x, y, z) {
+  const B = ZD.bag; if (!B) return;
+  if (B.carrier === player) player.speedMul = 1;
+  B.carrier = null;
+  if (x !== undefined) B.pos.set(x, y, z);
+  if (!fromNet) netFx(['zd', Math.round(B.pos.x * 10) / 10, Math.round(B.pos.y * 10) / 10, Math.round(B.pos.z * 10) / 10]);
+}
+function zBagPrompt() {
+  if (!ZD.down || ZD.exfil) return '';
+  const B = ZD.bag;
+  if (B && B.carrier === player) return '';
+  if (B && B.carrier) return '';
+  if (zNearBag(player)) return B ? 'Press E to pick up the body bag' : 'Press E to put him in the body bag and drag him out';
+  return '';
+}
+function zBagUpdate(dt) {
+  const B = ZD.bag; if (!B) return;
+  const c = B.carrier;
+  if (c && !c.alive) { if (c === player) zBagDrop(); else B.carrier = null; return; }
+  if (c === player && player.speedMul !== 0.55) player.speedMul = 0.55;
+  if (!c) return;
+  // it slides along behind whoever has it, on the end of their arm
+  const dx = B.pos.x - c.pos.x, dz = B.pos.z - c.pos.z, d = Math.hypot(dx, dz) || 1, L = 1.25;
+  const tx = c.pos.x + dx / d * L, tz = c.pos.z + dz / d * L;
+  if (!blockedAt(tx, tz, c.pos.y, 0.25) || d > 2.5) { B.pos.x = tx; B.pos.z = tz; }
+  B.pos.y += (c.pos.y - B.pos.y) * Math.min(1, dt * 8);
+  B.m.rotation.y = Math.atan2(c.pos.x - B.pos.x, c.pos.z - B.pos.z);
+  if (d > 4) { B.pos.x = c.pos.x - Math.sin(B.m.rotation.y) * L; B.pos.z = c.pos.z - Math.cos(B.m.rotation.y) * L; }
 }
 function coopTargetDone() { return ZD30 ? ZD.exfil : (typeof LEADER !== 'undefined' && LEADER.found); }
 
@@ -653,7 +826,9 @@ function zExfilUpdate(dt) {
   // the battle is won when someone from the team reaches the helicopter
   if (!ZD.exfil && (!net.active || net.isHost)) {
     const humans = [player, ...(net.remotes ? [...net.remotes.values()].map(r => r.char) : [])].filter(c => c && c.alive && c.team === 'blue');
-    if (humans.some(c => Math.hypot(c.pos.x - lz.x, c.pos.z - lz.z) < 10)) { ZD.exfil = true; endGame('blue'); }
+    const B = ZD.bag, bagIn = B && Math.hypot(B.pos.x - lz.x, B.pos.z - lz.z) < 9;
+    if (bagIn && humans.some(c => Math.hypot(c.pos.x - lz.x, c.pos.z - lz.z) < 10)) { ZD.exfil = true; zBagDrop(); if (B) B.m.visible = false; endGame('blue'); }
+    else if (!bagIn && !ZD.lzWarn && humans.some(c => Math.hypot(c.pos.x - lz.x, c.pos.z - lz.z) < 10)) { ZD.lzWarn = true; showMessage('Not without the body. Go back and bring the bag!', 3); }
   }
 }
 
@@ -689,15 +864,17 @@ function zBreachUpdate(dt) {
   const near = zNearBreach();
   ZD.near = near;
   if (!ZD.prompt) { const el = document.createElement('div'); el.id = 'zdPrompt'; el.className = 'hud'; el.style.cssText = 'position:fixed;left:50%;top:60%;transform:translateX(-50%);background:rgba(0,0,0,.55);color:#fff;padding:6px 14px;border-radius:8px;font:600 15px system-ui,sans-serif;pointer-events:none;display:none;z-index:5'; document.body.appendChild(el); ZD.prompt = el; }
-  ZD.prompt.style.display = near ? 'block' : 'none';
-  if (near) ZD.prompt.textContent = `Press E to set a breach charge on the ${near.name}`;
+  const bagP = zBagPrompt();
+  ZD.prompt.style.display = near || bagP ? 'block' : 'none';
+  if (bagP) ZD.prompt.textContent = bagP;
+  else if (near) ZD.prompt.textContent = near.locked ? 'Locked door. Shoot the lock, use the knife, or press E for a breach charge' : `Press E to set a breach charge on the ${near.name}`;
 }
 
 // ---------- the mission: objectives, the clock and the HUD ----------
 function zInHouse(c) { return c.pos.x > zx(0) && c.pos.x < zx(26) && c.pos.z > zz(0) && c.pos.z < zz(22); }
 function zUpdate(dt) {
   if (!started) return;
-  zBreachUpdate(dt); zExfilUpdate(dt); zLightsUpdate(); zCivUpdate(dt); zVillageUpdate(dt);
+  zBreachUpdate(dt); zBagUpdate(dt); zExfilUpdate(dt); zLightsUpdate(); zCivUpdate(dt); zVillageUpdate(dt);
   if (ZD.target && !ZD.down) {   // he watches the door
     const g = ZD.target.g; g.rotation.y = Math.atan2(player.pos.x - ZD.target.at.x, player.pos.z - ZD.target.at.z) * 0.6 + Math.PI * 0.75;
     if (!ZD.seen && player.alive && player.pos.distanceTo(ZD.target.at) < 8 && Math.abs(player.pos.y - ZD.target.at.y) < 1.5) { ZD.seen = true; showMessage('Third floor. There he is: take the shot!', 3); }
@@ -720,7 +897,9 @@ function zUpdate(dt) {
   // objective line
   let obj;
   const k = player.pos.y > zfy(2) - 0.5 ? 2 : player.pos.y > zfy(1) - 0.5 ? 1 : 0, inH = zInHouse(player);
-  if (ZD.down) obj = 'GERONIMO E-KIA. Get to the helicopter on the landing zone north of the compound (green smoke)';
+  if (ZD.down && (!ZD.bag || !ZD.bag.carrier) && !ZD.exfil) obj = ZD.bag ? 'The body bag is on the ground. Pick it up (E) and get it to the helicopter' : 'GERONIMO E-KIA. Bag the body (E) and drag it to the helicopter north of the compound';
+  else if (ZD.exfil) obj = 'Wheels up. Mission complete';
+  else if (ZD.down) obj = ZD.bag.carrier === player ? 'Drag him to the helicopter on the landing zone north (green smoke). You are slow: E to drop him and fight' : `${ZD.bag.carrier.name || 'A teammate'} has the body. Cover them to the helicopter (green smoke, north)`;
   else if (inH && k === 2) obj = 'Third floor. Turn right at the top of the stairs. He is in the bedroom';
   else if (inH && k === 1) obj = ZD.breaches.find(b => b.name === 'stair gate').done ? 'Second floor. The stairs to his floor go up beside the ones you came up' : 'Second floor. The stairs to his floor are right beside the ones you came up, behind a locked metal door: blow it';
   else if (inH) obj = ZD.breaches.find(b => b.name === 'lower stair gate').done ? 'Ground floor. Up the stairs at the back of the house' : 'Ground floor. Clear the rooms. The stairs are at the back of the house (east side of the hall), behind a locked gate';
@@ -738,16 +917,16 @@ function zUpdate(dt) {
 const WAVE = { n: 0, t: ZD30 ? 25 : 45 };
 function coopUpdate(dt) {
   if (!started || gameOver || (net.active && !net.isHost)) return;
-  if (ZD30 && !ZD.alarm) return;   // the streets stay quiet until you are spotted
+  if (ZD30 && !ZD.alarm && !ZD.down) return;   // the streets stay quiet until you are spotted (or the shooting upstairs is over)
   WAVE.t -= dt; if (WAVE.t > 0) return;
-  WAVE.t = ZD30 ? 55 : 40;
+  WAVE.t = ZD30 ? (ZD.down ? 35 : 60) : 40;
   const held = npcs.filter(n => n.team === 'red' && !n.inactive && !n.alive && n.cw === 'held');
   if (!held.length) return;
   WAVE.n++;
   if (ZD30 && WAVE.n === 1) for (const nm of ['main gate', 'inner gate']) { const b = ZD.breaches.find(q => q.name === nm); if (!b.done) { zOpen(b, false, true); netFx(['zb', ZD.breaches.indexOf(b)]); } }   // they blow their way in
-  const k = Math.min(held.length, ZD30 ? 3 + WAVE.n * 2 : 8 + WAVE.n * 3);
+  const k = Math.min(held.length, ZD30 ? 1 + Math.floor(Math.random() * (WAVE.n > 2 ? 3 : 2)) : 8 + WAVE.n * 3);   // on the raid: one or two at a time, never a flood
   for (let i = 0; i < k; i++) { held[i].cw = 'go'; held[i].respawnT = rand(0.2, 4); }
-  const msg = ZD30 ? `WAVE ${WAVE.n}: ${k} fighters coming in from the streets!` : `WAVE ${WAVE.n}: ${k} enemy soldiers counter-attacking!`;
+  const msg = ZD30 ? (k === 1 ? 'Radio: an armed man is moving in from the street. Watch the crowd' : `Radio: ${k} armed men among the crowd, coming your way`) : `WAVE ${WAVE.n}: ${k} enemy soldiers counter-attacking!`;
   showMessage(msg, 4); netFx(['zw', msg]);
 }
 // street fighters find their way in: through the main gate, across the driveway, through the inner gate, to the front door
@@ -823,6 +1002,7 @@ function installCoopHooks() {
     if (ZD30 && n.team === 'red' && !n.zPost) {   // a street fighter: head for the nearest of the team
       const L = zBlueLeader(n) || player;
       if (L) { n.goal = zFighterGoal(n, L); n.goalT = 30; n.goalPoint = n.goalPoint || points[0]; }
+      if (n.target && n.pos.distanceTo(n.target.pos) > 32) { n.target = null; n.tgtVisible = false; }   // gun held low, walking with the crowd, until he is close
     }
     if (ZD30 && n.team === 'blue' && !ZD.alarm && n.target && n.target.zPost && !n.target.zAware) { n.target = null; n.tgtVisible = false; }   // weapons tight until you are spotted
     if (ZD30 && n.team === 'blue') {
@@ -851,9 +1031,16 @@ function installCoopHooks() {
     if (ZD30 && c.zPost) { const P = c.zPost; c.pos.set(P.x, P.y, P.z); c.heading = P.face; c.zPi = 0; c.lastPos && c.lastPos.copy(c.pos); }
   };
   if (ZD30) {
-    const ia = interact; interact = function () { if (ZD.near && !player.vehicle && !player.gv) { zPlaceCharge(ZD.near, true); return; } return ia.apply(this, arguments); };
-    const rh = rayHit; rayHit = function (o, d, m, team, opts) { return zTargetRay(o, d, m, team, rh(o, d, m, team, opts)); };   // (the families are never hit: bullets pass them by)
-    const ah = applyHit; applyHit = function (hit, d, wpn, shooter) { if (hit && hit.zdCiv) { if (shooter === player) zCivHit(hit.zdCiv); return false; } if (hit && hit.zdTarget) { if (shooter && (shooter === player || shooter.isPlayer)) zTargetDown(player.name); return false; } return ah.apply(this, arguments); };
+    const ia = interact; interact = function () {
+      if (!player.vehicle && !player.gv && player.alive) {
+        if (ZD.bag && ZD.bag.carrier === player) { zBagDrop(); showMessage('Body down. Fight!', 1.5); return; }
+        if (ZD.down && !ZD.exfil && (!ZD.bag || !ZD.bag.carrier) && zNearBag(player)) { zBagGrab(player); return; }
+        if (ZD.near) { zPlaceCharge(ZD.near, true); return; }
+      }
+      return ia.apply(this, arguments);
+    };
+    const rh = rayHit; rayHit = function (o, d, m, team, opts) { return zVillRay(o, d, m, team, zDoorRay(o, d, m, zTargetRay(o, d, m, team, rh(o, d, m, team, opts)))); };   // (the families are never hit: bullets pass them by)
+    const ah = applyHit; applyHit = function (hit, d, wpn, shooter) { if (hit && hit.zdDoor) { zDoorHit(hit.zdDoor, hit, wpn); return true; } if (hit && hit.zdVill) { zVillHit(hit.zdVill, shooter || player); return false; } if (hit && hit.zdCiv) { if (shooter === player) zCivHit(hit.zdCiv); return false; } if (hit && hit.zdTarget) { if (shooter && (shooter === player || shooter.isPlayer)) zTargetDown(player.name); return false; } return ah.apply(this, arguments); };
     const fw = fireWeapon;
     fireWeapon = function () { const w = curW(), r = fw.apply(this, arguments); if (w && w.type === 'hit' && w.sfx !== 'supp') ZD.noise = (ZD.noise || 0) + 0.25; if (w && w.type === 'hit') zNoise(player.pos, w.sfx === 'supp' ? 4.5 : 45, w.sfx === 'supp' ? 0.35 : 2.2); return r; };
     const ex = explosion;
@@ -873,7 +1060,7 @@ function installCoopHooks() {
       if (net.active && !net.isHost) return;
       let humans = 1; if (net.remotes) humans += net.remotes.size;
       const cap = net.active ? Math.min(40, TEAM_POOL) : TEAM_POOL;
-      const want = { blue: clamp(6 - humans, 2, 6), red: Math.min(cap, ZD.posts.length + (net.active ? 14 : 34)) };
+      const want = { blue: clamp(6 - humans, 2, 6), red: Math.min(cap, ZD.posts.length + (net.active ? 6 : 9)) };
       for (const t of TEAMS) npcs.filter(n => n.team === t).forEach((n, i) => {
         if (i < want[t] && n.inactive) { n.inactive = false; n.alive = false; n.respawnT = initial ? 0 : 1; }
         if (i >= want[t] && !n.inactive) { n.inactive = true; n.alive = false; n.model.root.visible = false; }
@@ -890,6 +1077,8 @@ function installCoopHooks() {
     if (k === 'zb') { const b = ZD.breaches[e[2]]; if (b) zOpen(b, true); return; }
     if (k === 'zc') { const b = ZD.breaches[e[2]]; if (b) zPlaceCharge(b, false); return; }
     if (k === 'zk') { zTargetDown(e[2], true); return; }
+    if (k === 'zg') { if (!ZD.down) zTargetDown('The team', true); if (ZD.bag && ZD.bag.carrier === player) zBagDrop(true); zBagGrab(src, true); return; }
+    if (k === 'zd') { zBagMake(); zBagDrop(true, e[2], e[3], e[4]); return; }
     if (k === 'zw') { showMessage(e[2], 4); return; }
     if (k === 'za') { if (e[2] && !ZD.alarm) ZD.noise = (ZD.noise || 0) + 6; ZD.alarm = !!e[2]; if (ZD.alarm) showMessage('COMPROMISED! They know you are here', 3); else showMessage('Quiet again. They lost you', 3); return; }
     return af.apply(this, arguments);
@@ -902,6 +1091,7 @@ function installCoopHooks() {
 function buildZD30() {
   if (!ZD30 || ZD.built) return; ZD.built = true;
   ZC.gy = heightAt(0, 0); ZC.fb = ZC.gy + 0.3;
+  renderer.shadowMap.enabled = false; sunLight.castShadow = false;   // a moonless night: no shadows to see, and drawing them doubled the work
   zBuildCompound(); zBuildCrash(); zBuildTarget(); zBuildTown(); zBuildSky(); zBuildLights(); zArmTeam(); zFakeDoor(); zPlaceFamilies();
   ZD.posts = zPosts();
   zApplyLight();
@@ -990,7 +1180,7 @@ function zArmTeam() {
     for (const ang of [0, 0.14, -0.14]) {
       const d = aimDir(0); d.applyAxisAngle(new THREE.Vector3(0, 1, 0), ang);
       const hit = rayHit(camera.position, d, w.range, player.team);
-      if (hit && (hit.char || hit.zdTarget || hit.zdCiv)) { if (applyHit(hit, d, w, player)) { showHitmarker(false); SFX.hit(); } return; }
+      if (hit && (hit.char || hit.zdTarget || hit.zdCiv || hit.zdDoor || hit.zdVill)) { if (applyHit(hit, d, w, player)) { showHitmarker(false); SFX.hit(); } return; }
     }
   };
   // the team's own rifles are suppressed too (the computer soldiers on blue)
@@ -1012,7 +1202,13 @@ function zBuildLights() {
   ZD.dot = new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 4), new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false })); ZD.dot.visible = false; scene.add(ZD.dot);
 }
 const _zf = new THREE.Vector3(), _zr = new THREE.Vector3();
+function zLampsUpdate() {
+  if (!ZD.lampSpots || simTime - (ZD.lampT || -9) < 0.5) return; ZD.lampT = simTime;
+  const near = ZD.lampSpots.slice().sort((a, b) => a.distanceToSquared(player.pos) - b.distanceToSquared(player.pos));
+  ZD.houseLights.forEach((L, i) => { if (near[i]) L.position.copy(near[i]); });
+}
 function zLightsUpdate() {
+  zLampsUpdate();
   if (!ZD.ir) return;
   const on = started && player.alive && !player.vehicle && !player.gv;
   ZD.ir.intensity = on && ZD.nvg ? 1.5 : 0; ZD.ir.position.copy(camera.position);
@@ -1169,24 +1365,44 @@ if (ZD30) { const mc = makeCharacter; makeCharacter = function (team, role) { re
 // ---------- the families: women and children who live in the houses. They can't be hurt. ----------
 // Shooting at them (or near them, with the knife) costs you money and points; they crouch down and cover their heads.
 const ZCIV = [];
-function zCivModel(kind, crouch) {
-  const P = new Part(), child = kind === 'child', S = child ? 0.62 : 1;
-  const skin = parseInt(pick(ZLOCAL.skins).slice(1), 16), cloth = kind === 'man' ? pick([0xe8e4d8, 0xd8d0c0, 0x9a958a, 0x6a6458, 0x8a7a64, 0x3a3c40]) : pick(child ? [0x3a7ab8, 0xc84a4a, 0x5aa05a, 0xd8a038, 0x8a5ab0] : [0x6a3a4a, 0x2e4a6a, 0x5a4a3a, 0x7a6a8a, 0x3a5a4a]), scarf = pick([0x2a2a2e, 0xd8d2c8, 0x5a3a5a, 0x3a4a5a]);
-  const hairC = 0x1a1410;
-  if (!crouch) {
-    for (const sd of [-1, 1]) { P.cyl(0.1, 0.08, 0.6, cloth, 0.11 * sd, 0.32, 0, 0, 0, 0, 1, 8); P.box(0.12, 0.06, 0.22, 0x3a2a20, 0.11 * sd, 0.03, 0.04); }
-    P.cyl(0.26, 0.32, 0.7, cloth, 0, 0.82, 0, 0, 0, 0, 0.7, 12); P.cyl(0.24, 0.26, 0.55, cloth, 0, 1.4, 0, 0, 0, 0, 0.62, 12);
-    for (const sd of [-1, 1]) { P.cyl(0.07, 0.065, 0.6, cloth, 0.3 * sd, 1.4, 0.04, 0.2, 0, 0.1 * sd, 1, 8); P.ball(0.055, skin, 0.3 * sd, 1.1, 0.12); }
-    P.add(new THREE.SphereGeometry(0.15, 12, 10), skin, 0, 1.86, 0.01, 0, 0, 0, 0.92, 1.12, 1.0);
-    for (const sd of [-1, 1]) { P.box(0.035, 0.02, 0.012, 0xf0ece4, 0.05 * sd, 1.89, 0.14); P.box(0.018, 0.02, 0.014, 0x1b1410, 0.05 * sd, 1.89, 0.144); }
-    if (child) P.dome(0.155, hairC, 0, 1.9, -0.01, 1, 0.9, 1);
-    else if (kind === 'man') { P.dome(0.16, pick([0xf2f0ea, 0xb8a888, 0x1a1612]), 0, 1.93, -0.01, 1, 0.6, 1); P.add(new THREE.SphereGeometry(0.12, 10, 8), pick([0x1a1612, 0x3a3430, 0x6a6660]), 0, 1.76, 0.06, 0, 0, 0, 0.95, 1.2, 0.8); }
-    else { P.dome(0.19, scarf, 0, 1.88, -0.02, 1, 1.05, 1.05); P.box(0.4, 0.6, 0.1, scarf, 0, 1.55, -0.17); P.box(0.12, 0.5, 0.06, scarf, 0.18, 1.5, 0.12, 0, 0, 0.15); }   // dupatta over the head and shoulders
-  } else {   // crouched down low, arms over the head
-    P.cyl(0.3, 0.34, 0.45, cloth, 0, 0.3, 0, 0, 0, 0, 0.75, 12); P.cyl(0.25, 0.28, 0.45, cloth, 0, 0.7, 0.08, 0.5, 0, 0, 0.62, 12);
-    P.add(new THREE.SphereGeometry(0.15, 12, 10), skin, 0, 0.98, 0.22, 0, 0, 0, 0.92, 1.12, 1.0);
-    if (child) P.dome(0.155, hairC, 0, 1.02, 0.21, 1, 0.9, 1); else { P.dome(0.19, scarf, 0, 1.0, 0.2, 1, 1.05, 1.05); P.box(0.42, 0.4, 0.1, scarf, 0, 0.8, 0.0, 0.5); }
-    for (const sd of [-1, 1]) { P.cyl(0.065, 0.06, 0.4, cloth, 0.17 * sd, 1.0, 0.25, -0.6, 0, 1.0 * sd, 1, 8); P.ball(0.055, skin, 0.06 * sd, 1.14, 0.25); }
+function zCivModel(kind) {
+  // proportions by age: a child has a larger head for its height, shorter legs; adults wear the full-length kameez
+  const P = new Part(), child = kind === 'child', man = kind === 'man', S = child ? 0.6 : 1;
+  const skin = parseInt(pick(ZLOCAL.skins).slice(1), 16), hairC = pick([0x1a1410, 0x241a14, 0x2e2018]);
+  const cloth = man ? pick([0xe8e4d8, 0xd8d0c0, 0x9a958a, 0x6a6458, 0x8a7a64, 0x3a3c40]) : child ? pick([0x3a7ab8, 0xc84a4a, 0x5aa05a, 0xd8a038, 0x8a5ab0, 0xe07a9a]) : pick([0x6a3a4a, 0x2e4a6a, 0x5a4a3a, 0x7a6a8a, 0x3a5a4a, 0x8a3a3a, 0x2a2a2e]);
+  const trim = pick([0xd8b860, 0xe8e0d0, 0xb84a4a, 0x4a6ab8]), trou = man ? cloth : pick([0xe8e4d8, cloth, 0x2a2a2e]), scarf = pick([0x2a2a2e, 0xd8d2c8, 0x5a3a5a, 0x3a4a5a, 0x7a5a3a]);
+  const legH = child ? 0.55 : 0.8, hip = legH + 0.05, torso = child ? 0.45 : 0.58, neck = hip + torso, headR = child ? 0.15 / S * 0.6 + 0.1 : 0.125;
+  for (const sd of [-1, 1]) {
+    P.cyl(0.09, 0.075, legH, trou, 0.1 * sd, legH / 2 + 0.04, 0, 0, 0, 0, 1, 8);                       // shalwar trousers, gathered at the ankle
+    P.box(0.1, 0.05, 0.22, pick([0x3a2a20, 0x6a4a30, 0x8a2a2a]), 0.1 * sd, 0.025, 0.04);                 // sandals
+    P.ball(0.045, skin, 0.1 * sd, 0.07, 0.1);
+  }
+  const kLen = man || !child ? legH * 0.85 : legH * 0.6;   // the kameez reaches past the knee
+  P.cyl(0.22, 0.27, kLen, cloth, 0, hip - kLen / 2 + 0.04, 0, 0, 0, 0, 0.72, 14);
+  P.cyl(0.2, 0.22, torso, cloth, 0, hip + torso / 2, 0, 0, 0, 0, 0.66, 14);
+  P.cyl(0.11, 0.12, 0.035, trim, 0, neck - 0.03, 0.02, 0, 0, 0, 0.75, 12); P.box(0.03, torso * 0.25, 0.012, trim, 0, neck - torso * 0.15, 0.155);   // embroidered round neck and a short slit
+  P.cyl(0.272, 0.272, 0.04, trim, 0, hip - kLen + 0.07, 0, 0, 0, 0, 0.72, 14);                        // embroidered hem
+  for (const sd of [-1, 1]) {
+    P.cyl(0.06, 0.055, torso + 0.05, cloth, (0.24) * sd, hip + torso * 0.5, 0.02, 0.15, 0, 0.12 * sd, 1, 8);   // sleeves
+    P.ball(0.045, skin, 0.26 * sd, hip + 0.04, 0.08);                                                // hands
+  }
+  P.cyl(0.05, 0.055, 0.07, skin, 0, neck + 0.03, 0, 0, 0, 0, 1, 8);
+  const hy = neck + 0.07 + headR;
+  P.add(new THREE.SphereGeometry(headR, 14, 11), skin, 0, hy, 0.01, 0, 0, 0, 0.9, 1.1, 0.98);
+  for (const sd of [-1, 1]) {
+    P.box(headR * 0.28, headR * 0.13, 0.01, 0xf0ece4, headR * 0.36 * sd, hy + headR * 0.15, headR * 0.92); P.box(headR * 0.13, headR * 0.13, 0.012, 0x1b1410, headR * 0.34 * sd, hy + headR * 0.15, headR * 0.94);   // eyes
+    P.box(headR * 0.34, headR * 0.06, 0.012, hairC, headR * 0.36 * sd, hy + headR * 0.36, headR * 0.9, 0, 0, 0.1 * sd);   // brows
+  }
+  P.box(headR * 0.16, headR * 0.34, headR * 0.2, skin, 0, hy - headR * 0.02, headR * 0.98);           // nose
+  P.box(headR * 0.36, headR * 0.06, 0.01, 0x9a5a4a, 0, hy - headR * 0.4, headR * 0.92);               // mouth
+  if (man) { P.dome(headR * 1.08, pick([0xf2f0ea, 0xb8a888, 0x1a1612]), 0, hy + headR * 0.25, -0.01, 1, 0.6, 1); P.add(new THREE.SphereGeometry(headR * 0.85, 10, 8), pick([0x1a1612, 0x3a3430, 0x6a6660]), 0, hy - headR * 0.6, headR * 0.35, 0, 0, 0, 0.95, 1.15, 0.8); P.cyl(0.21, 0.22, torso * 0.9, pick([0x2c2c2e, 0x3e3428, cloth]), 0, hip + torso * 0.5, 0, 0, 0, 0, 0.7, 12); }   // cap, beard, waistcoat
+  else if (child) { P.dome(headR * 1.04, hairC, 0, hy + headR * 0.1, -0.02, 1, 0.95, 1); if (Math.random() < 0.5) { P.dome(headR * 1.1, scarf, 0, hy + headR * 0.08, -0.02, 1, 1.0, 1); } }
+  else {   // a dupatta over the hair, wrapped round the shoulders and hanging down the back
+    P.dome(headR * 1.16, scarf, 0, hy + headR * 0.02, -0.035, 1, 1.05, 1.0);                          // over the hair, the face left open
+    P.add(new THREE.SphereGeometry(headR * 1.12, 12, 8), scarf, 0, hy - headR * 0.1, -0.06, 0, 0, 0, 1, 1.05, 0.85);   // falling round the back of the head
+    P.cyl(0.13, 0.25, 0.14, scarf, 0, neck - 0.02, -0.01, 0, 0, 0, 0.8, 14);                            // over the shoulders
+    P.box(0.36, torso * 1.1, 0.04, scarf, 0, hip + torso * 0.5, -0.17, 0.06, 0, 0);                      // down the back
+    P.box(0.09, torso * 0.9, 0.04, scarf, 0.15, hip + torso * 0.45, 0.16, -0.06, 0, 0.1);
   }
   const m = new THREE.Mesh(P.build(), VEH_MAT); m.scale.setScalar(S); m.castShadow = true; return m;
 }
@@ -1197,7 +1413,7 @@ function zPlaceFamilies() {
     [2, 6, 14, 'woman'], [2, 10, 16, 'child'], [2, 16, 14, 'child'],
   ];
   const add = (x, y, z, kind) => {
-    const g = new THREE.Group(), up = zCivModel(kind, false); g.add(up);
+    const g = new THREE.Group(), up = zCivModel(kind); g.add(up);
     g.position.set(x, y, z); g.rotation.y = rand(0, 6.28); scene.add(g);
     ZCIV.push({ g, up, kind, pos: g.position, home: g.position.clone(), s: kind === 'child' ? 0.62 : 1, scaredT: 0, goal: null, ph: rand(0, 6) });
   };
@@ -1266,19 +1482,20 @@ function zCivUpdate(dt) {
 const ZVILL = [];
 function zVillagerSpot() {   // a place just outside the walls, on a line out from the middle of the compound
   for (let k = 0; k < 20; k++) {
-    const a = rand(0, 6.28), dx = Math.cos(a), dz = Math.sin(a); let r = 5;
+    const north = ZD.down && Math.random() < 0.65, a = north ? rand(3.7, 5.7) : rand(0, 6.28), dx = Math.cos(a), dz = Math.sin(a); let r = 5;   // after the shooting, many come out on the north side, where the helicopter waits
     while (r < 120 && zInPoly(dx * r, dz * r)) r += 2;
-    const x = dx * (r + rand(5, 13)), z = dz * (r + rand(5, 13));
+    const out = north ? rand(5, 40) : rand(5, 13), x = dx * (r + out) + rand(-6, 6), z = dz * (r + out);
+    if (Math.hypot(x - ZC.lz.x, z - ZC.lz.z) < 14) continue;   // not on the landing zone itself
     if (Math.abs(x) < EDGE - 10 && Math.abs(z) < EDGE - 10 && !blockedAt(x, z, heightAt(x, z))) return { x, z, a };
   }
   return null;
 }
 function zVillageUpdate(dt) {
-  const want = Math.min(LITE ? 16 : 28, Math.floor((ZD.noise || 0) * 1.6));
+  const want = Math.min(LITE ? 18 : 34, Math.floor((ZD.noise || 0) * 1.6) + (ZD.down ? 14 : 4));
   if (ZVILL.length < want && Math.random() < dt * 2) {
     const S = zVillagerSpot();
     if (S) {
-      const kind = Math.random() < 0.8 ? 'man' : 'child', g = new THREE.Group(), m = zCivModel(kind, false); g.add(m);
+      const kind = Math.random() < 0.85 ? 'man' : 'child', g = new THREE.Group(), m = zCivModel(kind); g.add(m);
       const from = { x: S.x + Math.cos(S.a) * rand(40, 70), z: S.z + Math.sin(S.a) * rand(40, 70) };
       g.position.set(from.x, heightAt(from.x, from.z), from.z); scene.add(g);
       if (Math.random() < 0.3) { const ph = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.12, 0.02), new THREE.MeshBasicMaterial({ color: 0xbfe0ff })); ph.position.set(0.18, 1.45, 0.25); m.add(ph); }   // a phone held up
@@ -1287,8 +1504,27 @@ function zVillageUpdate(dt) {
     }
   }
   for (const v of ZVILL) {
+    if (v.flee > 0) { v.flee -= dt; if (v.flee <= 0) v.goal = zVillagerSpot() || v.goal; }
     const p = v.g.position, dx = v.goal.x - p.x, dz = v.goal.z - p.z, d = Math.hypot(dx, dz);
     if (d > 0.6) { p.x += dx / d * v.sp * dt; p.z += dz / d * v.sp * dt; p.y = heightAt(p.x, p.z); v.g.rotation.y = Math.atan2(dx, dz); v.ph += dt * 10; v.m.position.y = Math.abs(Math.sin(v.ph)) * 0.05; }
     else { v.g.rotation.y = Math.atan2(-p.x, -p.z); v.m.position.y = 0; }   // watching the compound
   }
+}
+function zVillRay(o, d, maxD, team, best) {
+  if (team !== 'blue') return best;
+  for (const v of ZVILL) {
+    const p = v.g.position; if (Math.abs(p.x - o.x) > maxD + 2 || Math.abs(p.z - o.z) > maxD + 2) continue;
+    const t = raySphere(o, d, _zdC.set(p.x, p.y + 1.15, p.z), 0.42);
+    if (t !== null && t < (best ? best.dist : maxD)) best = { dist: t, point: o.clone().addScaledVector(d, t), zdVill: v };
+  }
+  return best;
+}
+function zVillHit(v, shooter) {   // they are not hurt: they scatter. But it costs you
+  v.flee = 6; const p = v.g.position, a = Math.atan2(p.z - shooter.pos.z, p.x - shooter.pos.x);
+  v.goal = { x: p.x + Math.cos(a) * 30, z: p.z + Math.sin(a) * 30 }; v.sp = 3.6;
+  for (const u of ZVILL) if (u !== v && u.g.position.distanceTo(p) < 9) { u.flee = 5; const b = Math.atan2(u.g.position.z - p.z, u.g.position.x - p.x); u.goal = { x: u.g.position.x + Math.cos(b) * 25, z: u.g.position.z + Math.sin(b) * 25 }; u.sp = 3.4; }
+  if (shooter !== player || simTime - (v.hitT || -9) < 1.5) return; v.hitT = simTime;
+  player.money = Math.max(0, player.money - 250); player.kills = Math.max(0, player.kills - 1); teamKills.blue = Math.max(0, teamKills.blue - 1);
+  showMessage('HOLD FIRE! He was unarmed. -$250 and -1 point', 2.5);
+  if (typeof SFX !== 'undefined' && SFX.lose) SFX.lose(0.6);
 }
