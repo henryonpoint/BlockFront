@@ -127,7 +127,7 @@ function zOpen(b, ghost, byEnemy) {
   const p = new THREE.Vector3(b.x, b.y + 1.2, b.z);
   explosion(p, 4.5, 8, byEnemy ? null : (player.team === 'blue' ? player : null), byEnemy ? 0 : 90, !!ghost || !!byEnemy);
   for (let i = 0; i < 6; i++) smokePuff(p.clone().add(new THREE.Vector3(rand(-1.5, 1.5), rand(-0.5, 1.5), rand(-1.5, 1.5))), 0x8a8478, rand(1, 2), 3, 0.6);
-  ZD.blown++;
+  ZD.blown++; zNoise(p, 18, 1.8);
   if (byEnemy) showMessage(`Fighters blew the ${b.name}! They are coming in`, 4); else if (b.msg) showMessage(b.msg, 3);
 }
 // barbed wire along the top of a wall
@@ -349,18 +349,81 @@ function zPosts() {
   O(-36, -34, [[-36, -34], [36, -34]]); O(44, -25, [[44, -25], [44, 25]]);           // the lanes outside the walls
   return P;
 }
+// ---------- stealth: guards have to notice you first ----------
+// A guard who hasn't noticed you builds up suspicion while you are in front of him and in sight: faster when you
+// are close, moving or using the white weapon light, slower when you crouch, almost none from behind. Noise adds
+// to it too: suppressed shots barely, loud guns and explosions a lot. Full suspicion and he raises the alarm:
+// the whole compound wakes up and fighters start coming from the streets. Lose them for a while and it calms down.
+function zMovingFast(c) { return c.vel && (c.vel.x * c.vel.x + c.vel.z * c.vel.z) > 6; }
+function zCrouched(c) { return c.isPlayer ? !!player.crouch : !!c.crouch; }
+function zAlert(n, by, quiet) {
+  if (!n.alive || n.zAware) return;
+  n.zAware = true; n.zSus = 1; n.zBangT = simTime; n.alertedBy = by || n.alertedBy;
+  n.fireT = Math.max(n.fireT || 0, rand(0.35, 0.75) * DIFF().react);
+  if (quiet) return;
+  for (const o of npcs) if (o !== n && o.alive && o.zPost && !o.zAware && o.pos.distanceTo(n.pos) < 16 && Math.abs(o.pos.y - n.pos.y) < 2.5) { o.zSus = Math.max(o.zSus || 0, 0.7); o.zNoiseAt = n.pos.clone(); }   // his shout
+  zRaiseAlarm();
+}
+function zRaiseAlarm() {
+  ZD.lastSeenT = simTime;
+  if (ZD.alarm) return;
+  ZD.alarm = true; showMessage('COMPROMISED! They know you are here. Fighters will come from the streets', 4);
+  if (typeof SFX !== 'undefined' && SFX.lose) SFX.lose(0.5);
+  WAVE.t = Math.min(WAVE.t, 25); netFx(['za', 1]);
+}
+function zNoise(pos, r, amount) {
+  if (net.active && !net.isHost) return;
+  for (const n of npcs) {
+    if (!n.alive || !n.zPost || n.zAware) continue;
+    const dy = Math.abs(n.pos.y - pos.y), rr = dy > 2.5 ? r * 0.45 : r, d = n.pos.distanceTo(pos);
+    if (d > rr) continue;
+    n.zSus = (n.zSus || 0) + amount * (1 - d / rr); n.zNoiseAt = pos.clone();
+    if (n.zSus >= 1) zAlert(n, null);
+  }
+}
 function zGuardThink(n) {
-  let best = null, bd = 60;
-  const eye = n.eye();
+  const dt = Math.min(0.6, simTime - (n.zLastThink || simTime)); n.zLastThink = simTime;
+  let best = null, bd = 60, gain = 0, from = null;
+  const eye = n.eye(), indoor = n.zPost.floor >= 0;
   for (const c of chars) {
     if (!c.alive || c.team === n.team || c.vehicle || c.inactive) continue;
-    const d = c.pos.distanceTo(n.pos); if (d > bd) continue;
-    if (Math.abs(c.pos.y - n.pos.y) > 3.2 && d < 20 && n.zPost.floor >= 0) continue;   // a different floor of the house
-    if (los(eye, c.chest())) { best = c; bd = d; }
+    const d = c.pos.distanceTo(n.pos); if (d > 60) continue;
+    if (Math.abs(c.pos.y - n.pos.y) > 3.2 && d < 20 && indoor) continue;   // a different floor of the house
+    if (n.zAware) { if (d < bd && los(eye, c.chest())) { best = c; bd = d; } continue; }
+    let R = indoor ? 15 : 28;
+    if (zCrouched(c)) R *= 0.6;
+    if (c.isPlayer && ZD30 && !ZD.nvg) R *= 1.45;          // the white light gives you away
+    if (!c.isPlayer && !c.isRemote) R *= 0.7;               // the team moves quietly
+    if (ZD.alarm) R *= 1.4;
+    if (d > R || !los(eye, c.chest())) continue;
+    const ang = Math.abs(wrapAngle(Math.atan2(c.pos.x - n.pos.x, c.pos.z - n.pos.z) - n.heading));
+    let g = 0;
+    if (ang < 0.85) g = 0.45 + 2.4 * (1 - d / R);           // in front of him
+    else if (ang < 1.6) g = 0.3 * (1 - d / R);              // the corner of his eye
+    else if (d < 2.6 && zMovingFast(c)) g = 0.6;            // he hears you right behind him
+    if (zMovingFast(c)) g *= 1.3;
+    if (ZD.alarm) g *= 2.5;
+    if (g > gain) { gain = g; from = c; }
   }
-  if (best && best !== n.prevTgt && (best.isPlayer || best.isRemote)) n.fireT = Math.max(n.fireT, rand(0.5, 0.95) * DIFF().react);   // a moment to react
-  n.prevTgt = best; n.target = best; n.tgtVisible = !!best;
-  if (best) for (const o of npcs) if (o !== n && o.alive && o.zPost && !o.target && o.pos.distanceTo(n.pos) < 14 && Math.abs(o.pos.y - n.pos.y) < 2) o.alertedBy = best;
+  if (n.zAware) {
+    if (best && best !== n.prevTgt && (best.isPlayer || best.isRemote)) n.fireT = Math.max(n.fireT, rand(0.4, 0.8) * DIFF().react);
+    n.prevTgt = best; n.target = best; n.tgtVisible = !!best;
+    if (best) { ZD.lastSeenT = simTime; for (const o of npcs) if (o !== n && o.alive && o.zPost && o.pos.distanceTo(n.pos) < 14 && Math.abs(o.pos.y - n.pos.y) < 2) { if (!o.zAware) zAlert(o, best, true); else if (!o.target) o.alertedBy = best; } }
+    return;
+  }
+  n.target = null; n.tgtVisible = false;
+  if (gain > 0) { n.zSus = (n.zSus || 0) + gain * dt; n.zSusFrom = from; n.zNoiseAt = from.pos.clone(); }
+  else n.zSus = Math.max(0, (n.zSus || 0) - 0.12 * dt);
+  if (n.zSus >= 1) zAlert(n, from);
+}
+// the "?" and "!" over a guard's head
+let _zMarkTex = null;
+function zMark(n) {
+  if (!_zMarkTex) _zMarkTex = ['?', '!'].map((ch, i) => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'); g.font = 'bold 52px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineWidth = 6; g.strokeStyle = '#000'; g.strokeText(ch, 32, 34); g.fillStyle = i ? '#ff4030' : '#ffd23a'; g.fillText(ch, 32, 34); const t = new THREE.CanvasTexture(c); return t; });
+  if (!n.zSpr) { n.zSpr = new THREE.Sprite(new THREE.SpriteMaterial({ map: _zMarkTex[0], depthTest: false, transparent: true })); n.zSpr.scale.set(0.5, 0.5, 1); n.zSpr.renderOrder = 12; scene.add(n.zSpr); }
+  const bang = n.zAware && simTime - (n.zBangT || 0) < 3, sus = !n.zAware && (n.zSus || 0) > 0.2;
+  n.zSpr.visible = n.alive && (bang || sus);
+  if (n.zSpr.visible) { n.zSpr.material.map = _zMarkTex[bang ? 1 : 0]; n.zSpr.material.opacity = bang ? 1 : clamp(n.zSus * 1.3, 0.35, 1); n.zSpr.position.set(n.pos.x, n.pos.y + 2.45, n.pos.z); }
 }
 function zGuard(n, dt) {
   const S = ROLE_STATS[n.role] || ROLE_STATS.rifle, P = n.zPost;
@@ -368,22 +431,25 @@ function zGuard(n, dt) {
   if (n.target && !n.target.alive) { n.target = null; n.tgtVisible = false; }
   const tgt = n.tgtVisible ? n.target : null;
   let moving = false, mx = 0, mz = 0, speed = 1.7;
-  if (!tgt && P.patrol && !n.alertedBy) {
+  const sus = !n.zAware && (n.zSus || 0) > 0.3;
+  if (!tgt && P.patrol && !n.alertedBy && !sus) {
     n.zPi = n.zPi || 0; const w = P.patrol[n.zPi], dx = w.x - n.pos.x, dz = w.z - n.pos.z, d = Math.hypot(dx, dz);
     if (d < 0.8) n.zPi = (n.zPi + 1) % P.patrol.length;
     else { mx = dx / d; mz = dz / d; const nx = n.pos.x + mx * speed * dt, nz = n.pos.z + mz * speed * dt; if (!blockedAt(nx, nz, n.pos.y)) { n.pos.x = nx; n.pos.z = nz; moving = true; } else n.zPi = (n.zPi + 1) % P.patrol.length; }
   } else if (!P.patrol) { n.pos.x += (P.x - n.pos.x) * Math.min(1, dt * 2); n.pos.z += (P.z - n.pos.z) * Math.min(1, dt * 2); }
   const floor = pushOut(n.pos, 0.4, n.pos.y); n.pos.y = lerp(n.pos.y, floor, Math.min(1, dt * 12)); if (Math.abs(n.pos.y - floor) > 2) n.pos.y = floor;
   let face = P.face + Math.sin(simTime * 0.35 + n.npcIdx) * 0.9;   // looking about
+  if (sus && n.zNoiseAt) face = Math.atan2(n.zNoiseAt.x - n.pos.x, n.zNoiseAt.z - n.pos.z);   // what was that?
   if (tgt) face = Math.atan2(tgt.pos.x - n.pos.x, tgt.pos.z - n.pos.z);
-  else if (n.alertedBy && n.alertedBy.alive) { face = Math.atan2(n.alertedBy.pos.x - n.pos.x, n.alertedBy.pos.z - n.pos.z); if ((n.alertT = (n.alertT || 0) + dt) > 8) { n.alertedBy = null; n.alertT = 0; } }
+  else if (n.zAware && n.alertedBy && n.alertedBy.alive) { face = Math.atan2(n.alertedBy.pos.x - n.pos.x, n.alertedBy.pos.z - n.pos.z); if ((n.alertT = (n.alertT || 0) + dt) > 8) { n.alertedBy = null; n.alertT = 0; } }
   else if (moving) face = Math.atan2(mx, mz);
   n.heading += wrapAngle(face - n.heading) * Math.min(1, dt * 7);
   n.moving = moving;
   if (n.crouchT === undefined || (n.crouchT -= dt) <= 0) { n.crouchT = rand(2, 5); n.wantCrouch = Math.random() < 0.35; }
   n.crouch = !!(tgt && n.wantCrouch && !moving);
-  npcShoot(n, S, dt);
-  animateNPC(n, dt, moving ? speed : 0, !!tgt);
+  if (n.zAware) npcShoot(n, S, dt);
+  animateNPC(n, dt, moving ? speed : 0, !!tgt || (n.zAware && !!n.alertedBy));
+  zMark(n);
 }
 
 // ---------- the target ----------
@@ -495,6 +561,18 @@ function zUpdate(dt) {
   }
   if (ZD.trash && Math.random() < dt * 3) smokePuff(ZD.trash.clone().add(new THREE.Vector3(rand(-0.6, 0.6), 0.3, rand(-0.6, 0.6))), 0x4a4440, rand(0.5, 1), 4, 0.8);
   if (!gameOver) ZD.clock = Math.max(0, ZD.clock - dt);
+  // the alarm dies down once nobody has seen the team for a while; those who were hunting stay jumpy
+  if (ZD.alarm && (!net.active || net.isHost) && simTime - (ZD.lastSeenT || 0) > 40) {
+    ZD.alarm = false; netFx(['za', 0]); showMessage('Quiet again. They lost you... for now', 3);
+    for (const n of npcs) if (n.zPost && n.alive && n.zAware) { n.zAware = false; n.zSus = 0.6; n.target = null; n.tgtVisible = false; n.alertedBy = null; }
+  }
+  // how close they are to spotting you: green, amber, red
+  const susMax = npcs.reduce((m, n) => n.alive && n.zPost && !n.zAware ? Math.max(m, n.zSus || 0) : m, 0);
+  const state = ZD.alarm ? 2 : susMax > 0.45 ? 1 : 0;
+  if (!ZD.edge) { const el = document.createElement('div'); el.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:3;transition:box-shadow .3s'; document.body.appendChild(el); ZD.edge = el; }
+  const pulse = 0.5 + 0.5 * Math.sin(simTime * 6);
+  ZD.edge.style.boxShadow = state === 2 ? `inset 0 0 ${60 + pulse * 50}px rgba(220,30,20,${0.35 + pulse * 0.25})` : state === 1 ? 'inset 0 0 70px rgba(230,170,30,0.28)' : 'none';
+  ZD.stateTxt = state === 2 ? '<span style="color:#ff6a5a">COMPROMISED</span>' : state === 1 ? '<span style="color:#ffd23a">SUSPICIOUS</span>' : '<span style="color:#7dff8a">UNDETECTED</span>';
   if (ZD.clock <= 0 && !gameOver && !ZD.exfil && (!net.active || net.isHost)) { ZD.lost = true; endGame('red'); }
   // objective line
   let obj;
@@ -509,14 +587,15 @@ function zUpdate(dt) {
   const left = chars.filter(c => c.alive && c.team === 'red' && c.pos.x > ZC.x0 - 1 && c.pos.x < ZC.x1 + 1 && c.pos.z > ZC.z0 - 1 && c.pos.z < ZC.z1 + 1).length;   // inside the walls (works online too)
   if (!ZD.hud) { const el = document.createElement('div'); el.id = 'zdHud'; el.className = 'hud'; el.style.cssText = 'position:fixed;left:50%;top:44px;transform:translateX(-50%);color:#e8ffe8;text-align:center;font:600 14px system-ui,sans-serif;text-shadow:0 1px 3px #000;pointer-events:none;max-width:80vw;z-index:4'; document.body.appendChild(el); ZD.hud = el; }
   const mm = Math.floor(ZD.clock / 60), ss = Math.floor(ZD.clock % 60);
-  const html = `<div style="font-size:12px;opacity:.85">OPERATION NEPTUNE SPEAR &nbsp;·&nbsp; Night vision ${ZD.nvg ? 'ON' : 'OFF'} (L) &nbsp;·&nbsp; Pakistani response in ${mm}:${ss < 10 ? '0' : ''}${ss} &nbsp;·&nbsp; Enemies inside the walls: ${left}</div><div>${obj}</div>`;
+  const html = `<div style="font-size:12px;opacity:.85">OPERATION NEPTUNE SPEAR &nbsp;·&nbsp; ${ZD.stateTxt || ''} &nbsp;·&nbsp; Night vision ${ZD.nvg ? 'ON' : 'OFF'} (L) &nbsp;·&nbsp; Pakistani response in ${mm}:${ss < 10 ? '0' : ''}${ss} &nbsp;·&nbsp; Enemies inside the walls: ${left}</div><div>${obj}</div>`;
   if (html !== ZD.hudHtml) { ZD.hud.innerHTML = html; ZD.hudHtml = html; }
 }
 
 // ---------- co-op: everyone on blue, enemy waves, win by taking down the target ----------
-const WAVE = { n: 0, t: ZD30 ? 80 : 45 };
+const WAVE = { n: 0, t: ZD30 ? 25 : 45 };
 function coopUpdate(dt) {
   if (!started || gameOver || (net.active && !net.isHost)) return;
+  if (ZD30 && !ZD.alarm) return;   // the streets stay quiet until you are spotted
   WAVE.t -= dt; if (WAVE.t > 0) return;
   WAVE.t = ZD30 ? 55 : 40;
   const held = npcs.filter(n => n.team === 'red' && !n.inactive && !n.alive && n.cw === 'held');
@@ -593,6 +672,7 @@ function installCoopHooks() {
       const L = zBlueLeader(n) || player;
       if (L) { n.goal = zFighterGoal(n, L); n.goalT = 30; n.goalPoint = n.goalPoint || points[0]; }
     }
+    if (ZD30 && n.team === 'blue' && !ZD.alarm && n.target && n.target.zPost && !n.target.zAware) { n.target = null; n.tgtVisible = false; }   // weapons tight until you are spotted
     if (ZD30 && n.team === 'blue') {
       const L = zBlueLeader(n);
       if (L) { const a = (n.npcIdx % 5) * 1.25, r = 2.5 + (n.npcIdx % 3); n.goal = new THREE.Vector3(L.pos.x + Math.sin(a) * r, 0, L.pos.z + Math.cos(a) * r); n.goalT = 30; }
@@ -618,6 +698,20 @@ function installCoopHooks() {
     const ia = interact; interact = function () { if (ZD.near && !player.vehicle && !player.gv) { zPlaceCharge(ZD.near, true); return; } return ia.apply(this, arguments); };
     const rh = rayHit; rayHit = function (o, d, m, team, opts) { return zCivRay(o, d, m, team, zTargetRay(o, d, m, team, rh(o, d, m, team, opts))); };
     const ah = applyHit; applyHit = function (hit, d, wpn, shooter) { if (hit && hit.zdCiv) { if (shooter === player) zCivHit(hit.zdCiv); return false; } if (hit && hit.zdTarget) { if (shooter && (shooter === player || shooter.isPlayer)) zTargetDown(player.name); return false; } return ah.apply(this, arguments); };
+    const fw = fireWeapon;
+    fireWeapon = function () { const w = curW(), r = fw.apply(this, arguments); if (w && w.type === 'hit') zNoise(player.pos, w.sfx === 'supp' ? 4.5 : 45, w.sfx === 'supp' ? 0.35 : 2.2); return r; };
+    const ex = explosion;
+    explosion = function (pos, radius) { const r = ex.apply(this, arguments); zNoise(pos, Math.max(18, radius * 5), 2); return r; };
+    const dm = damage;
+    damage = function (c, amount, attacker) {
+      if (c && c.zPost && c.alive && attacker && attacker.team === 'blue') {
+        if (!c.zAware) amount *= 5;   // caught unaware: one or two quiet shots, or the knife, drop him
+        const r = dm.apply(this, [c, amount, ...Array.prototype.slice.call(arguments, 2)]);
+        if (c.alive) zAlert(c, attacker); else zNoise(c.pos, 5, 0.45);   // a body falling: only those right beside him hear it
+        return r;
+      }
+      return dm.apply(this, arguments);
+    };
     const bt = balanceTeams;
     balanceTeams = function (initial) {
       if (net.active && !net.isHost) return;
@@ -641,6 +735,7 @@ function installCoopHooks() {
     if (k === 'zc') { const b = ZD.breaches[e[2]]; if (b) zPlaceCharge(b, false); return; }
     if (k === 'zk') { zTargetDown(e[2], true); return; }
     if (k === 'zw') { showMessage(e[2], 4); return; }
+    if (k === 'za') { ZD.alarm = !!e[2]; if (ZD.alarm) showMessage('COMPROMISED! They know you are here', 3); else showMessage('Quiet again. They lost you', 3); return; }
     return af.apply(this, arguments);
   };
   // the team picker: co-op has only one team

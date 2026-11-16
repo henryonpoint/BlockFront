@@ -45,7 +45,7 @@ function startGame() {
   const B = BASES[player.team], s = -teamSide(player.team);
   player.pos.set(B.x + 3, heightAt(B.x + 3, B.z + s * 8), B.z + s * 8);
   player.yaw = teamSide(player.team) > 0 ? 0 : Math.PI;
-  if (ZD30) { showMessage('2 May 2011, Abbottabad. Your helicopter went down inside the walls. Blow your way in, clear the house floor by floor and find the target on the third floor. Families live here: never shoot the women or children. L: night vision', 9); return; }
+  if (ZD30) { showMessage('2 May 2011, Abbottabad. Your helicopter went down inside the walls. Blow your way in, clear the house room by room and find the target on the third floor. Stay unseen: guards who haven\'t spotted you are slow and drop fast. Crouch to stay hidden. Never shoot the women or children. L: night vision', 10); return; }
   if (COOP) { showMessage('Co-op: everyone is on blue. Hold off the enemy waves, find the clues and take down Hitler in his bunker!', 6); return; }
   showMessage(`${WORLD.mode === 'tdm' ? 'First team to ' + tdmTarget() + ' takedowns wins!' : WORLD.mode === 'koth' ? 'Hold point C to win!' : 'Capture all ' + points.length + ' points to win!'} Go ${player.team === 'blue' ? 'Blue' : 'Red'} team!`, 4);
 }
