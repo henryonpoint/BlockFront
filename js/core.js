@@ -4,13 +4,18 @@
 // ---------- which map and game mode this page builds ----------
 // The world is built once when the page loads, so changing the map or mode reloads the page.
 // A join that needs a different map stores what it needs in sessionStorage first ('bf_force').
-const MAPS = { green: 'Green valley', snow: 'Snow mountain', desert: 'Desert', houston: 'Houston city', wake: 'Wake Island', normandy: 'Normandy beach', europe: 'Berlin 1945', dam: 'The Dam', afghan: 'Desert Combat', dogfight: 'Dogfight: old planes', jetfight: 'Dogfight: jets', wwifight: 'Dogfight: WW1 triplanes' };
-const MODES = { conquest: 'Conquest', tdm: 'Team battle', koth: 'King of the hill', four: '4 teams' };
+const MAPS = { green: 'Green valley', snow: 'Snow mountain', desert: 'Desert', houston: 'Houston city', wake: 'Wake Island', normandy: 'Normandy beach', europe: 'Berlin 1945', dam: 'The Dam', afghan: 'Desert Combat', dogfight: 'Dogfight: old planes', jetfight: 'Dogfight: jets', wwifight: 'Dogfight: WW1 triplanes', zd30: 'Zero Dark 30' };
+const MODES = { conquest: 'Conquest', tdm: 'Team battle', koth: 'King of the hill', four: '4 teams', coop: 'Co-op' };
 const WORLD = (() => {
   let w = { map: 'green', mode: 'conquest' };
   try { const b = JSON.parse(localStorage.getItem('bf_battle') || '{}'); if (MAPS[b.map]) w.map = b.map; if (MODES[b.mode]) w.mode = b.mode; } catch (e) { }
   try { const f = JSON.parse(sessionStorage.getItem('bf_force') || 'null'); if (f) { if (MAPS[f.map]) w.map = f.map; if (MODES[f.mode]) w.mode = f.mode; w.force = f; } } catch (e) { }
   if ((w.map === 'wake' || w.map === 'normandy') && w.mode === 'four') w.mode = 'conquest';   // only room for two sides
+  if (w.map === 'zd30') w.mode = 'coop';   // the raid is always a co-op mission
+  else if (w.map === 'europe' && !w.force) {   // Berlin starts out as co-op the first time it is played (an old saved mode is moved over once)
+    try { const b = JSON.parse(localStorage.getItem('bf_battle') || '{}'); if (!b.coopV) { w.mode = 'coop'; b.coopV = 1; b.mode = 'coop'; localStorage.setItem('bf_battle', JSON.stringify(b)); } } catch (e) { }
+  }
+  if (w.mode === 'coop' && w.map !== 'europe' && w.map !== 'zd30') w.mode = 'conquest';   // co-op is only for the maps with a target to hunt
   if (w.map === 'dogfight' || w.map === 'jetfight' || w.map === 'wwifight') w.mode = 'tdm';   // dogfights are scored on planes shot down   // the island only has room for two sides
   return w;
 })();
@@ -19,7 +24,9 @@ const RIVER_Z = x => Math.sin(x * 0.006 + 1) * 80 + 60;   // the Desert Combat m
 const SNOW = WORLD.map === 'snow', DESERT = WORLD.map === 'desert' || AFGHAN, HOUSTON = WORLD.map === 'houston', WAKE = WORLD.map === 'wake';
 const NORMANDY = WORLD.map === 'normandy', GERMANY = WORLD.map === 'europe', DAM = WORLD.map === 'dam';
 const DOGFIGHT = WORLD.map === 'dogfight' || WORLD.map === 'jetfight' || WORLD.map === 'wwifight', JETFIGHT = WORLD.map === 'jetfight', WWIFIGHT = WORLD.map === 'wwifight';
-const NO_TUNNELS = WAKE || DAM;   // tunnels sit at a fixed depth: they would break into the dam's gorge
+const ZD30 = WORLD.map === 'zd30';   // Zero Dark 30: the night raid on the Abbottabad compound, 2 May 2011
+const COOP = WORLD.mode === 'coop';   // co-op: every player on blue, against waves of computer enemies, to take down the target
+const NO_TUNNELS = WAKE || DAM || ZD30;   // tunnels sit at a fixed depth: they would break into the dam's gorge
 // ===================== core.js : setup, sky, sound, terrain math =====================
 const HALF = DOGFIGHT ? 1800 : 560, GRID = DOGFIGHT ? 400 : 336,   // dogfights get a huge map (3.6 km across) for long canyon runs
   CELL = (HALF * 2) / GRID, W1 = GRID + 1;
@@ -63,12 +70,13 @@ renderer.autoClear = false;
 document.body.prepend(renderer.domElement);
 
 const scene = new THREE.Scene();
-const FOG_COLOR = new THREE.Color(SNOW ? 0xdde4ec : DESERT ? 0xe8d6b0 : HOUSTON ? 0xd7e0e4 : WAKE ? 0xcfe6f0 : GERMANY ? 0x9e9a92 : NORMANDY ? 0xc5d2dc : DAM ? 0xc6d3dc : 0xcfe3f2);
+const FOG_COLOR = new THREE.Color(ZD30 ? 0x0a0f18 : SNOW ? 0xdde4ec : DESERT ? 0xe8d6b0 : HOUSTON ? 0xd7e0e4 : WAKE ? 0xcfe6f0 : GERMANY ? 0x9e9a92 : NORMANDY ? 0xc5d2dc : DAM ? 0xc6d3dc : 0xcfe3f2);
 // the snow map is thick with falling snow, so the distance blurs out much sooner
 if (SNOW) {
   // snowstorm haze: thickens quickly with distance (near and far are kept for the few custom shaders)
   scene.fog = new THREE.FogExp2(FOG_COLOR, LITE ? 0.013 : 0.0112); scene.fog.near = 8; scene.fog.far = 230;
-} else if (AFGHAN) scene.fog = new THREE.Fog(FOG_COLOR, LITE ? 100 : 150, LITE ? 500 : 720);   // hot hazy desert air
+} else if (ZD30) scene.fog = new THREE.Fog(FOG_COLOR, 20, LITE ? 220 : 300);   // a moonless night
+else if (AFGHAN) scene.fog = new THREE.Fog(FOG_COLOR, LITE ? 100 : 150, LITE ? 500 : 720);   // hot hazy desert air
 else if (DESERT) scene.fog = new THREE.Fog(FOG_COLOR, LITE ? 60 : 90, LITE ? 340 : 470);   // a light dusty haze
 else if (WAKE) scene.fog = new THREE.Fog(FOG_COLOR, LITE ? 90 : 140, LITE ? 480 : 720);   // clear tropical air over the ocean
 else if (HOUSTON) scene.fog = new THREE.Fog(FOG_COLOR, LITE ? 80 : 130, LITE ? 420 : 640);   // warm, humid city haze
@@ -279,7 +287,10 @@ function wakeIsles(x, z) {
   }
   return h;
 }
-const POINTS_DEF = NORMANDY ? [
+const POINTS_DEF = ZD30 ? [   // Zero Dark 30: hidden points that only guide the soldiers round the compound and the streets
+  { n: 'A', x: 0, z: -78 }, { n: 'B', x: -25, z: -14 }, { n: 'C', x: 12, z: 0 },
+  { n: 'D', x: -26, z: 16 }, { n: 'E', x: 70, z: 10 }, { n: 'F', x: -75, z: -45 }, { n: 'G', x: 10, z: 70 },
+] : NORMANDY ? [
   { n: 'A', x: -300, z: 285 }, { n: 'B', x: 300, z: 285 }, { n: 'C', x: 0, z: 160 },
   { n: 'D', x: -260, z: 145 }, { n: 'E', x: 260, z: 145 }, { n: 'F', x: -250, z: -220 }, { n: 'G', x: 250, z: -220 },
 ] : DAM ? [
@@ -306,15 +317,15 @@ const POINTS_DEF = NORMANDY ? [
 ];
 const PD = Object.fromEntries(POINTS_DEF.map(p => [p.n, p]));
 // where each map's town stands (null: no town)
-const TOWN_AT = DOGFIGHT || GERMANY || SNOW || HOUSTON || WAKE || DAM || NORMANDY ? null : AFGHAN ? { x: -170, z: 175 } : DESERT ? { x: PD.G.x, z: PD.G.z } : { x: 0, z: 0 };
-const BASES = NORMANDY ? { blue: { x: 0, z: 318 }, red: { x: 0, z: -450 } } : DAM ? { blue: { x: 0, z: 455 }, red: { x: 0, z: -455 } } : WAKE ? { blue: { x: 50, z: 470 }, red: { x: -322, z: -262 } } : SNOW ? { blue: { x: -250, z: 460 }, red: { x: 250, z: -460 } } : { blue: { x: 0, z: 450 }, red: { x: 0, z: -450 } };
+const TOWN_AT = ZD30 || DOGFIGHT || GERMANY || SNOW || HOUSTON || WAKE || DAM || NORMANDY ? null : AFGHAN ? { x: -170, z: 175 } : DESERT ? { x: PD.G.x, z: PD.G.z } : { x: 0, z: 0 };
+const BASES = ZD30 ? { blue: { x: 0, z: -80 }, red: { x: 0, z: 300 } } : NORMANDY ? { blue: { x: 0, z: 318 }, red: { x: 0, z: -450 } } : DAM ? { blue: { x: 0, z: 455 }, red: { x: 0, z: -455 } } : WAKE ? { blue: { x: 50, z: 470 }, red: { x: -322, z: -262 } } : SNOW ? { blue: { x: -250, z: 460 }, red: { x: 250, z: -460 } } : { blue: { x: 0, z: 450 }, red: { x: 0, z: -450 } };
 if (FOUR) { BASES.green = { x: -440, z: -420 }; BASES.yellow = { x: 440, z: 420 }; }
 // which way a team's base faces: +1 looks north (towards -z), -1 looks south
 const teamSide = t => Math.sign(BASES[t].z) || 1;
 const RUNWAYS = NORMANDY ? { blue: { x: 410, z: 475, len: 160, wid: 18, dir: -1, carrier: true },   // Normandy: blue has no strip on the beach, its planes fly from the carrier
   red: { x: -170, z: -470, len: 160, wid: 18, dir: 1 } } : DAM ? { blue: { x: 175, z: 470, len: 160, wid: 18, dir: -1 }, red: { x: -175, z: -470, len: 160, wid: 18, dir: 1 } } : WAKE ? { blue: { x: -15, z: 470, len: 170, wid: 16, dir: -1 }, red: { x: 0, z: 262, len: 170, wid: 18, dir: 1 } } : SNOW ? { blue: { x: -20, z: 468, len: 160, wid: 18, dir: -1 }, red: { x: 20, z: -468, len: 160, wid: 18, dir: 1 } }
   : { blue: { x: 170, z: 470, len: 160, wid: 18, dir: -1 }, red: { x: -170, z: -470, len: 160, wid: 18, dir: 1 } };
-const LAKES = WAKE || NORMANDY || DAM || AFGHAN || DOGFIGHT ? [] : GERMANY ? [{ x: -250, z: -60, r: 38 }, { x: 260, z: 40, r: 30 }] : SNOW ? [{ x: -190, z: 130, r: 34 }, { x: 190, z: -130, r: 34 }] : HOUSTON ? [{ x: -205, z: 345, r: 28 }, { x: 225, z: 355, r: 24 }] : [{ x: -225, z: 20, r: 48 }, { x: 215, z: -30, r: 40 }, { x: -170, z: 440, r: 24 }];
+const LAKES = ZD30 || WAKE || NORMANDY || DAM || AFGHAN || DOGFIGHT ? [] : GERMANY ? [{ x: -250, z: -60, r: 38 }, { x: 260, z: 40, r: 30 }] : SNOW ? [{ x: -190, z: 130, r: 34 }, { x: 190, z: -130, r: 34 }] : HOUSTON ? [{ x: -205, z: 345, r: 28 }, { x: 225, z: 355, r: 24 }] : [{ x: -225, z: 20, r: 48 }, { x: 215, z: -30, r: 40 }, { x: -170, z: 440, r: 24 }];
 const LAKE = LAKES[0];
 // Houston: downtown in the middle, the 610 Loop around it, I-45 and I-10 crossing, and Buffalo Bayou winding past the north side
 const BAYOU = [[-575, -120], [-470, -150], [-360, -130], [-260, -175], [-150, -200], [-50, -190], [50, -210], [160, -185], [260, -205], [360, -170], [470, -195], [575, -170]].map(([x, z]) => ({ x, z }));
@@ -325,7 +336,11 @@ const H_FREEWAYS = HOUSTON ? [
   [{ x: 110, z: -430 }, { x: 110, z: 425 }, 'I-45'], [{ x: -560, z: 190 }, { x: 560, z: 190 }, 'I-10'],
 ] : [];
 const H_GRID = [-150, -90, -30, 30, 90, 150];
-const PATHS = NORMANDY ? [
+const PATHS = ZD30 ? [   // Bilal Town: the lane past the compound's north side, the roads round it, and the streets of the neighbourhood
+  [{ x: -300, z: -45 }, { x: 300, z: -45 }], [{ x: -52, z: -300 }, { x: -52, z: 300 }], [{ x: 55, z: -45 }, { x: 55, z: 300 }],
+  [{ x: -300, z: 50 }, { x: 300, z: 50 }], [{ x: -300, z: 140 }, { x: 300, z: 140 }], [{ x: -300, z: 230 }, { x: 300, z: 230 }],
+  [{ x: 150, z: -300 }, { x: 150, z: 300 }], [{ x: -150, z: -300 }, { x: -150, z: 300 }], [{ x: 0, z: 50 }, BASES.red],
+] : NORMANDY ? [
   [BASES.blue, PD.A], [BASES.blue, PD.B], [PD.A, PD.D], [PD.B, PD.E], [BASES.blue, PD.C], [PD.D, PD.C], [PD.C, PD.E],
   [PD.C, { x: 0, z: 0 }], [PD.D, PD.F], [PD.E, PD.G], [{ x: 0, z: 0 }, PD.F], [{ x: 0, z: 0 }, PD.G], [PD.F, BASES.red], [PD.G, BASES.red], [{ x: 0, z: 0 }, BASES.red],
 ] : DAM ? [
@@ -443,6 +458,13 @@ function rawHeight(x, z) {
     }
     if (d > MTN) g += Math.pow((d - MTN) / 45, 2) * 55;
     return g;
+  }
+  if (ZD30) {
+    // Abbottabad: a flat valley floor of fields and houses, with steep wooded hills rising all round
+    const r = Math.hypot(x, z), ridge = 1 - Math.abs(vnoise(x * 0.007 + 3, z * 0.007 - 5) * 2 - 1);
+    h = h * 0.18 + 2.4;
+    h = lerp(h, 2.5, smooth(140, 70, r));                                  // the compound and the field beside it: dead flat
+    h += smooth(300, 470, r) * (18 + Math.pow(ridge, 1.6) * 42) * smooth(8, 30, pathDist(x, z));
   }
   if (GERMANY) {
     // gentle farmland around a flat old town in the middle

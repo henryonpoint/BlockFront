@@ -275,7 +275,7 @@ function buildTerrain() {
     const r = RUNWAYS[t]; if (r && !r.carrier) addFlatRect(r.x, r.z, r.len / 2 + (SNOW ? 140 : 8), r.wid / 2 + (SNOW ? 24 : 6), SNOW ? 40 : 22);
   }
   if (!WAKE && !DAM) chooseBunkerSites();
-  if (typeof chooseNestSites === 'function') chooseNestSites();
+  if (typeof chooseNestSites === 'function' && !ZD30) chooseNestSites();
   buildHeights();
 
   const geo = new THREE.PlaneGeometry(HALF * 2, HALF * 2, GRID, GRID);
@@ -684,6 +684,7 @@ function buildNature() {
     if (townDist(x, z) < 64) return false;
     for (const s of settlements) if (Math.hypot(x - s.x, z - s.z) < s.r) return false;
     if (HOUSTON && typeof hoodAt === 'function' && (hoodAt(x, z) || storeAt(x, z))) return false;   // the suburbs plant their own trees
+    if (ZD30 && Math.hypot(x, z) < 300) return false;   /* the town: no forest in the streets */
     if ((NORMANDY && z > 222) || (GERMANY && Math.hypot(x, z) < 190) || (DAM && z > -70 && z < 130 && Math.abs(x) < 150)) return false;   // no trees on the beach, in the old town or in the gorge
     if (pathDist(x, z) < clear) return false;
     const h = heightAt(x, z);
@@ -907,8 +908,10 @@ function letterTex(letter, color) {
 function buildPoints() {
   for (const def of POINTS_DEF) {
     const y = heightAt(def.x, def.z);
-    addMesh(new THREE.CylinderGeometry(2, 2.3, 0.35, 16), MATS.concrete, def.x, y + 0.1, def.z);
-    addMesh(new THREE.CylinderGeometry(0.12, 0.12, 10, 8), MATS.steel, def.x, y + 5, def.z);
+    if (!ZD30) {   // the raid's points are hidden guides: no pads, poles or sandbags
+      addMesh(new THREE.CylinderGeometry(2, 2.3, 0.35, 16), MATS.concrete, def.x, y + 0.1, def.z);
+      addMesh(new THREE.CylinderGeometry(0.12, 0.12, 10, 8), MATS.steel, def.x, y + 5, def.z);
+    }
     const flagMat = new THREE.MeshLambertMaterial({ color: 0xffffff, side: THREE.DoubleSide });
     const flag = addMesh(new THREE.BoxGeometry(2.6, 1.6, 0.06), flagMat, def.x + 1.4, y + 2.5, def.z);
     flag.userData.static = false;
@@ -919,7 +922,7 @@ function buildPoints() {
     const sprite = new THREE.Sprite(spriteMat); sprite.scale.set(5, 5, 1); sprite.position.set(def.x, y + 14, def.z); sprite.renderOrder = 10; scene.add(sprite);
     points.push({ name: def.n, x: def.x, z: def.z, y, r: 15, owner: null, progress: 0, flag, flagMat, ringMat, spriteMat, shownColor: '', blueIn: 0, redIn: 0 });
     if (NORMANDY && ['C', 'D', 'E'].includes(def.n)) { const pt = points[points.length - 1]; pt.owner = 'red'; pt.progress = -1; }   // red already holds the bunkers on the bluffs
-    fortifyPoint(def);
+    if (!ZD30) fortifyPoint(def);
   }
 }
 
@@ -966,14 +969,16 @@ function mergeStatic() {
 
 function buildWorld() {
   buildTerrain();
-  if (!WAKE && !DAM) buildBunkers();
+  if (!WAKE && !DAM && !ZD30) buildBunkers();
   if (typeof buildNests === 'function') buildNests();
-  if (!SNOW && !HOUSTON && !WAKE && !DAM) { if (TOWN_AT && !AFGHAN) buildTown(); if (!NORMANDY && !AFGHAN) buildFarm(); }   /* Desert Combat builds its own Iraqi town */
-  TEAMS.forEach(t => { if (!(WAKE && t === 'blue')) buildBase(t); });
+  if (!SNOW && !HOUSTON && !WAKE && !DAM && !ZD30) { if (TOWN_AT && !AFGHAN) buildTown(); if (!NORMANDY && !AFGHAN) buildFarm(); }   /* Desert Combat builds its own Iraqi town */
+  if (!ZD30) TEAMS.forEach(t => { if (!(WAKE && t === 'blue')) buildBase(t); });   /* the raid has no bases: the team starts by the crashed helicopter */
   buildPoints();
+  if (ZD30 && typeof buildZD30 === 'function') buildZD30();
+  if (COOP && typeof installCoopHooks === 'function') installCoopHooks();
   if (!NO_TUNNELS) buildTunnels();
   if (!WAKE) buildNature();
-  buildClouds();
+  if (!ZD30) buildClouds();   /* a clear, moonless night over Abbottabad */
   if (SNOW && typeof buildSnowExtras === 'function') buildSnowExtras();
   if (DESERT && !AFGHAN && typeof buildDesertExtras === 'function') buildDesertExtras();
   if (HOUSTON && typeof buildHoustonExtras === 'function') buildHoustonExtras();

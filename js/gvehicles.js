@@ -131,6 +131,7 @@ function makeGV(type, team, x, z, yaw, y) {
   return v;
 }
 function buildGroundVehicles() {
+  if (ZD30) return;   // the raid is on foot
   if (WAKE && typeof buildWakeVehicles === 'function') { buildWakeVehicles(); return; }
   for (const t of TEAMS) {
     const B = BASES[t], s = teamSide(t), yaw = s > 0 ? 0 : Math.PI;

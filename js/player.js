@@ -821,7 +821,11 @@ function drawMap(ctx, S, cx, cz, R, big) {
   }
   if (HUB && (under || big)) { const [x, y] = P(HUB.x, HUB.z + 22); ctx.fillStyle = '#ffd54f'; ctx.font = `bold ${big ? 11 : 9}px system-ui`; ctx.textAlign = 'center'; ctx.fillText('HQ', x, y); }
   const pr = big ? 13 : 8;
-  for (const p of points) {
+  if (ZD30 && typeof ZD !== 'undefined') {   // the raid: the main house, and the landing zone once the target is down
+    const [hx, hy] = P(ZC.HX0 + 13, ZC.HZ0 + 11); ctx.strokeStyle = '#ffd54f'; ctx.lineWidth = 2; ctx.strokeRect(hx - 26 * k / 2, hy - 22 * k / 2, 26 * k, 22 * k);
+    if (ZD.down) { const [lx, ly] = P(ZC.lz.x, ZC.lz.z); ctx.fillStyle = '#5ae05a'; ctx.beginPath(); ctx.arc(lx, ly, pr, 0, 7); ctx.fill(); ctx.fillStyle = '#111'; ctx.font = `bold ${big ? 13 : 9}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('LZ', lx, ly + 0.5); }
+  }
+  for (const p of ZD30 ? [] : points) {
     const [x, y] = P(p.x, p.z);
     ctx.fillStyle = p.owner ? TEAM_CSS[p.owner] : '#e5e5e5';
     ctx.beginPath(); ctx.arc(x, y, pr, 0, 7); ctx.fill(); ctx.strokeStyle = '#111'; ctx.lineWidth = 1.5; ctx.stroke();
@@ -896,7 +900,7 @@ function updateHUD(dt) {
     const f = d.firstChild; f.style.height = Math.abs(p.progress) * 100 + '%'; f.style.background = TEAM_CSS[progTeam(p)] || '#fff';
   });
   // capture bar
-  const inP = points.find(p => player.alive && !player.vehicle && Math.hypot(player.pos.x - p.x, player.pos.z - p.z) < p.r);
+  const inP = !ZD30 && points.find(p => player.alive && !player.vehicle && Math.hypot(player.pos.x - p.x, player.pos.z - p.z) < p.r);
   if (inP) {
     $('capture').style.display = 'block';
     const contested = !!inP.contested;
@@ -914,6 +918,7 @@ function updateHUD(dt) {
   if (IS_TOUCH) document.body.dataset.mode = !player.alive ? 'dead' : player.vehicle ? 'plane' : player.gv ? 'gv' : player.turret ? 'turret' : placing ? 'place' : 'foot';
   const _ts = WORLD.mode === 'tdm' ? [teamKills.blue, `of ${tdmTarget()}`, teamKills.red] : WORLD.mode === 'koth' ? [Math.floor(holdScore.blue), `of ${KOTH_TIME} s`, Math.floor(holdScore.red)] : [points.filter(p => p.owner === 'blue').length, 'points', points.filter(p => p.owner === 'red').length];
   if (FOUR) $('teamstat').innerHTML = TEAMS.map(t => `<span style="color:${TEAM_CSS[t]}">${teamName(t).toUpperCase()} ${points.filter(p => p.owner === t).length}</span>`).join(' &nbsp; ') + `<br><small>Points held. Takedowns ${TEAMS.map(t => teamKills[t] || 0).join(' : ')}</small>`;
+  else if (ZD30) $('teamstat').innerHTML = `<small>Takedowns ${teamKills.blue}</small>`;
   else $('teamstat').innerHTML = `<span style="color:${TEAM_CSS.blue}">BLUE ${_ts[0]}</span> &nbsp; ${_ts[1]} &nbsp; <span style="color:${TEAM_CSS.red}">${_ts[2]} RED</span><br><small>Takedowns ${teamKills.blue} : ${teamKills.red}</small>`;
   const gvAim = player.gv && (player.gv.T.seats[player.seat].role === 'gun' || (player.gv.type === 'tank' && player.seat === 0) || (player.gv.T.heli && player.seat === 0));
   $('crosshair').style.display = (onFoot || player.turret || gvAim || player.planeGun) && !zoom && player.alive ? 'block' : 'none';

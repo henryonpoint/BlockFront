@@ -21,7 +21,9 @@ function saveBattle(extra) {
 // a new map or mode means building a different world, so the page reloads
 function chooseWorld(key, val) {
   if (WORLD[key] === val) return;
-  saveBattle({ [key]: val, map: key === 'map' ? val : WORLD.map, mode: key === 'mode' ? val : WORLD.mode });
+  let mode = key === 'mode' ? val : WORLD.mode;
+  if (key === 'map' && (val === 'europe' || val === 'zd30')) mode = 'coop';   // Berlin and the raid start as co-op; Berlin can be switched back
+  saveBattle({ [key]: val, map: key === 'map' ? val : WORLD.map, mode, coopV: 1 });
   try { sessionStorage.removeItem('bf_force'); sessionStorage.setItem('bf_reopen', '1'); } catch (e) { }
   document.body.classList.add('reloading'); location.reload();
 }
@@ -42,7 +44,7 @@ function applyPointCount(n) {
   if (appliedPoints === n) return;
   appliedPoints = n;
   const want = WORLD.mode === 'koth' ? ['C'] : POINT_SETS[n];
-  const hidden = WORLD.mode === 'tdm';   // team battle: points only guide the soldiers around, nobody captures them
+  const hidden = WORLD.mode === 'tdm' || ZD30;   // team battle: points only guide the soldiers around, nobody captures them
   points.length = 0;
   for (const p of allPoints) {
     const on = want.includes(p.name);
@@ -72,15 +74,15 @@ function syncBattleUI() {
   document.querySelectorAll('#battlePlanes .chip').forEach(c => c.classList.toggle('on', c.dataset.v === WORLD.map));
   for (const id of ['battlePlanes', 'battlePlanesLabel']) { const e = $(id); if (e) e.style.display = df ? '' : 'none'; }
   for (const id of ['battleMode', 'battleSol']) { const e = $(id); if (e) { e.style.display = df ? 'none' : ''; e.previousElementSibling.style.display = e.style.display; } }   // a dogfight is planes only
-  document.querySelectorAll('#battleMode .chip').forEach(c => c.classList.toggle('on', c.dataset.v === WORLD.mode));
+  document.querySelectorAll('#battleMode .chip').forEach(c => { c.classList.toggle('on', c.dataset.v === WORLD.mode); if (c.dataset.v === 'coop') c.style.display = GERMANY || ZD30 ? '' : 'none'; else if (ZD30) c.style.display = 'none'; });
   document.querySelectorAll('#battlePts .chip').forEach(c => c.classList.toggle('on', +c.dataset.v === BATTLE.points));
   document.querySelectorAll('#battleSol .chip').forEach(c => c.classList.toggle('on', +c.dataset.v === BATTLE.soldiers));
   document.querySelectorAll('#battleDiff .chip').forEach(c => c.classList.toggle('on', c.dataset.v === BATTLE.diff));
   document.querySelectorAll('#battleClown .chip').forEach(c => c.classList.toggle('on', (c.dataset.v === 'on') === BATTLE.clown));
   document.querySelectorAll('#battleGod .chip').forEach(c => c.classList.toggle('on', (c.dataset.v === 'on') === BATTLE.god));
-  const ptsRow = $('battlePts'); if (ptsRow) { ptsRow.style.display = WORLD.mode === 'conquest' || WORLD.mode === 'four' ? '' : 'none'; ptsRow.previousElementSibling.style.display = ptsRow.style.display; }
+  const ptsRow = $('battlePts'); if (ptsRow) { ptsRow.style.display = (WORLD.mode === 'conquest' || WORLD.mode === 'four' || (COOP && !ZD30)) ? '' : 'none'; ptsRow.previousElementSibling.style.display = ptsRow.style.display; }
   const note = $('battleNote');
-  if (note) note.textContent = WORLD.mode === 'four' ? 'Four armies, one map. Blue, red, green and yellow each start in their own corner. Hold every point to win.' : WORLD.mode === 'tdm' ? `Team battle: first team to ${tdmTarget()} takedowns wins.` : WORLD.mode === 'koth' ? `King of the hill: hold point C for ${KOTH_TIME} seconds in total to win.` : BATTLE.soldiers >= 50 ? 'Huge battles (solo only: online games use up to 40 a team). They need a fast computer; if it gets slow, pick fewer.' : BATTLE.soldiers >= 30 ? 'Big battles need a fast computer. If it gets slow, pick fewer soldiers.' : BATTLE.points === 3 ? 'Small map: the fight stays in the middle.' : BATTLE.points === 5 ? 'Medium map: the far left and right points are off.' : 'Full map: all seven points.';
+  if (note) note.textContent = ZD30 ? 'Zero Dark 30: a co-op night raid. Everyone is on the same team. Get through the compound, up to the third floor, and take down the target. Press L for night vision.' : COOP ? 'Co-op: everyone is on the same team. Fight through waves of enemies, find Hitler and take him down to win.' : WORLD.mode === 'four' ? 'Four armies, one map. Blue, red, green and yellow each start in their own corner. Hold every point to win.' : WORLD.mode === 'tdm' ? `Team battle: first team to ${tdmTarget()} takedowns wins.` : WORLD.mode === 'koth' ? `King of the hill: hold point C for ${KOTH_TIME} seconds in total to win.` : BATTLE.soldiers >= 50 ? 'Huge battles (solo only: online games use up to 40 a team). They need a fast computer; if it gets slow, pick fewer.' : BATTLE.soldiers >= 30 ? 'Big battles need a fast computer. If it gets slow, pick fewer soldiers.' : BATTLE.points === 3 ? 'Small map: the fight stays in the middle.' : BATTLE.points === 5 ? 'Medium map: the far left and right points are off.' : 'Full map: all seven points.';
 }
 (function buildBattleUI() {
   const box = $('battleSetup'); if (!box) return;

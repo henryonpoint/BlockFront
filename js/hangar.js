@@ -17,7 +17,7 @@ const PLANE_SHOP = [
 function buildPlaneHangars() {
   PH.built = true;
   if (GERMANY || NORMANDY) for (let i = PLANE_SHOP.length - 1; i >= 0; i--) if (PLANE_SHOP[i].kind !== 'prop') PLANE_SHOP.splice(i, 1);   // WWII: no jets or WW1 planes for sale
-  if (DOGFIGHT) return;   // dogfights are fought in the air: no ground base
+  if (DOGFIGHT || ZD30) return;   // dogfights are fought in the air: no ground base
   for (const t of ['blue', 'red']) {
     const r = RUNWAYS[t]; if (!r) continue;
     if (r.carrier) {   // Normandy's carrier: the shop stands on its flight deck beside the island and rides along with the ship

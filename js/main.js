@@ -45,6 +45,8 @@ function startGame() {
   const B = BASES[player.team], s = -teamSide(player.team);
   player.pos.set(B.x + 3, heightAt(B.x + 3, B.z + s * 8), B.z + s * 8);
   player.yaw = teamSide(player.team) > 0 ? 0 : Math.PI;
+  if (ZD30) { showMessage('2 May 2011, Abbottabad. Your helicopter went down inside the walls. Blow your way in, clear the house floor by floor and find the target on the third floor. L: night vision', 8); return; }
+  if (COOP) { showMessage('Co-op: everyone is on blue. Hold off the enemy waves, find the clues and take down Hitler in his bunker!', 6); return; }
   showMessage(`${WORLD.mode === 'tdm' ? 'First team to ' + tdmTarget() + ' takedowns wins!' : WORLD.mode === 'koth' ? 'Hold point C to win!' : 'Capture all ' + points.length + ' points to win!'} Go ${player.team === 'blue' ? 'Blue' : 'Red'} team!`, 4);
 }
 let teamPref = 'auto';
@@ -89,7 +91,7 @@ async function launch(kind, opts = {}) {
   }
   if (typeof closeLobbyPanels === 'function') closeLobbyPanels();
   $('start').style.display = 'none'; document.body.classList.add('started'); endMenuCinema();
-  player.team = net.active ? pickTeam(teamPref) : (TEAMS.includes(teamPref) ? teamPref : 'blue');
+  player.team = COOP ? 'blue' : net.active ? pickTeam(teamPref) : (TEAMS.includes(teamPref) ? teamPref : 'blue');   // co-op: everyone on blue
   applyTeamLook();
   if (net.active) electHost();
   started = true; startGame();
@@ -102,6 +104,7 @@ $('playSolo').addEventListener('click', e => { e.stopPropagation(); launch('solo
 
 // ---------- control points ----------
 function updatePointsLogic(dt) {
+  if (ZD30) return;   // the raid has no control points to capture
   if (WORLD.mode === 'tdm') {          // team battle: only takedowns count
     for (const t of TEAMS) if (!gameOver && teamKills[t] >= tdmTarget()) endGame(t);
     return;
@@ -187,10 +190,12 @@ function updatePointsVisual() {
 const _letterCache = {};
 function endGame(team) {
   if (gameOver) return;
+  if (COOP && team === 'blue' && typeof coopTargetDone === 'function' && !coopTargetDone()) return;   // co-op is only won by taking down the target
   gameOver = true; winner = team;
   const won = team === player.team;
   $('endTitle').textContent = won ? 'VICTORY!' : 'DEFEAT';
   $('endTitle').style.color = TEAM_CSS[team];
+  if (ZD30) { $('endText').textContent = (team === 'blue' ? `Mission complete. ${ZD.downBy || 'The team'} took down the target and the team flew out.` : 'Out of time. Pakistani forces are on the way and the team had to pull out.') + ` You took out ${player.kills} ${player.kills === 1 ? 'guard' : 'guards'}.`; showEndStats(); setTimeout(() => { $('end').style.display = 'flex'; playing = false; uiOpen = 'end'; try { document.exitPointerLock(); } catch (e) { } }, 2500); (won ? SFX.capture : SFX.lose)(); return; }
   $('endText').textContent = `${teamName(team)} team ${GERMANY && typeof LEADER !== 'undefined' && LEADER.found && team === 'blue' ? 'took down Hitler and ended the war in Europe' : WORLD.mode === 'tdm' ? 'reached ' + tdmTarget() + ' takedowns' : WORLD.mode === 'koth' ? 'held the hill the longest' : 'holds every control point'}. You took out ${player.kills} ${player.kills === 1 ? 'enemy' : 'enemies'} and finished with $${player.money}.`;
   showEndStats();
   setTimeout(() => {
@@ -268,6 +273,7 @@ function render(dt) {
   renderer.clear();
   renderer.render(scene, camera);
   if (started && player.alive && !player.vehicle && !player.turret && !player.gv && !player.planeGun && !player.ship) { renderer.clearDepth(); renderer.render(vmScene, vmCam); }
+  if (ZD30 && typeof renderNVG === 'function') renderNVG();
 }
 // ---------- title screen: a slow cinematic tour of the battlefield ----------
 let menuShots = null, menuHeli = null;

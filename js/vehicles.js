@@ -50,6 +50,7 @@ function turretFire(t, dir, shooter) {
 }
 const _tmpV = new THREE.Vector3();
 function buildTurrets() {
+  if (ZD30) return;   // no gun posts on the raid
   for (const p of points) {
     makeTurret(p.x + 3, p.z - 7.5, 'mg', 0);
     makeTurret(p.x - 3, p.z + 7.5, 'mg', Math.PI);
@@ -133,6 +134,7 @@ function resetPlane(pl, wait = 6) {
   pl.model.g.position.copy(pl.pos); pl.model.g.quaternion.copy(pl.quat);
 }
 function buildPlanes() {
+  if (ZD30) return;   // no airfield
   if (DOGFIGHT) {   // the dogfight: a squadron per team, starting in the air (players take over a plane when they deploy)
     for (const t of ['blue', 'red']) for (let i = 0; i < 9; i++) {
       const B = BASES[t], s = teamSide(t), kind = JETFIGHT ? (i % 2 ? 'f22' : 'f18') : WWIFIGHT ? (t === 'red' ? 'triplane' : 'biplane') : 'prop';
