@@ -409,7 +409,7 @@ function drawFlightHud(pl) {
 }
 function cockpitCamera(pl) {
   if (cockpitModel().parent !== pl.model.g) setPlaneView('cockpit');
-  cockpitModel().visible = true;
+  cockpitModel().visible = cockpitFull;   /* the open view has nothing 3D in front of you: only a soft frame round the screen edges */
   pl.model.g.position.copy(pl.pos); pl.model.g.quaternion.copy(pl.quat);
   camera.position.copy(new THREE.Vector3(0, 1.6, -0.3).applyQuaternion(pl.quat).add(pl.pos));
   if (pl.model.canopy) pl.model.canopy.visible = false;
@@ -940,10 +940,12 @@ function updateHUD(dt) {
     if (!pl._tipT) pl._tipT = simTime;
     $('pTip').style.display = pl.pullUp || pl.onGround || simTime - pl._tipT < 8 ? '' : 'none';   // the long hint goes away once you are flying
     document.body.classList.toggle('cockpitView', ck);
+    let fr = $('openFrame'); if (!fr) { fr = document.createElement('div'); fr.id = 'openFrame'; document.body.appendChild(fr); }
+    fr.style.display = ck && !cockpitFull ? 'block' : 'none';
     document.body.classList.add('flying');
     if (ck && pl._tipT && simTime - pl._tipT > 8 && !pl.onGround && !pl.pullUp) ph.style.display = 'none';   /* the head-up display shows all of this in the cockpit */
     drawFlightHud(ck ? pl : null);
-  } else { ph.style.display = 'none'; document.body.classList.remove('cockpitView'); document.body.classList.remove('flying'); drawFlightHud(null); }
+  } else { ph.style.display = 'none'; if ($('openFrame')) $('openFrame').style.display = 'none'; document.body.classList.remove('cockpitView'); document.body.classList.remove('flying'); drawFlightHud(null); }
   updateAirTargets();
   $('crosshair').style.display = player.vehicle ? (planeView === 'cockpit' ? 'block' : 'none') : $('crosshair').style.display;
   if (!player.vehicle && _cockpit && _cockpit.visible) { _cockpit.visible = false; updateNoseMarker(null); }

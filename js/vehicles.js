@@ -365,7 +365,7 @@ function planeBodyVisible(pl, on) { for (const o of pl.model.g.children) if (!o.
 function setPlaneView(v) {
   planeView = v; const pl = player.vehicle;
   const c = cockpitModel();
-  if (pl) { pl.model.g.add(c); c.visible = v === 'cockpit'; planeBodyVisible(pl, v !== 'cockpit'); const e = new THREE.Euler().setFromQuaternion(pl.quat, 'YXZ'); pl.aimYaw = e.y; pl.aimPitch = clamp(e.x, -0.6, 0.6); }
+  if (pl) { pl.model.g.add(c); c.visible = v === 'cockpit' && cockpitFull; planeBodyVisible(pl, v !== 'cockpit'); const e = new THREE.Euler().setFromQuaternion(pl.quat, 'YXZ'); pl.aimYaw = e.y; pl.aimPitch = clamp(e.x, -0.6, 0.6); }
   else c.visible = false;
   try { localStorage.setItem('bf_planeView', v); } catch (e) { }
 }
@@ -373,7 +373,7 @@ function togglePlaneView() {   // V: outside view, then the open cockpit, then t
   if (planeView === 'chase') { cockpitFull = false; setPlaneView('cockpit'); }
   else if (!cockpitFull) cockpitFull = true;
   else { cockpitFull = false; setPlaneView('chase'); }
-  cockpitModel().full.visible = planeView === 'cockpit' && cockpitFull;
+  cockpitModel().full.visible = planeView === 'cockpit' && cockpitFull; cockpitModel().visible = planeView === 'cockpit' && cockpitFull;
   showMessage(planeView !== 'cockpit' ? 'Outside view: W/S pitch, A/D roll. V for the cockpit' : cockpitFull ? 'Full cockpit view. V for the outside view' : 'Open cockpit view: the plane flies where you look. V for the full cockpit', 3);
 }
 try { if (localStorage.getItem('bf_planeView') === 'cockpit') planeView = 'cockpit'; } catch (e) { }

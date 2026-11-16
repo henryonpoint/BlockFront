@@ -144,6 +144,7 @@ function buildGermany() {
   buildBerlinLandmarks();
   buildBerlinWar();
   buildBerlinSigns();
+  buildBerlinMore();
   // war damage across the countryside: tank traps, sandbags, wrecked cars and more rubble
   for (let i = 0; i < 70; i++) { const a = rand(0, 6.28), r = rand(60, 520), x = Math.cos(a) * r, z = Math.sin(a) * r; if (Math.abs(x) > EDGE - 20 || Math.abs(z) > EDGE - 20) continue; if (lvFree(x, z, 3) && waterDepth(x, z) === 0) (Math.random() < 0.5 ? rubble : hedgehog)(x, z); }
   for (let i = 0; i < 14; i++) { const x = rand(-TOWN_R + 10, TOWN_R - 10), z = rand(-TOWN_R + 10, TOWN_R - 10); if (townStreetDist(x, z) < 2.5 && Math.hypot(x, z) < TOWN_R - 10) { let near = false; for (const p of POINTS_DEF) if (Math.hypot(x - p.x, z - p.z) < 14) near = true; if (!near && typeof addCar === 'function') addCar(x, z, Math.random() < 0.5, 0x2a2826); } }
@@ -1230,4 +1231,114 @@ function updateGulfWar(dt) {
     for (let k = 0; k < 2; k++) smokePuff(f.p.clone().add(new THREE.Vector3(rand(-2, 2), rand(5, 9), rand(-2, 2))), pick([0x141414, 0x1e1c1a, 0x262422]), rand(1.8, 2.8), rand(9, 13), rand(6, 9));   // a tall column drifting up
   }
   if (GULF.flare && Math.hypot(GULF.flare.x - cx, GULF.flare.z - cz) < 400) smokePuff(GULF.flare.clone().add(new THREE.Vector3(rand(-0.4, 0.4), rand(0, 1.5), rand(-0.4, 0.4))), pick([0xff9a2a, 0xffc04a]), rand(0.8, 1.4), rand(0.4, 0.7), rand(3, 5));
+}
+
+// ---------- more of Berlin round the old town ----------
+// Tenement blocks (some bombed open), a ruined railway station facade, the lattice radio tower, a palace with a
+// green dome, a windowless air-raid bunker, a rail yard with a wrecked locomotive and wagons, field guns in their
+// pits, a crashed fighter, overturned trams as street barricades, and U-Bahn entrances in the old town.
+function berlinSpot(x, z, hw, hd) {
+  if (Math.abs(x) > EDGE - hw - 6 || Math.abs(z) > EDGE - hd - 6 || Math.hypot(x, z) < TOWN_R + Math.max(hw, hd) + 6) return false;
+  if (!lvFree(x, z, Math.max(hw, hd))) return false;
+  for (const L of LAKES) if (Math.hypot(x - L.x, z - L.z) < L.r + Math.max(hw, hd) + 8) return false;
+  for (const [sx, sz] of [[0, 0], [-hw, -hd], [hw, -hd], [-hw, hd], [hw, hd]]) for (const o of nearbyColliders(x + sx, z + sz)) {
+    if (o.kind === 'box' && o.maxX > x - hw - 3 && o.minX < x + hw + 3 && o.maxZ > z - hd - 3 && o.minZ < z + hd + 3) return false;
+    if (o.kind === 'circ' && o.r > 1.5 && Math.abs(o.x - x) < hw + o.r + 2 && Math.abs(o.z - z) < hd + o.r + 2) return false;
+  }
+  const hs = [heightAt(x - hw, z - hd), heightAt(x + hw, z - hd), heightAt(x - hw, z + hd), heightAt(x + hw, z + hd)];
+  return Math.max(...hs) - Math.min(...hs) < 4;
+}
+function findBerlinSpot(hw, hd, rMin, rMax, tries = 300) {
+  for (let i = 0; i < tries; i++) { const a = rand(0, 6.28), r = rand(rMin, rMax), x = Math.cos(a) * r, z = Math.sin(a) * r; if (berlinSpot(x, z, hw, hd)) return { x, z }; }
+  return null;
+}
+function buildBerlinMore() {
+  const brick = 0x8a5a44, stone = 0x9e968a, plaster = 0xb8ab94, dark = 0x1c1d1f, conc = 0x8e8c86, wood = 0x4a3a2a, steel = 0x3a3e42;
+  // tenement blocks: five storeys round a courtyard, rows of windows, about half of them bombed open at the top
+  { const P = new Part(); let made = 0;
+    for (let i = 0; i < 600 && made < 18; i++) {
+      const w = rand(22, 30), d = rand(16, 22), s = findBerlinSpot(w / 2, d / 2, TOWN_R + 25, 330, 1); if (!s) continue;
+      const { x, z } = s, y = groundMin(x, z, w / 2, d / 2) - 0.3, h = rand(13, 17), col = pick([plaster, 0xa89a82, 0x9a8c78, brick]), ruined = Math.random() < 0.5;
+      const top = ruined ? h * rand(0.6, 0.85) : h;
+      if (!ruined) P.box(w, top, d, col, x, y + top / 2, z);
+      else {   // bombed open: only the outer walls stand, broken off at uneven heights, the inside a dark heap of rubble
+        for (const sd of [-1, 1]) for (let k = 0; k < 6; k++) { const hh = top * rand(0.45, 1.05), seg = w / 6; P.box(seg + 0.05, hh, 0.6, col, x - w / 2 + seg * (k + 0.5), y + hh / 2, z + sd * (d / 2 - 0.3)); }
+        for (const sd of [-1, 1]) for (let k = 0; k < 4; k++) { const hh = top * rand(0.45, 1.05), seg = d / 4; P.box(0.6, hh, seg + 0.05, col, x + sd * (w / 2 - 0.3), y + hh / 2, z - d / 2 + seg * (k + 0.5)); }
+        P.box(w - 1.2, 2.5, d - 1.2, 0x5a5048, x, y + 1.25, z); for (let k = 0; k < 8; k++) P.box(rand(2, 5), rand(1, 3), rand(2, 5), 0x6a6258, x + rand(-w / 2 + 3, w / 2 - 3), y + 2.5, z + rand(-d / 2 + 3, d / 2 - 3));
+        for (let k = 0; k < 4; k++) P.box(rand(3, 7), 0.25, 0.25, 0x2a2622, x + rand(-w / 3, w / 3), y + top * rand(0.4, 0.8), z + rand(-d / 3, d / 3), 0, rand(0, 3), rand(-0.4, 0.4));   // charred beams
+      }
+      if (!ruined) { P.box(w + 0.4, 0.5, d + 0.4, new THREE.Color(col).multiplyScalar(0.8).getHex(), x, y + h + 0.25, z); P.box(w - 1, 2.2, d - 1, 0x4a4040, x, y + h + 1.1, z, 0, 0, 0); }   // cornice, roof
+      for (let f = 0; f < Math.floor((ruined ? top * 0.45 : top) / 3); f++) for (const sd of [-1, 1]) {
+        for (let k = 0; k < Math.floor(w / 3.2); k++) P.box(1.1, 1.6, 0.1, ruined && Math.random() < 0.4 ? 0x0e0e0e : dark, x - w / 2 + 1.8 + k * 3.2, y + 2 + f * 3, z + sd * (d / 2 + 0.03));
+        for (let k = 0; k < Math.floor(d / 3.2); k++) P.box(0.1, 1.6, 1.1, dark, x + sd * (w / 2 + 0.03), y + 2 + f * 3, z - d / 2 + 1.8 + k * 3.2);
+      }
+      if (ruined) for (let k = 0; k < 5; k++) P.box(rand(1.5, 3.5), rand(0.6, 1.4), rand(1.5, 3.5), 0x7a7268, x + rand(-w / 2 - 3, w / 2 + 3), y + 0.4, z + (Math.random() < 0.5 ? -1 : 1) * (d / 2 + rand(1, 3)));   // rubble in the street
+      addBlock(x, z, w, top + 0.4, d, LV.hidden, { y }); made++;
+    }
+    const m = new THREE.Mesh(P.build(), VEH_MAT); m.castShadow = true; m.receiveShadow = true; scene.add(m);
+  }
+  // the ruined railway station: only the tall brick front still stands, its great arched window open to the sky
+  { const s = findBerlinSpot(22, 6, TOWN_R + 30, 360); if (s) { const P = new Part(), y = groundMin(s.x, s.z, 22, 6) - 0.3;
+      P.box(12, 22, 3, brick, s.x - 13, y + 11, s.z); P.box(12, 22, 3, brick, s.x + 13, y + 11, s.z); P.box(14, 7, 3, brick, s.x, y + 18.5, s.z);   // the two piers and the top over the arch
+      P.add(new THREE.TorusGeometry(7, 1.2, 6, 18, Math.PI), brick, s.x, y + 15, s.z); for (const sd of [-1, 1]) { P.box(2, 26, 3.6, 0x7a4a36, s.x + sd * 19, y + 13, s.z); P.box(3, 2, 4, stone, s.x + sd * 19, y + 26.5, s.z); }
+      for (let k = 0; k < 14; k++) P.box(rand(2, 5), rand(1, 3), rand(2, 5), 0x7a6a5a, s.x + rand(-20, 20), y + 0.6, s.z + rand(4, 16));   // what fell behind it
+      for (const sd of [-1, 1]) for (let f = 0; f < 3; f++) P.box(3, 4, 0.1, dark, s.x + sd * 13, y + 4 + f * 6, s.z - 1.53);
+      scene.add(new THREE.Mesh(P.build(), VEH_MAT)); for (const dx of [-13, 13]) addBlock(s.x + dx, s.z, 12, 22, 3, LV.hidden, { y }); addBlock(s.x, s.z, 14, 25, 3, LV.hidden, { y: y + 15 });
+      TALL.push({ x: s.x, z: s.z, hw: 22, hd: 3, top: y + 27 }); } }
+  // the radio tower: a tall steel lattice on four legs, with a platform near the top
+  { const s = findBerlinSpot(6, 6, TOWN_R + 40, 420); if (s) { const P = new Part(), y = heightAt(s.x, s.z), H = 70;
+      for (const [a, b] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { const len = Math.hypot(H, 5.5 * Math.SQRT2); P.cyl(0.25, 0.4, len, steel, s.x + a * 2.9, y + H / 2, s.z + b * 2.9, Math.atan2(-b * 5.5, H), 0, Math.atan2(a * 5.5, H), 1, 6); }
+      for (let k = 1; k < 14; k++) { const t = k / 14, r = 5.6 * (1 - t) + 0.3; P.box(r * 2, 0.15, 0.15, steel, s.x, y + t * H, s.z - r); P.box(r * 2, 0.15, 0.15, steel, s.x, y + t * H, s.z + r); P.box(0.15, 0.15, r * 2, steel, s.x - r, y + t * H, s.z); P.box(0.15, 0.15, r * 2, steel, s.x + r, y + t * H, s.z); }
+      P.box(5, 2.5, 5, 0x6a6e72, s.x, y + H * 0.8, s.z); P.cyl(0.15, 0.15, 10, steel, s.x, y + H + 5, s.z);
+      scene.add(new THREE.Mesh(P.build(), VEH_MAT)); addBlock(s.x, s.z, 9, 4, 9, LV.hidden); TALL.push({ x: s.x, z: s.z, hw: 6, hd: 6, top: y + H + 10 }); } }
+  // the palace: a long baroque front with a central tower and a green copper dome
+  { const s = findBerlinSpot(32, 9, TOWN_R + 40, 400); if (s) { const P = new Part(), y = groundMin(s.x, s.z, 32, 9) - 0.3, cream = 0xd8cfb4, copper = 0x5a9a84;
+      P.box(64, 11, 16, cream, s.x, y + 5.5, s.z); P.box(65, 1, 17, 0xb8ae94, s.x, y + 11.4, s.z); P.box(62, 3, 12, 0x6a5a50, s.x, y + 13.2, s.z);   // wings, cornice, roof
+      P.box(14, 18, 18, cream, s.x, y + 9, s.z); P.cyl(4.5, 5, 6, cream, s.x, y + 21, s.z, 0, 0, 0, 1, 16); P.dome(4.6, copper, s.x, y + 24, s.z, 1, 1.5, 1); P.cyl(0.2, 0.3, 4, 0xd8b040, s.x, y + 32, s.z);
+      for (const sd of [-1, 1]) for (let k = 0; k < 12; k++) for (let f = 0; f < 2; f++) P.box(1.3, 2.6, 0.1, dark, s.x - 30 + k * 5.2 + (k > 5 ? 2 : 0), y + 3 + f * 5, s.z + sd * 8.05);
+      for (let k = 0; k < 3; k++) P.box(rand(3, 6), rand(2, 4), rand(3, 6), 0x7a7268, s.x + rand(-30, 30), y + 1, s.z + rand(10, 16));
+      scene.add(new THREE.Mesh(P.build(), VEH_MAT)); addBlock(s.x, s.z, 64, 14, 16, LV.hidden, { y }); addBlock(s.x, s.z, 14, 30, 18, LV.hidden, { y }); TALL.push({ x: s.x, z: s.z, hw: 32, hd: 9, top: y + 34 }); } }
+  // a windowless air-raid bunker: a huge block of grey concrete
+  for (let n = 0; n < 2; n++) { const s = findBerlinSpot(8, 8, TOWN_R + 20, 300); if (!s) continue; const P = new Part(), y = groundMin(s.x, s.z, 8, 8) - 0.3;
+    P.box(16, 22, 16, conc, s.x, y + 11, s.z); P.box(17, 1, 17, 0x7a7872, s.x, y + 22.5, s.z); for (const sd of [-1, 1]) P.box(2.4, 3, 0.2, dark, s.x + sd * 4, y + 1.5, s.z + 8.05);
+    for (let k = 0; k < 6; k++) P.box(rand(0.6, 2), rand(0.6, 2), 0.2, 0x5a5852, s.x + rand(-7, 7), y + rand(4, 20), s.z + 8.06);   // shell scars
+    scene.add(new THREE.Mesh(P.build(), VEH_MAT)); addBlock(s.x, s.z, 16, 22, 16, LV.hidden, { y }); TALL.push({ x: s.x, z: s.z, hw: 8, hd: 8, top: y + 23 }); }
+  // the rail yard: tracks with a wrecked steam locomotive, wagons (some on their sides) and a water tower
+  { const s = findBerlinSpot(40, 10, TOWN_R + 40, 430); if (s) { const P = new Part(), y = heightAt(s.x, s.z);
+      for (const tz of [-6, 0, 6]) { for (const r of [-0.72, 0.72]) P.box(80, 0.15, 0.12, 0x6a6e72, s.x, y + 0.25, s.z + tz + r); for (let k = 0; k < 40; k++) P.box(0.3, 0.12, 2.2, wood, s.x - 39 + k * 2, y + 0.12, s.z + tz); }
+      const lx = s.x - 22, lz = s.z;   // the locomotive
+      P.cyl(1.3, 1.3, 9, 0x1a1a1a, lx, y + 2.6, lz, 0, 0, Math.PI / 2, 1, 14); P.box(3, 3.4, 3.2, 0x1a1a1a, lx + 5.6, y + 3, lz); P.cyl(0.4, 0.5, 1.6, 0x1a1a1a, lx - 3.4, y + 4.4, lz);
+      for (let k = 0; k < 4; k++) for (const sd of [-1, 1]) P.cyl(0.8, 0.8, 0.2, 0x8a2a20, lx - 3 + k * 2, y + 1, lz + sd * 0.8, Math.PI / 2, 0, 0, 1, 12);
+      P.box(4.5, 2.6, 2.8, 0x2a2a2a, lx + 9.5, y + 2, lz);   // tender
+      for (let k = 0; k < 4; k++) { const wx = s.x - 6 + k * 9, wz = s.z + (k % 2 ? 6 : -6), onSide = k === 2;
+        if (onSide) P.box(7.5, 2.8, 3.2, 0x5a3a2a, wx, y + 1.6, wz + 1.5, 0, 0.1, Math.PI / 2 - 0.1); else { P.box(7.5, 3, 2.8, pick([0x5a3a2a, 0x4a4a42]), wx, y + 2.3, wz); for (const sd of [-2.6, 2.6]) P.box(0.6, 0.6, 2.4, 0x1a1a1a, wx + sd, y + 0.6, wz); } }
+      const wtx = s.x + 32, wtz = s.z - 11; for (const [a, b] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) P.box(0.3, 8, 0.3, steel, wtx + a * 1.5, y + 4, wtz + b * 1.5); P.cyl(2.4, 2.4, 3.2, 0x5a4a3a, wtx, y + 9.6, wtz, 0, 0, 0, 1, 12);
+      scene.add(new THREE.Mesh(P.build(), VEH_MAT)); addBlock(lx + 2, lz, 15, 4.4, 3.2, LV.hidden); addBlock(wtx, wtz, 3.6, 11, 3.6, LV.hidden);
+      for (let k = 0; k < 4; k++) addBlock(s.x - 6 + k * 9, s.z + (k % 2 ? 6 : -6), 7.5, 3, 3, LV.hidden); } }
+  // field guns in sandbag pits, pointing out from the city
+  for (let n = 0, made = 0; n < 200 && made < 4; n++) { const s = findBerlinSpot(4, 4, TOWN_R + 15, 260, 1); if (!s) continue; const P = new Part(), y = heightAt(s.x, s.z), yaw = Math.atan2(s.x, s.z);
+    for (let k = 0; k < 12; k++) { const a = k / 12 * Math.PI * 1.5 + yaw + Math.PI * 0.75; P.box(1.3, 0.9, 0.7, 0x9a8a68, s.x + Math.sin(a) * 3.6, y + 0.45, s.z + Math.cos(a) * 3.6, 0, a, 0); }
+    const g = new THREE.Group(); g.position.set(s.x, y, s.z); g.rotation.y = yaw; scene.add(g);
+    const G = new Part(); G.box(1.6, 1.3, 0.12, 0x4a4c3a, 0, 1.0, -0.4); G.cyl(0.09, 0.12, 3.2, 0x2a2c26, 0, 1.15, -1.9, Math.PI / 2 - 0.15, 0, 0, 1, 8); for (const sd of [-1, 1]) { G.cyl(0.55, 0.55, 0.15, 0x2a2a2a, sd * 0.85, 0.55, 0, 0, 0, Math.PI / 2, 1, 12); G.box(0.12, 0.12, 2.6, 0x4a4c3a, sd * 0.4, 0.3, 1.3, -0.1, sd * 0.2); }
+    g.add(new THREE.Mesh(G.build(), VEH_MAT)); scene.add(new THREE.Mesh(P.build(), VEH_MAT)); addBlock(s.x, s.z, 2.4, 1.6, 2.4, LV.hidden); made++; }
+  // a crashed fighter in a field, nose down in the earth
+  { const s = findBerlinSpot(6, 6, TOWN_R + 60, 460); if (s) { const P = new Part(), y = heightAt(s.x, s.z);
+      P.cyl(0.6, 0.35, 7, 0x6c7276, 0, 1.4, 0, Math.PI / 2 - 0.35, 0, 0, 1, 10); P.box(9, 0.15, 1.6, 0x6c7276, 0.4, 0.9, -0.8, 0.1, 0, 0.25); P.box(3, 0.12, 1, 0x6c7276, 0, 2.4, 3.1, -0.35); P.box(0.12, 1.4, 1, 0x6c7276, 0, 2.9, 3.2, -0.35);
+      balken(P, 0.9, 2.6, 1.13, -0.8, 0.1, 0, 0.25); P.box(0.15, 1.6, 0.15, 0x1a1a1a, 0.3, 0.4, -3.2, 0.6, 0, 0.9);
+      const m = new THREE.Mesh(P.build(), VEH_MAT); m.position.set(s.x, y - 0.4, s.z); m.rotation.y = rand(0, 6.28); scene.add(m); addBlock(s.x, s.z, 5, 2.5, 5, LV.hidden);
+      BARRAGE.smoke.push(new THREE.Vector3(s.x, y + 1.5, s.z)); } }
+  // overturned trams pushed across the side of the streets leaving the old town, as barricades
+  { const P = new Part(); for (const g of G_GRID) for (const [x, z, alongX] of [[g + 9, -TOWN_R - 8, true], [g - 9, TOWN_R + 8, true], [-TOWN_R - 8, g - 9, false], [TOWN_R + 8, g + 9, false]]) {
+      if (Math.abs(g) < 100 || Math.random() < 0.4 || !lvFree(x, z, 2)) continue; const y = heightAt(x, z);
+      P.box(alongX ? 2.6 : 11, alongX ? 11 : 2.6, 3, 0xd8b040, x, y + 1.3, z, alongX ? 0 : 0, 0, alongX ? Math.PI / 2 : 0);
+      P.box(alongX ? 2.7 : 11.1, alongX ? 11.1 : 2.7, 0.8, 0x2a2a2a, x, y + 1.3, z + (alongX ? 0.9 : 0.9), 0, 0, alongX ? Math.PI / 2 : 0);
+      addBlock(x, z, alongX ? 11 : 3, 3, alongX ? 3 : 11, LV.hidden); }
+    scene.add(new THREE.Mesh(P.build(), VEH_MAT)); }
+  // U-Bahn entrances on the old town's pavements: stairs going down behind a railing, under a blue "U" sign
+  { const P = new Part(), uTex = canvasTex(64, 64, (g, w, h) => { g.fillStyle = '#1d4fa0'; g.fillRect(0, 0, w, h); g.fillStyle = '#ffffff'; g.font = 'bold 50px "Segoe UI", Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('U', w / 2, h / 2 + 3); });
+    const uMat = new THREE.MeshLambertMaterial({ map: uTex }); let made = 0;
+    for (let i = 0; i < 200 && made < 6; i++) { const gx = pick(G_GRID), gz = pick(G_GRID), x = gx + 5.6, z = gz - 5.6; if (Math.hypot(x, z) > TOWN_R - 15 || !lvFree(x, z, 0.5) || townStreetDist(x, z) > 7) continue;
+      const y = heightAt(x, z); for (const sd of [-1, 1]) P.box(0.08, 0.9, 3.2, 0x2a3a4a, x + sd * 0.9, y + 0.45, z); P.box(1.8, 0.08, 3.2, 0x2a2a2a, x, y - 0.6, z, 0.4); P.cyl(0.06, 0.06, 2.8, 0x2a3a4a, x + 1.1, y + 1.4, z - 1.6);
+      const sg = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.7, 0.08), uMat); sg.position.set(x + 1.1, y + 3, z - 1.6); scene.add(sg); made++; }
+    scene.add(new THREE.Mesh(P.build(), VEH_MAT)); }
 }
