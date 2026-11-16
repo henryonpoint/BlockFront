@@ -4,7 +4,7 @@
 // a three-storey main house with few outside windows and a 7-foot privacy wall round the third-floor terrace,
 // a smaller guest house, one helicopter coming down inside the walls in the animal pen, the team blowing their
 // way through the inner walls and gates, clearing the guest house first, then the house floor by floor, with a
-// locked metal gate on the stairs and the target in a third-floor room. Invented for the game: more armed guards,
+// locked metal gates on the stairs and the target in a third-floor room. Invented for the game: more armed guards,
 // fighters from the streets coming in waves, the mission clock, and the helicopter that picks you up at the end.
 // Only armed fighters are in the game: no families, no civilians.
 //
@@ -113,16 +113,16 @@ function zBreachable(name, x0, x1, z0, z1, y0, y1, mat, msg) {
   const b = { name, msg, x: (x0 + x1) / 2, y: y0, z: (z0 + z1) / 2, mesh: m, bb, body, done: false, fuse: 0, charge: null };
   ZD.breaches.push(b); return b;
 }
-function zOpen(b, ghost) {
+function zOpen(b, ghost, byEnemy) {
   if (b.done) return; b.done = true;
   scene.remove(b.mesh); const i = solidMeshes.indexOf(b.mesh); if (i >= 0) solidMeshes.splice(i, 1);
   b.bb.minY = b.bb.maxY = -999; world.removeBody(b.body);
   if (b.charge) { scene.remove(b.charge); b.charge = null; }
   const p = new THREE.Vector3(b.x, b.y + 1.2, b.z);
-  explosion(p, 4.5, 8, player.team === 'blue' ? player : null, 90, !!ghost);
+  explosion(p, 4.5, 8, byEnemy ? null : (player.team === 'blue' ? player : null), byEnemy ? 0 : 90, !!ghost || !!byEnemy);
   for (let i = 0; i < 6; i++) smokePuff(p.clone().add(new THREE.Vector3(rand(-1.5, 1.5), rand(-0.5, 1.5), rand(-1.5, 1.5))), 0x8a8478, rand(1, 2), 3, 0.6);
   ZD.blown++;
-  if (b.msg) showMessage(b.msg, 3);
+  if (byEnemy) showMessage(`Fighters blew the ${b.name}! They are coming in`, 4); else if (b.msg) showMessage(b.msg, 3);
 }
 // barbed wire along the top of a wall
 function zWire(x0, z0, x1, z1, y) {
@@ -195,6 +195,8 @@ function zBuildHouse() {
   zBox(ZC.HX0 - 0.1, ZC.HX0 + 18.1, ZC.HZ0 - 0.1, ZC.HZ0 + 16.1, F + wallTop, F + wallTop + 0.35, ZM.floor);
   // the front door and the stair gate (blown open with breach charges)
   zBreachable('front door', ZC.HX0 + 5, ZC.HX0 + 7, ZC.HZ0 + 0.1, ZC.HZ0 + 0.9, zfy(0), zfy(0) + 2.6, ZM.door, 'Front door is open. Clear the ground floor!');
+  zBox(ZC.HX0 + 20, ZC.HX0 + 22, ZC.HZ0 + 19.15, ZC.HZ0 + 19.65, zfy(0) + 2.6, zfy(0) + 3.7, ZM.wallIn);
+  zBreachable('lower stair gate', ZC.HX0 + 20, ZC.HX0 + 22, ZC.HZ0 + 19.2, ZC.HZ0 + 19.6, zfy(0), zfy(0) + 2.6, ZM.gate, 'Lower stair gate is down. Up to the second floor!');
   zBreachable('stair gate', ZC.HX0 + 3, ZC.HX0 + 5, ZC.HZ0 + 8.3, ZC.HZ0 + 8.7, zfy(1), zfy(1) + 2.6, ZM.gate, 'The gate on the stairs is down. Up to the third floor!');
   // few windows to the outside: dark, small, high up
   const P = new Part();
@@ -385,8 +387,8 @@ function zGuard(n, dt) {
 // ---------- the target ----------
 function zBuildTarget() {
   if (!ZD.targetAt) return;
-  // a tall man (he was 6 ft 4 in) in a pale shalwar kameez and a dark waistcoat, a white cap, a long greying beard
-  const P = new Part(), cloth = 0xd8d2c2, cloth2 = 0xc6bfae, vest = 0x4a4a40, skin = 0xb98a66, beard = 0x6a6660, cap = 0xf2f0ea;
+  // a tall man (he was 6 ft 4 in) in a tan shalwar kameez and a dark waistcoat, a white cap, a long greying beard
+  const P = new Part(), cloth = 0xc8b48c, cloth2 = 0xb8a47e, vest = 0x4a4a40, skin = 0xb98a66, beard = 0x6a6660, cap = 0xf2f0ea;
   for (const sd of [-1, 1]) { P.cyl(0.085, 0.075, 0.62, cloth2, 0.11 * sd, 0.36, 0, 0, 0, 0, 1, 8); P.box(0.13, 0.07, 0.26, 0x3a2e24, 0.11 * sd, 0.035, 0.04); }   // trousers, sandals
   P.cyl(0.25, 0.3, 0.62, cloth, 0, 0.86, 0, 0, 0, 0, 0.7, 12);    // the long shirt, down to the knees
   P.cyl(0.24, 0.25, 0.58, cloth, 0, 1.42, 0, 0, 0, 0, 0.62, 12);
@@ -497,8 +499,8 @@ function zUpdate(dt) {
   const k = player.pos.y > zfy(2) - 0.5 ? 2 : player.pos.y > zfy(1) - 0.5 ? 1 : 0, inH = zInHouse(player);
   if (ZD.down) obj = 'GERONIMO E-KIA. Get to the helicopter on the landing zone north of the compound (green smoke)';
   else if (inH && k === 2) obj = 'Third floor. Find the target';
-  else if (inH && k === 1) obj = ZD.breaches.find(b => b.name === 'stair gate').done ? 'Second floor clear the way. Up the stairs to the third floor' : 'Second floor. The stairs up are behind a locked metal gate in the north-west: blow it';
-  else if (inH) obj = 'Ground floor. Clear it and find the stairs up (south-east corner)';
+  else if (inH && k === 1) obj = ZD.breaches.find(b => b.name === 'stair gate').done ? 'Second floor. Up the stairs in the north-west to the third floor' : 'Second floor. The stairs up are behind a locked metal gate in the north-west: blow it';
+  else if (inH) obj = ZD.breaches.find(b => b.name === 'lower stair gate').done ? 'Ground floor. Up the stairs in the south-east corner' : 'Ground floor. The stairs up (south-east corner) are behind a locked metal gate: blow it';
   else if (player.pos.x < -12 && player.pos.z > 2 && player.pos.x > ZC.x0) obj = 'You came down in the animal pen. Blow a door: the pen door (north) or the pen gate (east)';
   else if (player.pos.x < -12 && player.pos.x > ZC.x0 && player.pos.z > ZC.z0) obj = 'Clear the guest house, then blow the inner gate (east) into the main courtyard';
   else obj = 'Get into the main house: blow the front door (north side)';
@@ -518,10 +520,34 @@ function coopUpdate(dt) {
   const held = npcs.filter(n => n.team === 'red' && !n.inactive && !n.alive && n.cw === 'held');
   if (!held.length) return;
   WAVE.n++;
+  if (ZD30 && WAVE.n === 1) for (const nm of ['main gate', 'inner gate']) { const b = ZD.breaches.find(q => q.name === nm); if (!b.done) { zOpen(b, false, true); netFx(['zb', ZD.breaches.indexOf(b)]); } }   // they blow their way in
   const k = Math.min(held.length, ZD30 ? 3 + WAVE.n * 2 : 8 + WAVE.n * 3);
   for (let i = 0; i < k; i++) { held[i].cw = 'go'; held[i].respawnT = rand(0.2, 4); }
   const msg = ZD30 ? `WAVE ${WAVE.n}: ${k} fighters coming in from the streets!` : `WAVE ${WAVE.n}: ${k} enemy soldiers counter-attacking!`;
   showMessage(msg, 4); netFx(['zw', msg]);
+}
+// street fighters find their way in: through the main gate, across the driveway, through the inner gate, to the front door
+function zZone(p) {
+  if (p.x < ZC.x0 || p.x > ZC.x1 || p.z < ZC.z0 || p.z > ZC.z1) return 'out';
+  if (zInHouse({ pos: p })) return 'house';
+  if (p.x < -12) return p.z < 2 ? 'drive' : 'pen';
+  return 'court';
+}
+function zFighterGoal(n, T) {
+  const z = zZone(n.pos), tz = zZone(T.pos), done = nm => ZD.breaches.find(b => b.name === nm).done, near = (x, zz) => Math.hypot(n.pos.x - x, n.pos.z - zz) < 2.5;
+  const V = (x, zz) => new THREE.Vector3(x, 0, zz);
+  if (z === tz && z !== 'out') return V(T.pos.x, T.pos.z);
+  if (z === 'out') { if (tz === 'out') return V(T.pos.x, T.pos.z); if (!done('main gate')) return V(-29, -36); return near(-29, -33) || n.zGate ? (n.zGate = true, V(-29, -22)) : V(-29, -33); }
+  n.zGate = false;
+  if (z === 'drive') { if (tz === 'out') return V(-29, -33); if (tz === 'pen' && done('pen door')) return V(-23.8, 4); return done('inner gate') ? V(-9, -15) : V(-14, -15); }
+  if (z === 'pen') { if (tz === 'court' || tz === 'house') { if (done('pen gate')) return V(-9, 18.2); } return done('pen door') ? V(-23.8, -1) : V(-20, 10); }
+  if (z === 'court') {
+    if (tz === 'house') return done('front door') ? (near(8, -14) || n.zDoor ? (n.zDoor = true, V(8, -9)) : V(8, -14)) : V(8, -15);
+    n.zDoor = false;
+    if (tz === 'pen') return done('pen gate') ? V(-14, 18.2) : V(-9, 18.2);
+    return done('inner gate') ? V(-15, -15) : V(-9, -15);
+  }
+  return V(T.pos.x, T.pos.z);   // in the house: straight for you
 }
 function zBlueLeader(n) {
   let best = null, bd = Infinity;
@@ -561,6 +587,10 @@ function installCoopHooks() {
   const think = npcThink;
   npcThink = function (n, S) {
     think(n, S);
+    if (ZD30 && n.team === 'red' && !n.zPost) {   // a street fighter: head for the nearest of the team
+      const L = zBlueLeader(n) || player;
+      if (L) { n.goal = zFighterGoal(n, L); n.goalT = 30; n.goalPoint = n.goalPoint || points[0]; }
+    }
     if (ZD30 && n.team === 'blue') {
       const L = zBlueLeader(n);
       if (L) { const a = (n.npcIdx % 5) * 1.25, r = 2.5 + (n.npcIdx % 3); n.goal = new THREE.Vector3(L.pos.x + Math.sin(a) * r, 0, L.pos.z + Math.cos(a) * r); n.goalT = 30; }
@@ -573,7 +603,7 @@ function installCoopHooks() {
       return { x: -16, z: 6 };
     }
     if (ZD30 && team === 'red') {   // fighters arrive from the streets of the town
-      for (let i = 0; i < 40; i++) { const a = rand(0, 6.28), r = rand(120, 200), x = Math.cos(a) * r, z = Math.sin(a) * r; if (pathDist(x, z) < 6 && !blockedAt(x, z, heightAt(x, z))) return { x, z }; }
+      for (let i = 0; i < 40; i++) { const a = rand(0, 6.28), r = rand(85, 140), x = Math.cos(a) * r, z = Math.sin(a) * r; if (pathDist(x, z) < 6 && !blockedAt(x, z, heightAt(x, z))) return { x, z }; }
     }
     return fs(team, pref);
   };

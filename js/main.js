@@ -190,7 +190,7 @@ function updatePointsVisual() {
 const _letterCache = {};
 function endGame(team) {
   if (gameOver) return;
-  if (COOP && team === 'blue' && typeof coopTargetDone === 'function' && !coopTargetDone()) return;   // co-op is only won by taking down the target
+  if (COOP && team === 'blue' && (!net.active || net.isHost) && typeof coopTargetDone === 'function' && !coopTargetDone()) return;   // (a win the host already decided always gets through)   // co-op is only won by taking down the target
   gameOver = true; winner = team;
   const won = team === player.team;
   $('endTitle').textContent = won ? 'VICTORY!' : 'DEFEAT';
