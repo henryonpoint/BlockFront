@@ -86,7 +86,7 @@ const ZD_GRID = [
 ];
 
 // ---------- the compound plan (metres; north is -z) ----------
-const ZC = { x0: -38, x1: 38, z0: -28, z1: 28, wallH: 5.5, innerH: 3.6, HX0: 2, HZ0: -14, CS: 1.25, FH: 4, SLAB: 0.3, gy: 0, fb: 0, lz: { x: 0, z: -80 } };
+const ZC = { x0: -70, x1: 52, z0: -30, z1: 34, wallH: 5.5, innerH: 3.6, HX0: 2, HZ0: -14, CS: 1.25, FH: 4, SLAB: 0.3, gy: 0, fb: 0, lz: { x: 0, z: -80 } };
 const ZW = { done: false };
 const ZD = {
   built: false, breaches: [], posts: [], postI: 0, target: null, down: false, downBy: '', downT: 0, heli: null, heliBoom: false,
@@ -127,16 +127,33 @@ function zOpen(b, ghost, byEnemy) {
   const p = new THREE.Vector3(b.x, b.y + 1.2, b.z);
   explosion(p, 4.5, 8, byEnemy ? null : (player.team === 'blue' ? player : null), byEnemy ? 0 : 90, !!ghost || !!byEnemy);
   for (let i = 0; i < 6; i++) smokePuff(p.clone().add(new THREE.Vector3(rand(-1.5, 1.5), rand(-0.5, 1.5), rand(-1.5, 1.5))), 0x8a8478, rand(1, 2), 3, 0.6);
-  ZD.blown++; zNoise(p, 18, 1.8);
+  ZD.blown++; zNoise(p, 12, 1.15);
   if (byEnemy) showMessage(`Fighters blew the ${b.name}! They are coming in`, 4); else if (b.msg) showMessage(b.msg, 3);
 }
 // barbed wire along the top of a wall
-function zWire(x0, z0, x1, z1, y) {
+function zWire(x0, z0, x1, z1, y) {   // barbed wire strung on short posts along the top of a wall
   const len = Math.hypot(x1 - x0, z1 - z0), a = Math.atan2(x1 - x0, z1 - z0), P = new Part();
-  for (let s = 0.4; s < len; s += 0.55) P.add(new THREE.TorusGeometry(0.22, 0.018, 4, 10), 0x3a3a3a, 0, 0.22, s - len / 2, 0, Math.PI / 2 + 0.3, 0);
-  P.box(0.03, 0.03, len, 0x2a2a2a, 0, 0.05, 0);
+  for (let t = 0; t <= len; t += 2.6) P.box(0.05, 0.9, 0.05, 0x2a2a2a, 0, 0.45, t - len / 2, 0.12);
+  for (const h of [0.3, 0.55, 0.8]) P.box(0.015, 0.015, len, 0x3a3a3a, 0, h, 0);
+  for (let t = 0.5; t < len; t += 0.9) P.add(new THREE.TorusGeometry(0.12, 0.012, 3, 7), 0x3a3a3a, 0, 0.55, t - len / 2, 0, Math.PI / 2, 0);
   const m = new THREE.Mesh(P.build(), VEH_MAT); m.position.set((x0 + x1) / 2, y, (z0 + z1) / 2); m.rotation.y = a; scene.add(m);
 }
+// a wall at any angle: one long box you see, and a row of small invisible blocks that stop you and bullets
+function zDiag(x0, z0, x1, z1, h, t, mat) {
+  if (x0 === x1 || z0 === z1) return zWall(x0, z0, x1, z1, h, t, mat);
+  const len = Math.hypot(x1 - x0, z1 - z0), gy = ZC.gy;
+  const m = addMesh(new THREE.BoxGeometry(t, h + 0.4, len + t), mat, (x0 + x1) / 2, gy - 0.4 + (h + 0.4) / 2, (z0 + z1) / 2); m.rotation.y = Math.atan2(x1 - x0, z1 - z0);
+  for (let d = 0; d <= len; d += 0.6) { const x = lerp(x0, x1, d / len), z = lerp(z0, z1, d / len); addBlock(x, z, 0.85, h, 0.85, LV.hidden, { y: gy - 0.4 }); }
+  return gy + h;
+}
+function zInPoly(x, z, poly = ZD_OUTLINE) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const [xi, zi] = poly[i], [xj, zj] = poly[j]; if ((zi > z) !== (zj > z) && x < (xj - xi) * (z - zi) / (zj - zi) + xi) inside = !inside; }
+  return inside;
+}
+// the outline, after the CIA diagram: a wedge with a long open yard pointing west, the house in the north part,
+// a walled annex to the east, the driveway, gates and guest house along the south
+const ZD_OUTLINE = [[-70, -6], [-30, -30], [44, -30], [52, 4], [46, 34], [-6, 34]];
 // a straight wall along x or z, with gaps [from, to] left open (filled by breach gates)
 function zWall(x0, z0, x1, z1, h, t, mat, gaps = [], y0) {
   const alongX = z0 === z1, a0 = alongX ? x0 : z0, a1 = alongX ? x1 : z1, base = y0 !== undefined ? y0 : ZC.gy - 0.4, top = (y0 !== undefined ? y0 : ZC.gy) + h;
@@ -187,7 +204,7 @@ function zBuildHouse() {
   zBox(zx(0) - 0.2, zx(26) + 0.2, zz(0) - 0.2, zz(22) + 0.2, ZC.gy - 0.6, ZC.fb, ZM.floor);   // the ground-floor slab
   for (const [k, g] of [[0, G0], [1, G1]]) {
     const F = zfy(k);
-    for (const r of zRuns(g, ch => ch === '#')) zCellBox(r, F, F + wallTop, k === 0 && (r[2] === 0 || r[3] === 21 || r[0] === 0 || r[1] === 25) ? M : ZM.wallIn);
+    for (const r of zRuns(g, ch => ch === '#')) zCellBox(r, F, F + wallTop, (r[2] === 0 || r[3] === 21 || r[0] === 0 || r[1] === 25) ? M : ZM.wallIn);   // outside walls painted, inside plain
     for (const r of zRuns(g, ch => ch === 'd' || ch === 'g')) zCellBox(r, F + 2.6, F + wallTop, ZM.wallIn);   // lintels over the door and the gate
     zStairs(g, k);
   }
@@ -196,7 +213,7 @@ function zBuildHouse() {
   zRects(G2, ch => ch !== 'o').forEach(r => zCellBox(r, zfy(2) - ZC.SLAB, zfy(2), ZM.floor));
   // third floor: walls, the low roof walls, the privacy wall, and its own roof
   const F = zfy(2);
-  for (const r of zRuns(G2, ch => ch === '#')) zCellBox(r, F, F + wallTop, ZM.wallIn);
+  for (const r of zRuns(G2, ch => ch === '#')) zCellBox(r, F, F + wallTop, (r[2] === 0 || r[3] === 15 || r[0] === 0 || r[1] === 17) ? M : ZM.wallIn);
   for (const r of zRuns(G2, ch => ch === 'p')) zCellBox(r, F, F + 2.1, M);
   for (const r of zRuns(G2, ch => ch === 'q')) zCellBox(r, F, F + 1.0, M);
   zBox(zx(0) - 0.1, zx(18) + 0.1, zz(0) - 0.1, zz(16) + 0.1, F + wallTop, F + wallTop + 0.35, ZM.floor);
@@ -212,48 +229,50 @@ function zBuildHouse() {
 
 // ---------- walls, gates, the guest house and the yards ----------
 function zBuildCompound() {
-  const H = ZC.wallH, gy = ZC.gy;
-  // outer wall: up to 18 feet high, barbed wire on top; the main gate in the north wall onto the lane
-  zWall(ZC.x0, ZC.z0, ZC.x1, ZC.z0, H, 0.6, ZM.wall, [[-32, -26]]);
-  zWall(ZC.x0, ZC.z1, ZC.x1, ZC.z1, H, 0.6, ZM.wall);
-  zWall(ZC.x0, ZC.z0, ZC.x0, ZC.z1, H, 0.6, ZM.wall);
-  zWall(ZC.x1, ZC.z0, ZC.x1, ZC.z1, H, 0.6, ZM.wall);
-  zBox(-32, -26, ZC.z0 - 0.3, ZC.z0 + 0.3, gy + 4.4, gy + H, ZM.wall);   // over the gate
-  zBreachable('main gate', -32, -26, ZC.z0 - 0.25, ZC.z0 + 0.25, gy - 0.2, gy + 4.4, ZM.gate, 'Main gate is down!');
-  for (const [a, b, c, d] of [[ZC.x0, ZC.z0, ZC.x1, ZC.z0], [ZC.x0, ZC.z1, ZC.x1, ZC.z1], [ZC.x0, ZC.z0, ZC.x0, ZC.z1], [ZC.x1, ZC.z0, ZC.x1, ZC.z1]]) zWire(a, b, c, d, gy + H);
-  // inner walls: the animal pen (where the helicopter came down) and the driveway with the guest house
+  const gy = ZC.gy, brick = typeof MATS !== 'undefined' && MATS.brick ? MATS.brick : ZM.wall, O = ZD_OUTLINE;
+  // the outer wall: 10 to 18 feet, part brick and part grey concrete, barbed wire on posts along the top.
+  // Two gates: the main gate in the south onto the lane, and a second gate in the north wall by the house.
+  const H = [3.4, 3.7, 3.4, 5.5, 3.7, 3.4], M = [brick, ZM.wall, ZM.wall, ZM.wall, ZM.wall, brick];
+  for (let i = 0; i < O.length; i++) {
+    const [x0, z0] = O[i], [x1, z1] = O[(i + 1) % O.length];
+    if (i === 1) { zWall(x0, z0, x1, z1, H[i], 0.6, M[i], [[-2, 2]]); zBox(-2, 2, z0 - 0.3, z0 + 0.3, gy + 3.0, gy + H[i], M[i]); zBreachable('north gate', -2, 2, z0 - 0.25, z0 + 0.25, gy - 0.2, gy + 3.0, ZM.gate, 'North gate is open: the quickest way to the field outside'); }
+    else if (i === 4) { zWall(x0, z0, x1, z1, H[i], 0.6, M[i], [[20, 26]]); zBox(20, 26, z0 - 0.3, z0 + 0.3, gy + 3.2, gy + H[i], M[i]); zBreachable('main gate', 20, 26, z0 - 0.25, z0 + 0.25, gy - 0.2, gy + 3.2, ZM.gate, 'Main gate is down!'); }
+    else zDiag(x0, z0, x1, z1, H[i], 0.6, M[i]);
+    zWire(x0, z0, x1, z1, gy + H[i]);
+  }
+  // inner walls: the west yard (the animal pen, where the helicopter came down and the trash was burned);
+  // the driveway and the guest house in the south; the annex with the vegetable garden in the east
   const IH = ZC.innerH;
-  zWall(ZC.x0, 2, -12, 2, IH, 0.5, ZM.wallIn, [[-25, -22.6]]);
-  zBox(-25, -22.6, 1.75, 2.25, gy + 2.6, gy + IH, ZM.wallIn);
-  zBreachable('pen door', -25, -22.6, 1.8, 2.2, gy - 0.2, gy + 2.6, ZM.door, 'Pen door is open: the driveway and the guest house are through here');
-  zWall(-12, ZC.z0, -12, ZC.z1, IH, 0.5, ZM.wallIn, [[-17, -13], [17, 19.4]]);
-  zBox(-12.25, -11.75, -17, -13, gy + 3.0, gy + IH, ZM.wallIn); zBox(-12.25, -11.75, 17, 19.4, gy + 2.6, gy + IH, ZM.wallIn);
-  zBreachable('inner gate', -12.2, -11.8, -17, -13, gy - 0.2, gy + 3.0, ZM.gate, 'Inner gate is open. The main house is across the courtyard');
-  zBreachable('pen gate', -12.2, -11.8, 17, 19.4, gy - 0.2, gy + 2.6, ZM.door, 'Through into the main courtyard!');
-  for (const [a, b, c, d] of [[ZC.x0, 2, -12, 2], [-12, ZC.z0, -12, ZC.z1]]) zWire(a, b, c, d, gy + IH);
-  // the guest house, where the courier lived: one storey, two rooms, a door onto the driveway
-  const g0 = gy, gh = 3.4;
-  zWall(-37.6, -25, -27, -25, gh, 0.4, ZM.house, [], g0); zWall(-37.6, -7, -27, -7, gh, 0.4, ZM.house, [], g0);
-  zWall(-27, -25, -27, -7, gh, 0.4, ZM.house, [[-19, -17], [-12, -10]], g0);
-  zWall(-37.6, -16, -27, -16, gh, 0.3, ZM.wallIn, [[-31, -29.4]], g0);
-  zBox(-37.7, -26.8, -25.2, -6.8, g0 + gh, g0 + gh + 0.3, ZM.floor);
+  zWall(-12, -30, -12, 30.3, IH, 0.5, brick, [[-12, -8]]);
+  zBox(-12.25, -11.75, -12, -8, gy + 2.6, gy + IH, brick);
+  zBreachable('pen gate', -12.2, -11.8, -12, -8, gy - 0.2, gy + 2.6, ZM.door, 'Pen gate is open: the main courtyard and the house are through here');
+  zWall(-12, 20, 48.8, 20, IH, 0.5, ZM.wallIn, [[0, 4]]);
+  zBox(0, 4, 19.75, 20.25, gy + 3.0, gy + IH, ZM.wallIn);
+  zBreachable('inner gate', 0, 4, 19.8, 20.2, gy - 0.2, gy + 3.0, ZM.gate, 'Inner gate is open. The main house is across the courtyard');
+  zWall(40, -30, 40, 20, 3.0, 0.4, ZM.wallIn, [[-6, -2]]);   // the annex (an open doorway)
+  for (const [a, b, c, d] of [[-12, -30, -12, 30.3], [-12, 20, 48.8, 20]]) zWire(a, b, c, d, gy + IH);
+  // the guest house, where the courier lived: one storey, two rooms, doors onto the driveway
+  const gh = 3.4;
+  zWall(-4, 22.5, 14, 22.5, gh, 0.4, ZM.house, [[2, 4], [9, 11]], gy); zWall(-4, 32.5, 14, 32.5, gh, 0.4, ZM.house, [], gy);
+  zWall(-4, 22.5, -4, 32.5, gh, 0.4, ZM.house, [], gy); zWall(14, 22.5, 14, 32.5, gh, 0.4, ZM.house, [], gy);
+  zWall(5, 22.5, 5, 32.5, gh, 0.3, ZM.wallIn, [[26, 28]], gy);
+  zBox(-4.3, 14.3, 22.2, 32.8, gy + gh, gy + gh + 0.3, ZM.floor);
   // the main house
   zBuildHouse();
-  // the yards: water tanks, the trash they burned instead of putting it out, a vegetable garden, a car under a lean-to
-  for (const [x, z] of [[-14.5, -25], [35, 25], [30, -25]]) { addMesh(new THREE.CylinderGeometry(0.9, 0.9, 1.6, 12), ZM.gate, x, gy + 0.8, z); addCircle(x, z, 0.95, gy + 1.6); }
-  ZD.trash = new THREE.Vector3(-4, gy + 0.2, 24);
-  addMesh(new THREE.CylinderGeometry(1.2, 1.4, 0.5, 10), new THREE.MeshLambertMaterial({ color: 0x2a2622 }), -4, gy + 0.25, 24);
-  for (let i = 0; i < 6; i++) addMesh(new THREE.BoxGeometry(12, 0.25, 0.7), ZM.green, 16, gy + 0.12, 15 + i * 2, false);
-  zBox(-10, -5, -27.5, -23, gy + 2.6, gy + 2.8, ZM.gate); for (const [x, z] of [[-9.8, -23.2], [-5.2, -23.2]]) zBox(x - 0.1, x + 0.1, z - 0.1, z + 0.1, gy, gy + 2.6, ZM.wire);
-  zBox(-9, -6, -27, -24, gy, gy + 1.5, ZM.win);   // the car
-  // the lane outside the north wall, and a few lamps
-  for (const [x, z] of [[-30, -31], [10, -31], [30, -31]]) { addMesh(new THREE.BoxGeometry(0.4, 0.25, 0.25), ZM.lamp, x, gy + 4.2, z, false); }
+  // the yards: water tanks, the burned trash in the west yard, the vegetable garden in the annex, a car under a lean-to
+  for (const [x, z] of [[-14.5, -27], [44, 26], [37, -27]]) { addMesh(new THREE.CylinderGeometry(0.9, 0.9, 1.6, 12), ZM.gate, x, gy + 0.8, z); addCircle(x, z, 0.95, gy + 1.6); }
+  ZD.trash = new THREE.Vector3(-46, gy + 0.2, -6);
+  addMesh(new THREE.CylinderGeometry(1.2, 1.4, 0.5, 10), new THREE.MeshLambertMaterial({ color: 0x2a2622 }), -46, gy + 0.25, -6);
+  for (let i = 0; i < 7; i++) addMesh(new THREE.BoxGeometry(6, 0.25, 0.7), ZM.green, 45, gy + 0.12, -24 + i * 2, false);
+  zBox(30, 35, 22, 26.5, gy + 2.6, gy + 2.8, ZM.gate); for (const [x, z] of [[30.2, 22.2], [34.8, 22.2]]) zBox(x - 0.1, x + 0.1, z - 0.1, z + 0.1, gy, gy + 2.6, ZM.wire);
+  zBox(31, 34, 23, 26, gy, gy + 1.5, ZM.win);   // the car
+  for (const [x, z] of [[-20, -31], [10, -31], [30, -31], [23, 35]]) addMesh(new THREE.BoxGeometry(0.4, 0.25, 0.25), ZM.lamp, x, gy + 4.2, z, false);
 }
 
 // ---------- the crashed helicopter in the animal pen ----------
 function zBuildCrash() {
   if (typeof heliCustomModel !== 'function') return;
-  const m = heliCustomModel('blackhawk', 'blue'), g = m.g, x = -24, z = 15;
+  const m = heliCustomModel('blackhawk', 'blue'), g = m.g, x = -32, z = 2;
   g.position.set(x, ZC.gy + 0.6, z); g.rotation.set(0.12, 0.6, -0.22); scene.add(g);
   g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.material = o.material; } });
   if (m.rotor) m.rotor.rotation.y = 0.7;
@@ -267,7 +286,7 @@ function zBuildTown() {
   for (let x = -270; x <= 270; x += 32) for (let z = -270; z <= 270; z += 30) {
     const hx = x + rand(-6, 6), hz = z + rand(-6, 6);
     if (Math.hypot(hx, hz) > 290) continue;
-    if (Math.abs(hx) < 62 && hz > -58 && hz < 46) continue;   // the compound and the lane
+    if (hx > -88 && hx < 66 && hz > -58 && hz < 50) continue;   // the compound and the lanes
     if (Math.abs(hx) < 60 && hz < -50 && hz > -130) continue;   // the field north of it (the landing zone)
     if (pathDist(hx, hz) < 10) continue;
     const w = rand(9, 15), d = rand(8, 13), h = rand(3.6, 7.6);
@@ -343,10 +362,10 @@ function zPosts() {
   // inside the house, waiting round corners
   for (const [k, r, c] of [[0, 2, 3], [0, 5, 11], [0, 8, 23], [0, 12, 9], [0, 17, 8], [0, 20, 17], [1, 1, 11], [1, 5, 13], [1, 10, 23], [1, 17, 5], [1, 14, 12], [1, 15, 24], [1, 10, 3], [2, 11, 3], [2, 13, 13], [2, 7, 10]]) F(k, r, c);
   const O = (x, z, patrol) => P.push({ x, y: ZC.gy, z, face: rand(0, 6.28), floor: -1, patrol: patrol ? patrol.map(([a, b]) => ({ x: a, z: b })) : null });
-  O(-33, -20); O(-31, -11);                                   // the guest house
-  O(-20, -22, [[-20, -22], [-20, -5]]); O(-16, -25);          // the driveway
-  O(-5, -22, [[-5, -22], [34, -22]]); O(-6, 22); O(36.4, 18, [[36.4, 18], [36.4, -20]]);   // the courtyard round the house
-  O(-36, -34, [[-36, -34], [36, -34]]); O(44, -25, [[44, -25], [44, 25]]);           // the lanes outside the walls
+  O(1, 29); O(10, 30);                                        // the guest house
+  O(18, 26, [[18, 26], [44, 26]]); O(-7, 25);                 // the driveway
+  O(-6, -22, [[-6, -22], [36, -22]]); O(-6, 16); O(37.2, 17, [[37.2, 17], [37.2, -20]]); O(46, -10);   // the courtyard round the house, the annex
+  O(-30, -36, [[-30, -36], [44, -36]]); O(40, 40, [[40, 40], [-6, 40]]);             // the lanes outside the walls
   return P;
 }
 // ---------- stealth: guards have to notice you first ----------
@@ -359,8 +378,12 @@ function zCrouched(c) { return c.isPlayer ? !!player.crouch : !!c.crouch; }
 function zAlert(n, by, quiet) {
   if (!n.alive || n.zAware) return;
   n.zAware = true; n.zSus = 1; n.zBangT = simTime; n.alertedBy = by || n.alertedBy;
-  n.fireT = Math.max(n.fireT || 0, rand(0.35, 0.75) * DIFF().react);
+  n.fireT = Math.max(n.fireT || 0, rand(0.9, 1.4) * DIFF().react);   // he has to bring his gun up first
   if (quiet) return;
+  n.zShoutAt = simTime + 1.5; n.zShoutBy = by;   // a second and a half to drop him before he shouts
+}
+function zShout(n) {
+  n.zShoutAt = 0;
   for (const o of npcs) if (o !== n && o.alive && o.zPost && !o.zAware && o.pos.distanceTo(n.pos) < 16 && Math.abs(o.pos.y - n.pos.y) < 2.5) { o.zSus = Math.max(o.zSus || 0, 0.7); o.zNoiseAt = n.pos.clone(); }   // his shout
   zRaiseAlarm();
 }
@@ -390,18 +413,19 @@ function zGuardThink(n) {
     const d = c.pos.distanceTo(n.pos); if (d > 60) continue;
     if (Math.abs(c.pos.y - n.pos.y) > 3.2 && d < 20 && indoor) continue;   // a different floor of the house
     if (n.zAware) { if (d < bd && los(eye, c.chest())) { best = c; bd = d; } continue; }
-    let R = indoor ? 15 : 28;
+    let R = indoor ? 12 : 17;
     if (zCrouched(c)) R *= 0.6;
     if (c.isPlayer && ZD30 && !ZD.nvg) R *= 1.45;          // the white light gives you away
-    if (!c.isPlayer && !c.isRemote) R *= 0.7;               // the team moves quietly
+    if (!c.isPlayer && !c.isRemote) R *= 0.45;              // the team moves quietly and keeps behind you
     if (ZD.alarm) R *= 1.4;
     if (d > R || !los(eye, c.chest())) continue;
     const ang = Math.abs(wrapAngle(Math.atan2(c.pos.x - n.pos.x, c.pos.z - n.pos.z) - n.heading));
     let g = 0;
-    if (ang < 0.85) g = 0.45 + 2.4 * (1 - d / R);           // in front of him
-    else if (ang < 1.6) g = 0.3 * (1 - d / R);              // the corner of his eye
+    if (ang < 0.8) g = 0.25 + 1.5 * (1 - d / R);            // in front of him
+    else if (ang < 1.5) g = 0.15 * (1 - d / R);             // the corner of his eye
     else if (d < 2.6 && zMovingFast(c)) g = 0.6;            // he hears you right behind him
     if (zMovingFast(c)) g *= 1.3;
+    if (!c.isPlayer && !c.isRemote) g *= 0.5;
     if (ZD.alarm) g *= 2.5;
     if (g > gain) { gain = g; from = c; }
   }
@@ -413,7 +437,7 @@ function zGuardThink(n) {
   }
   n.target = null; n.tgtVisible = false;
   if (gain > 0) { n.zSus = (n.zSus || 0) + gain * dt; n.zSusFrom = from; n.zNoiseAt = from.pos.clone(); }
-  else n.zSus = Math.max(0, (n.zSus || 0) - 0.12 * dt);
+  else n.zSus = Math.max(0, (n.zSus || 0) - 0.18 * dt);
   if (n.zSus >= 1) zAlert(n, from);
 }
 // the "?" and "!" over a guard's head
@@ -447,6 +471,7 @@ function zGuard(n, dt) {
   n.moving = moving;
   if (n.crouchT === undefined || (n.crouchT -= dt) <= 0) { n.crouchT = rand(2, 5); n.wantCrouch = Math.random() < 0.35; }
   n.crouch = !!(tgt && n.wantCrouch && !moving);
+  if (n.zAware && n.zShoutAt && simTime > n.zShoutAt) zShout(n);
   if (n.zAware) npcShoot(n, S, dt);
   animateNPC(n, dt, moving ? speed : 0, !!tgt || (n.zAware && !!n.alertedBy));
   zMark(n);
@@ -581,10 +606,10 @@ function zUpdate(dt) {
   else if (inH && k === 2) obj = 'Third floor. Find the target';
   else if (inH && k === 1) obj = ZD.breaches.find(b => b.name === 'stair gate').done ? 'Second floor. Up the stairs in the north-west to the third floor' : 'Second floor. The stairs up are behind a locked metal gate in the north-west: blow it';
   else if (inH) obj = ZD.breaches.find(b => b.name === 'lower stair gate').done ? 'Ground floor. Up the stairs in the south-east corner' : 'Ground floor. The stairs up (south-east corner) are behind a locked metal gate: blow it';
-  else if (player.pos.x < -12 && player.pos.z > 2 && player.pos.x > ZC.x0) obj = 'You came down in the animal pen. Blow a door: the pen door (north) or the pen gate (east)';
-  else if (player.pos.x < -12 && player.pos.x > ZC.x0 && player.pos.z > ZC.z0) obj = 'Clear the guest house, then blow the inner gate (east) into the main courtyard';
+  else if (zZone(player.pos) === 'pen') obj = 'You came down in the animal pen, the big west yard. Blow the pen gate (east wall) into the main courtyard';
+  else if (zZone(player.pos) === 'drive') obj = 'The driveway and the guest house. Blow the inner gate (north) into the main courtyard';
   else obj = 'Get into the main house: blow the front door (north side)';
-  const left = chars.filter(c => c.alive && c.team === 'red' && c.pos.x > ZC.x0 - 1 && c.pos.x < ZC.x1 + 1 && c.pos.z > ZC.z0 - 1 && c.pos.z < ZC.z1 + 1).length;   // inside the walls (works online too)
+  const left = chars.filter(c => c.alive && c.team === 'red' && zInPoly(c.pos.x, c.pos.z)).length;   // inside the walls (works online too)
   if (!ZD.hud) { const el = document.createElement('div'); el.id = 'zdHud'; el.className = 'hud'; el.style.cssText = 'position:fixed;left:50%;top:44px;transform:translateX(-50%);color:#e8ffe8;text-align:center;font:600 14px system-ui,sans-serif;text-shadow:0 1px 3px #000;pointer-events:none;max-width:80vw;z-index:4'; document.body.appendChild(el); ZD.hud = el; }
   const mm = Math.floor(ZD.clock / 60), ss = Math.floor(ZD.clock % 60);
   const html = `<div style="font-size:12px;opacity:.85">OPERATION NEPTUNE SPEAR &nbsp;·&nbsp; ${ZD.stateTxt || ''} &nbsp;·&nbsp; Night vision ${ZD.nvg ? 'ON' : 'OFF'} (L) &nbsp;·&nbsp; Pakistani response in ${mm}:${ss < 10 ? '0' : ''}${ss} &nbsp;·&nbsp; Enemies inside the walls: ${left}</div><div>${obj}</div>`;
@@ -609,24 +634,26 @@ function coopUpdate(dt) {
 }
 // street fighters find their way in: through the main gate, across the driveway, through the inner gate, to the front door
 function zZone(p) {
-  if (p.x < ZC.x0 || p.x > ZC.x1 || p.z < ZC.z0 || p.z > ZC.z1) return 'out';
+  if (!zInPoly(p.x, p.z)) return 'out';
   if (zInHouse({ pos: p })) return 'house';
-  if (p.x < -12) return p.z < 2 ? 'drive' : 'pen';
-  return 'court';
+  if (p.x < -12) return 'pen';
+  return p.z > 20 ? 'drive' : 'court';
 }
 function zFighterGoal(n, T) {
   const z = zZone(n.pos), tz = zZone(T.pos), done = nm => ZD.breaches.find(b => b.name === nm).done, near = (x, zz) => Math.hypot(n.pos.x - x, n.pos.z - zz) < 2.5;
-  const V = (x, zz) => new THREE.Vector3(x, 0, zz);
+  const V = (x, zz) => new THREE.Vector3(x, 0, zz), fx = (zx(5) + zx(7)) / 2;
   if (z === tz && z !== 'out') return V(T.pos.x, T.pos.z);
-  if (z === 'out') { if (tz === 'out') return V(T.pos.x, T.pos.z); if (!done('main gate')) return V(-29, -36); return near(-29, -33) || n.zGate ? (n.zGate = true, V(-29, -22)) : V(-29, -33); }
+  if (z === 'out') { if (tz === 'out') return V(T.pos.x, T.pos.z); if (!done('main gate')) return V(23, 41); return near(23, 37) || n.zGate ? (n.zGate = true, V(23, 27)) : V(23, 37); }
   n.zGate = false;
-  if (z === 'drive') { if (tz === 'out') return V(-29, -33); if (tz === 'pen' && done('pen door')) return V(-23.8, 4); return done('inner gate') ? V(-9, -15) : V(-14, -15); }
-  if (z === 'pen') { if (tz === 'court' || tz === 'house') { if (done('pen gate')) return V(-9, 18.2); } return done('pen door') ? V(-23.8, -1) : V(-20, 10); }
+  if (z === 'drive') { if (tz === 'out') return V(23, 37); return done('inner gate') ? (near(2, 22.5) || n.zIn ? (n.zIn = true, V(2, 16)) : V(2, 22.5)) : V(2, 23); }
+  n.zIn = false;
+  if (z === 'pen') return done('pen gate') ? (near(-15, -10) || n.zPg ? (n.zPg = true, V(-8, -10)) : V(-15, -10)) : V(-16, -10);
+  n.zPg = false;
   if (z === 'court') {
-    if (tz === 'house') return done('front door') ? (near(8, -14) || n.zDoor ? (n.zDoor = true, V(8, -9)) : V(8, -14)) : V(8, -15);
+    if (tz === 'house') return done('front door') ? (near(fx, zz(0) - 2) || n.zDoor ? (n.zDoor = true, V(fx, zz(0) + 3)) : V(fx, zz(0) - 2)) : V(fx, zz(0) - 2.5);
     n.zDoor = false;
-    if (tz === 'pen') return done('pen gate') ? V(-14, 18.2) : V(-9, 18.2);
-    return done('inner gate') ? V(-15, -15) : V(-9, -15);
+    if (tz === 'pen') return done('pen gate') ? V(-15, -10) : V(-9, -10);
+    return done('inner gate') ? V(2, 23) : V(2, 17);
   }
   return V(T.pos.x, T.pos.z);   // in the house: straight for you
 }
@@ -681,8 +708,8 @@ function installCoopHooks() {
   const fs = findSpawn;
   findSpawn = function (team, pref) {
     if (ZD30 && team === 'blue') {   // the team starts (and comes back) by the crashed helicopter in the animal pen
-      for (let i = 0; i < 40; i++) { const x = rand(-35, -15), z = rand(5, 26); if (Math.hypot(x - ZD.heli.x, z - ZD.heli.z) > 6.5 && !blockedAt(x, z, heightAt(x, z))) return { x, z }; }
-      return { x: -16, z: 6 };
+      for (let i = 0; i < 60; i++) { const x = rand(-44, -16), z = rand(-16, 18); if (zInPoly(x, z) && zInPoly(x - 3, z) && zInPoly(x, z + 3) && zInPoly(x, z - 3) && Math.hypot(x - ZD.heli.x, z - ZD.heli.z) > 6.5 && !blockedAt(x, z, heightAt(x, z))) return { x, z }; }
+      return { x: -18, z: 8 };
     }
     if (ZD30 && team === 'red') {   // fighters arrive from the streets of the town
       for (let i = 0; i < 40; i++) { const a = rand(0, 6.28), r = rand(85, 140), x = Math.cos(a) * r, z = Math.sin(a) * r; if (pathDist(x, z) < 6 && !blockedAt(x, z, heightAt(x, z))) return { x, z }; }
@@ -696,7 +723,7 @@ function installCoopHooks() {
   };
   if (ZD30) {
     const ia = interact; interact = function () { if (ZD.near && !player.vehicle && !player.gv) { zPlaceCharge(ZD.near, true); return; } return ia.apply(this, arguments); };
-    const rh = rayHit; rayHit = function (o, d, m, team, opts) { return zCivRay(o, d, m, team, zTargetRay(o, d, m, team, rh(o, d, m, team, opts))); };
+    const rh = rayHit; rayHit = function (o, d, m, team, opts) { return zTargetRay(o, d, m, team, rh(o, d, m, team, opts)); };   // (the families are never hit: bullets pass them by)
     const ah = applyHit; applyHit = function (hit, d, wpn, shooter) { if (hit && hit.zdCiv) { if (shooter === player) zCivHit(hit.zdCiv); return false; } if (hit && hit.zdTarget) { if (shooter && (shooter === player || shooter.isPlayer)) zTargetDown(player.name); return false; } return ah.apply(this, arguments); };
     const fw = fireWeapon;
     fireWeapon = function () { const w = curW(), r = fw.apply(this, arguments); if (w && w.type === 'hit') zNoise(player.pos, w.sfx === 'supp' ? 4.5 : 45, w.sfx === 'supp' ? 0.35 : 2.2); return r; };
@@ -893,31 +920,40 @@ function zDecorHouse() {
 // floor has windows on one side only, four of its five just slits high up; balconies behind 7-foot privacy walls;
 // satellite dishes on the roof; a concrete porch over the front door.
 function zDressHouse() {
-  ZM.house.color.setHex(0xf4f0e6); ZM.wallIn.color.setHex(0xe6e0d2);
-  const P = new Part(), frost = 0xb7c2bf, frame = 0x55524c, X0 = zx(0), X1 = zx(26), Z0 = zz(0), Z1 = zz(22), o = 0.04;
-  const win = (face, a, y, w, h) => {   // face: 'n' 's' 'e' 'w'; a = metres along the face from its west/north end
-    const t = 0.06, fr = 0.07;
-    if (face === 'n' || face === 's') {
-      const z = face === 'n' ? Z0 - o : Z1 + o, x = X0 + a;
-      P.box(w + fr * 2, h + fr * 2, t, frame, x, y, z); P.box(w, h, t + 0.02, frost, x, y, z + (face === 'n' ? -0.012 : 0.012)); P.box(w + 0.2, 0.06, 0.16, 0xbab4a6, x, y - h / 2 - fr - 0.03, z + (face === 'n' ? -0.06 : 0.06));
-    } else {
-      const x = face === 'w' ? X0 - o : X1 + o, z = Z0 + a;
-      P.box(t, h + fr * 2, w + fr * 2, frame, x, y, z); P.box(t + 0.02, h, w, frost, x + (face === 'w' ? -0.012 : 0.012), y, z); P.box(0.16, 0.06, w + 0.2, 0xbab4a6, x + (face === 'w' ? -0.06 : 0.06), y - h / 2 - fr - 0.03, z);
-    }
+  ZM.house.map = null; ZM.house.color.setHex(0xebe2cb); ZM.house.needsUpdate = true;   // painted plaster, cream, a bit weathered
+  ZM.wallIn.color.setHex(0xe6e0d2);
+  const P = new Part(), glass = 0x2e3a42, frost = 0xc4ccc8, frame = 0xf2eee4, X0 = zx(0), X1 = zx(26), Z0 = zz(0), Z1 = zz(22), o = 0.04;
+  // a window: frame, panes with a cross bar, a sill; some with a sloped awning over them, some with a vent or AC unit
+  const win = (face, a, y, w, h, opts = {}) => {
+    const pane = opts.frosted ? frost : glass, ns = face === 'n' || face === 's', out = face === 'n' || face === 'w' ? -1 : 1;
+    const at = (u, v, d) => ns ? [X0 + a + u, y + v, (face === 'n' ? Z0 : Z1) + out * (o + d)] : [(face === 'w' ? X0 : X1) + out * (o + d), y + v, Z0 + a + u];
+    const bx = (sw, sh, sd, col, u, v, d, rx = 0) => { const [x, yy, z] = at(u, v, d); if (ns) P.box(sw, sh, sd, col, x, yy, z, rx * -out); else P.box(sd, sh, sw, col, x, yy, z, 0, 0, rx * out); };
+    bx(w + 0.16, h + 0.16, 0.06, frame, 0, 0, 0); bx(w, h, 0.08, pane, 0, 0, 0.01);
+    if (!opts.frosted) { bx(0.05, h, 0.1, frame, 0, 0, 0.02); if (h > 0.6) bx(w, 0.05, 0.1, frame, 0, h * 0.15, 0.02); }
+    bx(w + 0.3, 0.07, 0.2, 0xd8d0bc, 0, -h / 2 - 0.1, 0.08);
+    if (opts.awning) bx(w + 0.3, 0.06, 0.6, 0xb8b0a0, 0, h / 2 + 0.22, 0.28, 0.35);
+    if (opts.ac) { bx(0.62, 0.42, 0.45, 0xd8d8d2, w / 2 + 0.55, h / 2 - 0.25, 0.25); bx(0.4, 0.3, 0.02, 0x8a8a84, w / 2 + 0.55, h / 2 - 0.25, 0.48); }
   };
-  const y0 = 1.6, y1 = 4 + 1.7, y2 = 8;   // window centres above the ground-floor level (the mesh sits at the ground floor)
-  // ground floor: windows onto the courtyard (north), very few elsewhere
-  for (const a of [3.2, 11.5, 16.5, 24]) win('n', a, y0, 1.1, 1.2);
-  win('s', 6, y0 + 0.5, 0.8, 0.5); win('s', 25, y0 + 0.5, 0.8, 0.5); win('e', 9, y0 + 0.4, 0.9, 0.7);
-  // second floor
-  for (const a of [3.5, 10, 18.5, 26]) win('n', a, y1, 1.0, 1.1);
-  win('s', 4, y1 + 0.3, 0.8, 0.6); win('s', 28, y1 + 0.3, 0.8, 0.6); win('e', 20, y1 + 0.4, 0.8, 0.6);
-  // third floor: one side only (north), four slits high up and one ordinary window
-  for (const a of [2.5, 6.5, 14, 18.5]) win('n', a, y2 + 2.5, 1.1, 0.22);
-  win('n', 10.3, y2 + 1.8, 0.9, 0.9);
-  // grime along the foot of the walls, and drain pipes down the corners
-  for (const [x, z, w, d] of [[(X0 + X1) / 2, Z0 - 0.03, X1 - X0, 0.04], [(X0 + X1) / 2, Z1 + 0.03, X1 - X0, 0.04], [X0 - 0.03, (Z0 + Z1) / 2, 0.04, Z1 - Z0], [X1 + 0.03, (Z0 + Z1) / 2, 0.04, Z1 - Z0]]) P.box(w, 0.5, d, 0x9a9282, x, 0.25, z);
-  for (const [x, z] of [[X0 + 0.15, Z0 - 0.12], [X1 - 0.15, Z0 - 0.12], [X1 - 0.15, Z1 + 0.12], [X0 + 0.15, Z1 + 0.12]]) P.cyl(0.06, 0.06, 8, 0x6a6a68, x, 4, z);
+  const y0 = 1.55, y1 = 4 + 1.6, y2 = 8;   // window centres above the ground-floor level (the mesh sits at the ground floor)
+  // ground and second floors: ordinary glass windows, most onto the courtyard (north), fewer on the other sides
+  for (const [a, aw, ac] of [[3.2, 1, 0], [13.5, 1, 1], [19, 0, 0], [24.5, 1, 0], [29, 0, 1]]) win('n', a, y0, 1.3, 1.25, { awning: aw, ac });
+  for (const [a, aw, ac] of [[3.5, 1, 0], [9, 0, 1], [15, 1, 0], [21, 1, 0], [27.5, 0, 1]]) win('n', a, y1, 1.3, 1.25, { awning: aw, ac });
+  for (const a of [4, 20.5, 27]) win('s', a, y0, 1.2, 1.1, { awning: 1 });
+  for (const a of [4, 23.5, 28.5]) win('s', a, y1, 1.2, 1.1, { awning: a > 25, ac: a === 4 });
+  for (const a of [8, 20]) { win('e', a, y0, 1.1, 1.0, { awning: 1 }); win('e', a, y1, 1.1, 1.0, { ac: a === 8 }); }
+  win('w', 12, y0 + 0.5, 0.7, 0.5); win('w', 12, y1 + 0.5, 0.7, 0.5);   // small ones toward the outer wall
+  // third floor: windows on one side only (north), opaque, four of five just slits high up
+  for (const a of [2.5, 6.5, 15, 19.5]) win('n', a, y2 + 2.6, 1.2, 0.24, { frosted: 1 });
+  win('n', 11, y2 + 1.8, 1.0, 0.9, { frosted: 1 });
+  // the deep concrete ledges round every floor and the roof (rings, so nothing covers a stair opening)
+  const ring = (x0, x1, z0, z1, y, d, col) => {
+    P.box(x1 - x0 + d * 2, 0.2, d, col, (x0 + x1) / 2, y, z0 - d / 2); P.box(x1 - x0 + d * 2, 0.2, d, col, (x0 + x1) / 2, y, z1 + d / 2);
+    P.box(d, 0.2, z1 - z0, col, x0 - d / 2, y, (z0 + z1) / 2); P.box(d, 0.2, z1 - z0, col, x1 + d / 2, y, (z0 + z1) / 2);
+  };
+  ring(X0, X1, Z0, Z1, 3.55, 0.9, 0xe6dcc4); ring(X0, X1, Z0, Z1, 7.55, 0.9, 0xe6dcc4);
+  ring(zx(0), zx(18), zz(0), zz(16), 8 + 3.75, 1.1, 0xe6dcc4);
+  for (const [x, z, w, d] of [[(X0 + X1) / 2, Z0 - 0.03, X1 - X0, 0.04], [(X0 + X1) / 2, Z1 + 0.03, X1 - X0, 0.04], [X0 - 0.03, (Z0 + Z1) / 2, 0.04, Z1 - Z0], [X1 + 0.03, (Z0 + Z1) / 2, 0.04, Z1 - Z0]]) P.box(w, 0.45, d, 0xa49c8a, x, 0.22, z);   // dirt splashed up the foot of the walls
+  for (const [x, z] of [[X0 + 0.15, Z0 - 0.12], [X1 - 0.15, Z0 - 0.12], [X1 - 0.15, Z1 + 0.12], [X0 + 0.15, Z1 + 0.12]]) P.cyl(0.06, 0.06, 8, 0x8a8a84, x, 4, z);
   // the porch over the front door
   const dx = (zx(5) + zx(7)) / 2;
   P.box(3.4, 0.18, 1.6, 0xc8c2b4, dx, 3.0, Z0 - 0.8); for (const s of [-1, 1]) P.box(0.12, 0.6, 1.5, 0xc8c2b4, dx + s * 1.64, 2.7, Z0 - 0.78);
@@ -1047,12 +1083,12 @@ function zPlaceFamilies() {
     [2, 3, 14, 'woman'], [2, 7, 15, 'child'], [2, 11, 1, 'woman'], [2, 13, 6, 'child'],
   ];
   const add = (x, y, z, kind) => {
-    const g = new THREE.Group(), up = zCivModel(kind, false), down = zCivModel(kind, true); down.visible = false; g.add(up, down);
+    const g = new THREE.Group(), up = zCivModel(kind, false); g.add(up);
     g.position.set(x, y, z); g.rotation.y = rand(0, 6.28); scene.add(g);
-    ZCIV.push({ g, up, down, kind, pos: g.position, s: kind === 'child' ? 0.62 : 1, scaredT: 0, hitT: -9 });
+    ZCIV.push({ g, up, kind, pos: g.position, home: g.position.clone(), s: kind === 'child' ? 0.62 : 1, scaredT: 0, goal: null, ph: rand(0, 6) });
   };
   for (const [k, r, c, kind] of spots) add(zcx(c), zfy(k), zcz(r), kind);
-  add(-35, ZC.gy, -12.5, 'woman'); add(-34, ZC.gy, -10, 'child');
+  add(-1, ZC.gy, 30.5, 'woman'); add(1.5, ZC.gy, 31, 'child');
 }
 function zCivRay(origin, dir, maxD, team, best) {
   if (team !== 'blue' || !ZCIV.length) return best;
@@ -1076,11 +1112,36 @@ function zCivHit(c) {
   if (typeof SFX !== 'undefined' && SFX.lose) SFX.lose(0.6);
 }
 function zCivUpdate(dt) {
+  // anyone from the team close by (or shooting near them) and they get up and run, away from you, inside the house or yard they are in
   for (const c of ZCIV) {
-    const d = player.pos.distanceTo(c.pos);
-    if (d < 7 && Math.abs(player.pos.y - c.pos.y) < 2 && player.alive) c.scaredT = Math.max(c.scaredT, 2);   // someone with a gun in the room: get down
+    let near = null, nd = 9;
+    for (const ch of chars) { if (!ch.alive || ch.team !== 'blue' || ch.vehicle) continue; const d = ch.pos.distanceTo(c.pos); if (d < nd && Math.abs(ch.pos.y - c.pos.y) < 2) { nd = d; near = ch; } }
+    if (near) c.scaredT = 4;
     c.scaredT = Math.max(0, c.scaredT - dt);
-    const down = c.scaredT > 0; c.up.visible = !down; c.down.visible = down;
-    if (down && d < 12) c.g.rotation.y = Math.atan2(c.pos.x - player.pos.x, c.pos.z - player.pos.z);   // turned away
+    const inside = zInHouse({ pos: c.home }), sp = c.kind === 'child' ? 3.2 : 2.6;
+    if (c.scaredT > 0 && near && (!c.goal || c.pos.distanceTo(c.goal) < 0.6 || Math.random() < dt * 0.5)) {   // pick somewhere further from the danger
+      let best = null, bs = -1;
+      for (let k = 0; k < 24; k++) {
+        const a = rand(0, 6.28), r = rand(2.5, 10), x = c.pos.x + Math.cos(a) * r, z = c.pos.z + Math.sin(a) * r;
+        if (inside ? !zInHouse({ pos: { x, z } }) : !zInPoly(x, z)) continue;
+        let clear = true; for (let t = 0.2; t <= 1 && clear; t += 0.2) if (blockedAt(lerp(c.pos.x, x, t), lerp(c.pos.z, z, t), c.pos.y, 0.3)) clear = false;   // a way they can actually run
+        if (!clear) continue;
+        const sc = Math.hypot(x - near.pos.x, z - near.pos.z); if (sc > bs) { bs = sc; best = new THREE.Vector3(x, c.pos.y, z); }
+      }
+      c.goal = best;
+    }
+    let moving = false;
+    if (c.goal && c.scaredT > 0) {
+      const dx = c.goal.x - c.pos.x, dz = c.goal.z - c.pos.z, d = Math.hypot(dx, dz);
+      if (d > 0.5) {
+        const nx = c.pos.x + dx / d * sp * dt, nz = c.pos.z + dz / d * sp * dt;
+        if (!blockedAt(nx, nz, c.pos.y, 0.3)) { c.pos.x = nx; c.pos.z = nz; moving = true; c.g.rotation.y = Math.atan2(dx, dz); }
+        else c.goal = null;   // a wall: try another way
+      }
+      const fl = pushOut(c.pos, 0.3, c.pos.y); if (Math.abs(fl - c.pos.y) < 0.7) c.pos.y = fl;
+    }
+    c.ph += dt * (moving ? 11 : 0);
+    c.up.position.y = moving ? Math.abs(Math.sin(c.ph)) * 0.06 : 0;
+    c.up.rotation.z = moving ? Math.sin(c.ph) * 0.05 : 0;
   }
 }
