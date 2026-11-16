@@ -76,7 +76,7 @@ const TEX = {
   roof: canvasTex(32, 32, (g) => { g.fillStyle = '#fff'; g.fillRect(0, 0, 32, 32); for (let y = 0; y < 32; y += 6) { g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(0, y, 32, 1); } }),
 };
 const MATS = {
-  roofs: [0x9c3b2e, 0x6b4a33, 0x4f5966, 0x7e2f2f, 0x3f5f45].map(c => new THREE.MeshLambertMaterial({ color: c, map: TEX.roof })),
+  roofs: (GERMANY ? [0x5e4036, 0x4a4038, 0x4a5058, 0x5a3a34, 0x40463e] : [0x9c3b2e, 0x6b4a33, 0x4f5966, 0x7e2f2f, 0x3f5f45]).map(c => new THREE.MeshLambertMaterial({ color: c, map: TEX.roof })),
   door: new THREE.MeshLambertMaterial({ color: 0x5a3a22 }),
   concrete: new THREE.MeshLambertMaterial({ map: texRepeat(TEX.concrete, 3, 1) }),
   concreteBig: new THREE.MeshLambertMaterial({ map: texRepeat(TEX.concrete, 4, 2) }),
@@ -406,7 +406,7 @@ function house(x, z, w, d, h, opts = {}) {
     c.rotation.x = face * 0.25;
     for (const sx of [-1.15, 1.15]) addMesh(new THREE.CylinderGeometry(0.06, 0.06, 2.6, 6), MATS.white, dx + sx, base + 0.4 + 1.3, z + face * (d / 2 + 1.25));
   }
-  if (Math.random() < 0.6) for (const sx of [-w / 4, w / 4]) {
+  if (!GERMANY && Math.random() < 0.6) for (const sx of [-w / 4, w / 4]) {   /* window boxes with flowers (not in wartime Berlin) */
     const fb = addMesh(new THREE.BoxGeometry(1.4, 0.3, 0.35), MATS.darkWood, x + sx, base + 0.4 + 1.2, z + face * (d / 2 + 0.18), false);
     for (let i = 0; i < 4; i++) addMesh(new THREE.SphereGeometry(0.13, 6, 4), new THREE.MeshLambertMaterial({ color: pick([0xe53935, 0xffeb3b, 0xffffff, 0xab47bc]) }), x + sx - 0.5 + i * 0.33, base + 0.4 + 1.42, z + face * (d / 2 + 0.18), false);
   }

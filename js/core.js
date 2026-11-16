@@ -62,7 +62,7 @@ renderer.autoClear = false;
 document.body.prepend(renderer.domElement);
 
 const scene = new THREE.Scene();
-const FOG_COLOR = new THREE.Color(SNOW ? 0xdde4ec : DESERT ? 0xe8d6b0 : HOUSTON ? 0xd7e0e4 : WAKE ? 0xcfe6f0 : GERMANY ? 0xb8bfc5 : NORMANDY ? 0xc5d2dc : DAM ? 0xc6d3dc : 0xcfe3f2);
+const FOG_COLOR = new THREE.Color(SNOW ? 0xdde4ec : DESERT ? 0xe8d6b0 : HOUSTON ? 0xd7e0e4 : WAKE ? 0xcfe6f0 : GERMANY ? 0x9e9a92 : NORMANDY ? 0xc5d2dc : DAM ? 0xc6d3dc : 0xcfe3f2);
 // the snow map is thick with falling snow, so the distance blurs out much sooner
 if (SNOW) {
   // snowstorm haze: thickens quickly with distance (near and far are kept for the few custom shaders)
@@ -71,7 +71,7 @@ if (SNOW) {
 else if (DESERT) scene.fog = new THREE.Fog(FOG_COLOR, LITE ? 60 : 90, LITE ? 340 : 470);   // a light dusty haze
 else if (WAKE) scene.fog = new THREE.Fog(FOG_COLOR, LITE ? 90 : 140, LITE ? 480 : 720);   // clear tropical air over the ocean
 else if (HOUSTON) scene.fog = new THREE.Fog(FOG_COLOR, LITE ? 80 : 130, LITE ? 420 : 640);   // warm, humid city haze
-else if (GERMANY) scene.fog = new THREE.Fog(FOG_COLOR, LITE ? 60 : 90, LITE ? 360 : 520);   // grey wartime overcast and smoke
+else if (GERMANY) scene.fog = new THREE.Fog(FOG_COLOR, LITE ? 50 : 75, LITE ? 320 : 450);   // smoke and ash over the burning city
 else if (NORMANDY) scene.fog = new THREE.Fog(FOG_COLOR, LITE ? 80 : 120, LITE ? 420 : 620);   // sea mist over the beach
 else if (DAM) scene.fog = new THREE.Fog(FOG_COLOR, LITE ? 90 : 140, LITE ? 460 : 700);   // cool mountain air
 else if (DOGFIGHT) scene.fog = new THREE.Fog(FOG_COLOR, LITE ? 160 : 260, LITE ? 650 : 950);   // clear air: you can see far down the canyons

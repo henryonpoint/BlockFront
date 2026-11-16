@@ -136,12 +136,13 @@ function buildGermany() {
         a += w + 0.4;
         if (!lvFree(hx, hz, 3) && pathDist(hx, hz) < 6) continue;
         let near = false; for (const p of POINTS_DEF) if (Math.hypot(hx - p.x, hz - p.z) < 24) near = true; if (near) continue;
-        if (Math.random() < 0.33) ruinedHouse(hx, hz, alongX ? w : 9, alongX ? 9 : w);
+        if (Math.random() < 0.55) ruinedHouse(hx, hz, alongX ? w : 9, alongX ? 9 : w);
         else house(hx, hz, alongX ? w : 9, alongX ? 9 : w, rand(7, 12.5), { face: alongX ? (az < cz ? -1 : 1) : 0 });
       }
     }
   }
   buildBerlinLandmarks();
+  buildBerlinWar();
   // war damage across the countryside: tank traps, sandbags, wrecked cars and more rubble
   for (let i = 0; i < 70; i++) { const a = rand(0, 6.28), r = rand(60, 520), x = Math.cos(a) * r, z = Math.sin(a) * r; if (Math.abs(x) > EDGE - 20 || Math.abs(z) > EDGE - 20) continue; if (lvFree(x, z, 3) && waterDepth(x, z) === 0) (Math.random() < 0.5 ? rubble : hedgehog)(x, z); }
   for (let i = 0; i < 14; i++) { const x = rand(-TOWN_R + 10, TOWN_R - 10), z = rand(-TOWN_R + 10, TOWN_R - 10); if (townStreetDist(x, z) < 2.5 && Math.hypot(x, z) < TOWN_R - 10) { let near = false; for (const p of POINTS_DEF) if (Math.hypot(x - p.x, z - p.z) < 14) near = true; if (!near && typeof addCar === 'function') addCar(x, z, Math.random() < 0.5, 0x2a2826); } }
@@ -372,7 +373,7 @@ function applyDamState(d) { if (!Array.isArray(d)) return; DAMWALL.hp = d[0]; if
 // the bungee jump: drop off the dam into the gorge and a parachute opens for you
 function updateLevel(dt) {
   if (DAM) updateDam(dt);
-  if (GERMANY) { installLeaderHooks(); installGuardHook(); updateBombers(dt); updateLeader(dt); }
+  if (GERMANY) { installLeaderHooks(); installGuardHook(); updateBombers(dt); updateLeader(dt); updateBerlinWar(dt); }
   if ((GERMANY || NORMANDY) && started) updateBarrage(dt);
   if (AFGHAN && started && !AFG.told && player.alive) { AFG.told = true; showMessage('Desert Combat: Afghanistan. Blue holds the base in the south of the valley, red holds the mountain villages. Humvees, jets and helicopters are at your base', 7); }
   if ((GERMANY || NORMANDY) && started && !BARRAGE.told && player.alive) { BARRAGE.told = true; showMessage(NORMANDY ? 'June 6, 1944: D-Day. Blue storms the beach, red holds the bunkers' : 'Berlin, April 1945: the last battle in Europe. Hitler hides in one of the bunkers. Blue: find the clues by the landmarks (red blinking lights) to track him down', 8); }
@@ -752,4 +753,143 @@ function buildIntensity() {
     // German machine guns in front of the bunkers, for the defenders to man
     for (let x = -480; x <= 480; x += 120) { const z = 206; if (lvFree(x, z, 4) && typeof makeTurret === 'function') makeTurret(x, z, 'mg', Math.PI); }   // facing the sea
   }
+}
+
+// ---------- Berlin, April 1945 ----------
+// the feel of the last battle: a smoky brown overcast, buildings burning across the city, flak guns hammering away
+// at the bombers with black bursts in the sky, searchlights, rows of concrete dragon's teeth across the fields,
+// burned-out tanks, sandbag machine-gun nests where the streets leave town, and ash drifting down.
+const BW = { fires: [], flak: [], lights: [], ash: null, flakT: 0, fireT: 0 };
+function buildBerlinWar() {
+  // the light: dull and smoky, the sun a pale disc
+  sky.material.uniforms.top.value.set(0x56606a); sky.material.uniforms.mid.value.set(0x868a8c); sky.material.uniforms.low.value.set(0x77746c); sky.material.uniforms.glow.value = 0.3;
+  hemiLight.color.set(0xc4c2ba); hemiLight.groundColor.set(0x4a4636); hemiLight.intensity *= 0.92;
+  sunLight.color.set(0xffdcb4); sunLight.intensity *= 0.8;
+  const dark = 0x2a2826, burnt = 0x3a3430, rust = 0x5a4434, olive = 0x4a4c3a, sand = 0x9a8a68, conc = 0x9a978e;
+  // buildings burning across the city: flames in the windows, black smoke pouring up
+  const W = new Part();
+  for (let i = 0; i < 260 && BW.fires.length < 14; i++) {
+    const x = rand(-TOWN_R + 15, TOWN_R - 15), z = rand(-TOWN_R + 15, TOWN_R - 15);
+    if (Math.hypot(x, z) > TOWN_R - 12 || townStreetDist(x, z) < 6 || townStreetDist(x, z) > 14) continue;
+    if (BW.fires.some(f => Math.hypot(f.x - x, f.z - z) < 40)) continue;
+    const y = heightAt(x, z) + rand(2, 8); BW.fires.push({ x, y, z, p: new THREE.Vector3(x, y, z) });
+    BARRAGE.smoke.push(new THREE.Vector3(x, y + 2, z));
+  }
+  // dragon's teeth: rows of concrete pyramids across the fields round the city, open where the roads go through
+  const T = new Part();
+  for (const R of [262, 268]) for (let a = 0; a < Math.PI * 2; a += 3.4 / R) {
+    const x = Math.cos(a) * R, z = Math.sin(a) * R;
+    if (Math.abs(x) > EDGE - 10 || Math.abs(z) > EDGE - 10 || pathDist(x, z) < 12 || !lvFree(x, z, 1.5)) continue;
+    if (Math.hypot(x - BASES.blue.x, z - BASES.blue.z) < 70 || Math.hypot(x - BASES.red.x, z - BASES.red.z) < 70 || (LAKES || []).some(L => Math.hypot(x - L.x, z - L.z) < L.r + 6)) continue;
+    const y = heightAt(x, z), s = R === 262 ? 1 : 0.8;
+    T.cyl(0.05, 0.85 * s, 1.5 * s, conc, x, y + 0.7 * s, z, 0, a, 0, 1, 4); T.box(1.3 * s, 0.25, 1.3 * s, 0x8a877e, x, y + 0.08, z, 0, a + 0.785, 0);
+    addBlock(x, z, 1.3 * s, 1.4 * s, 1.3 * s, LV.hidden);
+  }
+  { const m = new THREE.Mesh(T.build(), VEH_MAT); m.castShadow = true; m.receiveShadow = true; scene.add(m); }
+  // burned-out tanks: some lost their turrets, some lie at an angle in the fields and in the town's gaps
+  for (let i = 0, made = 0; i < 300 && made < 12; i++) {
+    const a = rand(0, 6.28), r = made < 5 ? rand(60, TOWN_R - 20) : rand(TOWN_R + 20, 480), x = Math.cos(a) * r, z = Math.sin(a) * r;
+    if (Math.abs(x) > EDGE - 20 || Math.abs(z) > EDGE - 20 || !lvFree(x, z, 5) || (r < TOWN_R && townStreetDist(x, z) > 3.5) || (r < TOWN_R && townStreetDist(x, z) < 0.5)) continue;
+    if (r < TOWN_R) { let blocked = false; for (const o of nearbyColliders(x, z)) if (o.kind === 'box' && x > o.minX - 3 && x < o.maxX + 3 && z > o.minZ - 3 && z < o.maxZ + 3) blocked = true; if (blocked) continue; }
+    const P = new Part(), heavy = made % 2 === 0, col = pick([burnt, rust, dark]);
+    P.box(3.3, 1.1, heavy ? 6.6 : 6.0, col, 0, 0.95, 0); P.box(3.5, 0.8, heavy ? 6.8 : 6.2, dark, 0, 0.45, 0);   // hull, tracks
+    for (let k = 0; k < 5; k++) for (const sd of [-1, 1]) P.cyl(0.38, 0.38, 0.3, dark, sd * 1.55, 0.42, -2.4 + k * 1.2, 0, 0, Math.PI / 2, 1, 8);   // road wheels
+    if (heavy) P.box(3.0, 0.5, 1.2, col, 0, 1.5, -2.6, -0.35); else P.box(3.0, 0.6, 1.6, col, 0, 1.5, -2.4, -0.6);   // glacis: flat-fronted or sloped
+    if (Math.random() < 0.7) {   // turret (still on, or knocked askew)
+      const tr = Math.random() < 0.5 ? rand(-1.2, 1.2) : 0, tx = tr ? rand(-0.6, 0.6) : 0;
+      P.box(heavy ? 2.4 : 2.0, 0.9, heavy ? 2.6 : 2.2, col, tx, 1.95, 0.2, 0, tr, tr ? 0.2 : 0); P.cyl(0.12, 0.14, heavy ? 4.4 : 3.6, dark, tx - Math.sin(tr) * 2.4, 2.0, 0.2 - Math.cos(tr) * 2.4, Math.PI / 2 - (tr ? 0.25 : 0), tr, 0, 1, 8);
+    } else for (let k = 0; k < 4; k++) P.box(rand(0.5, 1.2), 0.3, rand(0.5, 1.2), dark, rand(-3, 3), 0.15, rand(-4, 4));   // turret blown off nearby
+    const m = new THREE.Mesh(P.build(), VEH_MAT); m.position.set(x, heightAt(x, z) - 0.15, z); m.rotation.set(rand(-0.05, 0.05), rand(0, 6.28), rand(-0.08, 0.08)); m.castShadow = true; scene.add(m);
+    addBlock(x, z, 4.6, 2.2, 4.6, LV.hidden);
+    if (made < 6) BARRAGE.smoke.push(new THREE.Vector3(x, heightAt(x, z) + 2, z));   // still smouldering
+    made++;
+  }
+  // sandbag machine-gun nests where the streets leave the old town, facing out
+  for (const g of G_GRID) for (const [x, z, yaw] of [[g + 6.5, -TOWN_R - 2, 0], [g - 6.5, TOWN_R + 2, Math.PI], [-TOWN_R - 2, g - 6.5, Math.PI / 2], [TOWN_R + 2, g + 6.5, -Math.PI / 2]]) {
+    if (Math.abs(g) > 100 || !lvFree(x, z, 2.5)) continue;
+    const P = new Part(), y = heightAt(x, z);
+    for (let k = 0; k < 12; k++) { const a = k / 12 * Math.PI * 1.6 + yaw + Math.PI * 1.2; P.box(1.0, 0.45, 0.55, sand, Math.cos(a) * 2, 0.25, Math.sin(a) * 2, 0, -a, 0); P.box(1.0, 0.45, 0.55, 0x8c7c5c, Math.cos(a) * 2, 0.7, Math.sin(a) * 2, 0, -a, 0); }
+    const m = new THREE.Mesh(P.build(), VEH_MAT); m.position.set(x, y, z); scene.add(m);
+    if (typeof makeTurret === 'function') makeTurret(x, z, 'mg', yaw);
+  }
+  // flak guns: long 88 barrels pointing at the sky, in sandbag rings round the city
+  for (let i = 0, made = 0; i < 200 && made < 6; i++) {
+    const a = made / 6 * Math.PI * 2 + rand(-0.3, 0.3), r = rand(205, 245), x = Math.cos(a) * r, z = Math.sin(a) * r;
+    if (!lvFree(x, z, 6) || Math.abs(x) > EDGE - 20 || Math.abs(z) > EDGE - 20) continue;
+    const P = new Part(), y = heightAt(x, z), yaw = rand(0, 6.28);
+    for (let k = 0; k < 16; k++) { const b = k / 16 * Math.PI * 2; P.box(1.4, 0.9, 0.7, sand, Math.cos(b) * 5, 0.45, Math.sin(b) * 5, 0, -b, 0); }
+    P.box(5.2, 0.3, 0.5, olive, 0, 0.5, 0, 0, yaw, 0); P.box(5.2, 0.3, 0.5, olive, 0, 0.5, 0, 0, yaw + Math.PI / 2, 0);   // the cross-shaped carriage
+    P.cyl(0.6, 0.8, 1.0, olive, 0, 1.0, 0, 0, 0, 0, 1, 10); P.box(1.6, 1.2, 1.4, olive, 0, 1.8, 0, 0, yaw, 0); P.box(1.7, 1.4, 0.1, olive, 0, 2.0, 0.75, 0, yaw, 0);   // pedestal, cradle, shield
+    const g = new THREE.Group(); g.position.set(x, y, z); scene.add(g); g.add(new THREE.Mesh(P.build(), VEH_MAT));
+    const B = new Part(); B.cyl(0.11, 0.14, 6.2, dark, 0, 3.1, 0, 0, 0, 0, 1, 8); B.cyl(0.18, 0.18, 0.5, dark, 0, 6.1, 0, 0, 0, 0, 1, 8);
+    const barrel = new THREE.Mesh(B.build(), VEH_MAT); barrel.position.set(0, 2.0, 0); barrel.rotation.set(-0.55, yaw, 0, 'YXZ'); g.add(barrel);
+    const flash = new THREE.Mesh(new THREE.SphereGeometry(0.9, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffd27a })); flash.visible = false; barrel.add(flash); flash.position.y = 6.6;
+    addBlock(x, z, 3, 2.4, 3, LV.hidden);
+    BW.flak.push({ x, y, z, barrel, flash, ft: 0, yaw, t: rand(0, 3) }); made++;
+  }
+  // searchlights: big lamps on stands, their pale beams sweeping the smoky sky
+  for (let i = 0; i < 4; i++) {
+    const f = BW.flak[i]; if (!f) break;
+    const x = f.x + 9, z = f.z + 4, y = heightAt(x, z), P = new Part();
+    P.box(1.6, 0.3, 1.6, olive, 0, 0.15, 0); P.box(0.3, 1.4, 0.3, olive, 0, 0.9, 0);
+    const g = new THREE.Group(); g.position.set(x, y, z); scene.add(g); g.add(new THREE.Mesh(P.build(), VEH_MAT));
+    const head = new THREE.Group(); head.position.y = 1.8; g.add(head);
+    const L = new Part(); L.cyl(0.75, 0.75, 1.2, dark, 0, 0, 0, Math.PI / 2, 0, 0, 1, 14); head.add(new THREE.Mesh(L.build(), VEH_MAT));
+    const lens = new THREE.Mesh(new THREE.CircleGeometry(0.68, 16), new THREE.MeshBasicMaterial({ color: 0xfff6dc })); lens.position.z = -0.62; lens.rotation.y = Math.PI; head.add(lens);
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(9, 0.7, 260, 16, 1, true), new THREE.MeshBasicMaterial({ color: 0xfff4d8, transparent: true, opacity: 0.07, depthWrite: false, side: THREE.DoubleSide, fog: false }));
+    beam.geometry.translate(0, 130, 0); beam.rotation.x = -Math.PI / 2; beam.position.z = -0.6; head.add(beam);
+    BW.lights.push({ head, a: rand(0, 6.28), sp: rand(0.12, 0.22) * (i % 2 ? 1 : -1), tilt: rand(0.7, 1.1) });
+    addBlock(x, z, 1.6, 2.4, 1.6, LV.hidden);
+  }
+  // ash drifting down round you
+  { const N = LITE ? 300 : 700, pos = new Float32Array(N * 3); for (let i = 0; i < N; i++) { pos[i * 3] = rand(-60, 60); pos[i * 3 + 1] = rand(0, 40); pos[i * 3 + 2] = rand(-60, 60); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    BW.ash = new THREE.Points(g, new THREE.PointsMaterial({ color: 0x6a6660, size: 0.18, transparent: true, opacity: 0.8, depthWrite: false })); BW.ash.frustumCulled = false; scene.add(BW.ash); }
+}
+function updateBerlinWar(dt) {
+  if (!BW.ash) return;
+  if (!BW.tinted) {   // once everything is built: soot-darkened walls, grey smoke-stained clouds, tired trees
+    BW.tinted = true; const done = new Set();
+    scene.traverse(o => {
+      if (!o.isMesh || o === terrainMesh || o === sky || !o.material || Array.isArray(o.material) || done.has(o.material)) return;
+      const m = o.material; if (!m.color || m.isShaderMaterial) return;
+      if (typeof clouds !== 'undefined' && clouds.includes(o)) { done.add(m); m.color.set(0x74726e); if (m.emissive) m.emissive.set(0x202020); return; }
+      if (m.transparent || m.isMeshBasicMaterial) return;
+      done.add(m);
+      if (o.isInstancedMesh) { m.color.multiply(new THREE.Color(0.8, 0.78, 0.68)); return; }
+      if (m.map && Math.hypot(o.position.x, o.position.z) < TOWN_R + 40) m.color.multiply(new THREE.Color(0.8, 0.77, 0.72));
+    });
+  }
+  // ash: falls and drifts, wrapping round the camera
+  const P = BW.ash.geometry.attributes.position, a = P.array, cx = camera.position.x, cy = camera.position.y, cz = camera.position.z, t = simTime;
+  for (let i = 0; i < a.length; i += 3) {
+    a[i + 1] -= dt * (0.8 + (i % 7) * 0.08); a[i] += dt * (0.6 + Math.sin(t * 0.5 + i) * 0.4); a[i + 2] += dt * Math.cos(t * 0.4 + i) * 0.3;
+    if (a[i + 1] < cy - 15) a[i + 1] += 50; if (a[i + 1] > cy + 35) a[i + 1] -= 50;
+    if (a[i] < cx - 60) a[i] += 120; if (a[i] > cx + 60) a[i] -= 120; if (a[i + 2] < cz - 60) a[i + 2] += 120; if (a[i + 2] > cz + 60) a[i + 2] -= 120;
+  }
+  P.needsUpdate = true;
+  // flames licking out of the burning buildings
+  BW.fireT -= dt;
+  if (BW.fireT <= 0) { BW.fireT = 0.1; for (const f of BW.fires) if (Math.abs(f.x - cx) < 220 && Math.abs(f.z - cz) < 220) smokePuff(f.p.clone().add(new THREE.Vector3(rand(-2.5, 2.5), rand(-1, 1.5), rand(-2.5, 2.5))), pick([0xff7a1a, 0xffb23a, 0xe85a10]), rand(0.7, 1.4), rand(0.4, 0.8), rand(2, 3.5)); }
+  // the flak: guns fire in turn, black bursts open high in the sky (around the bombers while they are over the city)
+  const bombers = BOMBERS.meshes.filter(m => m.visible);
+  for (const f of BW.flak) {
+    if (f.ft > 0) { f.ft -= dt; if (f.ft <= 0) f.flash.visible = false; }
+    f.t -= dt; if (f.t > 0) continue;
+    f.t = bombers.length ? rand(0.8, 1.6) : rand(4, 9);
+    let tx, ty, tz;
+    if (bombers.length) { const b = pick(bombers); tx = b.position.x + rand(-45, 45); ty = b.position.y + rand(-25, 20); tz = b.position.z + rand(-45, 45); }
+    else { tx = f.x + rand(-160, 160); ty = rand(120, 200); tz = f.z + rand(-160, 160); }
+    const yaw = Math.atan2(-(tx - f.x), -(tz - f.z)), pitch = Math.atan2(ty - f.y, Math.hypot(tx - f.x, tz - f.z));
+    f.barrel.rotation.set(-(Math.PI / 2 - pitch), yaw, 0, 'YXZ'); f.flash.visible = true; f.ft = 0.08;
+    const d = Math.hypot(f.x - cx, f.z - cz);
+    if (d < 260 && typeof tn === 'function' && typeof actx !== 'undefined' && actx) tn('square', 90, 40, 0.18, 0.05 * (1 - d / 260));
+    setTimeout(() => {   // the shell bursts a moment later: a flash and a black puff that hangs in the air
+      const p = new THREE.Vector3(tx, ty, tz);
+      burst(p, 6, 0xffc060, 8, 0.25, 0.6);
+      for (let k = 0; k < 3; k++) smokePuff(p.clone().add(new THREE.Vector3(rand(-1.5, 1.5), rand(-1, 1), rand(-1.5, 1.5))), 0x1c1c1c, rand(3, 4.5), rand(4, 6), 0.3);
+    }, 900);
+  }
+  // searchlights sweep
+  for (const L of BW.lights) { L.a += L.sp * dt; L.head.rotation.set(L.tilt + Math.sin(simTime * 0.3 + L.a) * 0.15, L.a, 0, 'YXZ'); }
 }
