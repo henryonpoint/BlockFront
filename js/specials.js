@@ -425,10 +425,46 @@ function heliCustomModel(type, team) {
   const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
   const out = { g, body, wheels: [] };
   const mesh = (geo, parent = body) => { const m = new THREE.Mesh(geo, VEH_MAT); m.castShadow = true; m.receiveShadow = true; parent.add(m); return m; };
-  const AP = type === 'apache', glassC = 0x1c2630, frameC = 0x1a1c18;
+  const AP = type === 'apache', glassC = 0x1c2630, frameC = 0x1a1c18, HIND = typeof AFGHAN !== 'undefined' && AFGHAN && team === 'red';   // Desert Combat: the Iraqi side flies a Hind and an Mi-8
   mesh(vcached(type + team, () => {
     const p = new Part();
-    if (AP) {
+    if (HIND && AP) {
+      // Mi-24 Hind: a big armoured body with two bubble canopies stepped one behind the other, stub wings
+      // loaded with rocket pods, and a troop cabin behind; desert camouflage
+      const c = 0xae9868, d = 0x7a6a46, cm = 0x6e5a3a;
+      p.box(1.7, 1.6, 4.4, c, 0, 1.35, 0.2); p.box(1.5, 1.3, 1.6, c, 0, 1.2, -2.5, 0.1, 0, 0);               // cabin, forward body
+      p.box(0.9, 0.7, 1.0, c, 0, 0.9, -3.55, 0.3, 0, 0);                                                     // the nose
+      p.add(new THREE.SphereGeometry(0.62, 12, 9, 0, Math.PI * 2, 0, Math.PI / 2), glassC, 0, 1.2, -3.55, 0, 0, 0, 1, 0.9, 1.2);   // gunner's bubble
+      p.add(new THREE.SphereGeometry(0.68, 12, 9, 0, Math.PI * 2, 0, Math.PI / 2), glassC, 0, 1.85, -2.35, 0, 0, 0, 1, 0.9, 1.25);   // pilot's bubble, higher
+      for (const [x, z, w] of [[0.4, -0.5, 1.6], [-0.5, 1.2, 1.4], [0.3, 1.8, 0.9]]) p.box(0.02, 0.9, w, cm, 0.86, 1.4, z);   // camouflage patches
+      for (const [x, z, w] of [[0.4, -0.5, 1.6], [-0.5, 1.2, 1.4], [0.3, 1.8, 0.9]]) p.box(0.02, 0.9, w, cm, -0.86, 1.4, z + 0.4);
+      for (const sd of [-1, 1]) {
+        p.box(0.6, 0.6, 2.4, d, sd * 0.55, 2.4, 0.2); p.cyl(0.26, 0.26, 0.3, 0x1a1a1a, sd * 0.55, 2.4, 1.5, Math.PI / 2, 0, 0, 1, 8);   // engines on the roof
+        p.box(1.9, 0.14, 1.0, c, sd * 1.65, 1.5, 0.2, 0, 0, sd * -0.18);                                    // stub wing, drooping
+        for (const k of [1.1, 1.9]) { p.cyl(0.24, 0.24, 1.3, d, sd * (0.9 + k * 0.55), 1.15 - k * 0.1, 0.2, Math.PI / 2, 0, 0, 1, 8); p.cyl(0.22, 0.22, 0.04, 0x111111, sd * (0.9 + k * 0.55), 1.15 - k * 0.1, -0.46, Math.PI / 2, 0, 0, 1, 8); }   // rocket pods
+        p.box(0.1, 0.12, 1.2, 0x5a5e52, sd * 2.6, 1.15, 0.2);                                               // missile rail on the wingtip
+        p.box(0.4, 0.5, 0.7, 0x2a2a2a, sd * 0.86, 1.3, 0.6);                                                // cabin window
+        p.box(0.08, 0.7, 0.08, frameC, sd * 0.8, 0.45, 0.8); p.cyl(0.3, 0.3, 0.2, 0x151515, sd * 0.85, 0.3, 0.8, 0, 0, Math.PI / 2, 1, 10);   // main wheels
+      }
+      p.box(0.25, 0.25, 0.5, d, 0, 0.55, -3.7); p.cyl(0.05, 0.05, 1.0, 0x111111, 0, 0.5, -4.2, Math.PI / 2, 0, 0, 1, 6);   // chin gun
+      p.box(0.55, 0.55, 5.6, c, 0, 1.6, 4.6, -0.04, 0, 0); p.box(0.16, 1.6, 1.0, c, 0, 2.4, 7.2, -0.35, 0, 0); p.box(2.2, 0.08, 0.6, c, 0, 1.55, 6.6);   // tail boom, fin, stabiliser
+      p.cyl(0.18, 0.18, 0.12, 0x151515, 0, 0.35, 6.4, 0, 0, Math.PI / 2, 1, 8);
+      p.cyl(0.2, 0.24, 0.7, d, 0, 2.75, -0.1, 0, 0, 0, 1, 8);                                                 // rotor mast
+      p.box(0.04, 0.3, 0.3, VPAINT[team] ? VPAINT[team].team : 0xd93a3a, 0.87, 1.7, -1.0);                   // team mark
+    } else if (HIND) {
+      // Mi-8 Hip: a big rounded transport with a glazed nose, a row of round windows and clamshell doors at the back
+      const c = 0x9a9068, d = 0x6c6646;
+      p.box(2.3, 2.0, 6.4, c, 0, 1.6, 0.2); p.box(2.1, 1.7, 1.4, c, 0, 1.5, -3.5, 0.15, 0, 0);
+      p.add(new THREE.SphereGeometry(1.0, 12, 9, 0, Math.PI * 2, 0, Math.PI / 2), glassC, 0, 1.6, -4.15, -Math.PI / 2 + 0.2, 0, 0, 1, 0.6, 1);   // glazed nose
+      for (const sd of [-1, 1]) { for (let i = 0; i < 5; i++) p.cyl(0.22, 0.22, 0.04, glassC, sd * 1.16, 2.05, -1.8 + i * 0.95, 0, 0, Math.PI / 2, 1, 10);
+        p.box(0.5, 0.18, 1.6, 0x4a4632, sd * 1.25, 1.0, 1.0);                                              // fuel tanks on the sides
+        p.box(0.08, 0.7, 0.08, frameC, sd * 1.0, 0.45, 0.8); p.cyl(0.32, 0.32, 0.24, 0x151515, sd * 1.05, 0.3, 0.8, 0, 0, Math.PI / 2, 1, 10);
+        p.box(0.7, 0.6, 2.6, d, sd * 0.5, 2.9, -0.6); }
+      p.cyl(0.32, 0.32, 0.6, 0x151515, 0, 0.3, -3.2, 0, 0, Math.PI / 2, 1, 10);                              // nose wheel
+      p.box(0.8, 0.8, 6.4, c, 0, 2.1, 5.6, -0.05, 0, 0); p.box(0.2, 2.0, 1.2, c, 0, 2.9, 8.5, -0.3, 0, 0);   // tail boom, fin
+      p.cyl(0.2, 0.24, 0.6, d, 0, 3.0, 0.0, 0, 0, 0, 1, 8);
+      p.box(0.04, 0.6, 0.6, VPAINT[team] ? VPAINT[team].team : 0xd93a3a, 1.17, 2.0, -1.6);
+    } else if (AP) {
       // AH-64 Apache: a narrow, angular body, two seats one behind the other under flat glass panels
       const c = 0x3b4230, d = 0x2b3024, t = 0x4a523d;
       p.box(1.15, 1.25, 4.6, c, 0, 1.15, -0.9); p.box(1.0, 1.0, 1.4, c, 0, 1.0, -3.9, 0.12, 0, 0);          // fuselage and nose

@@ -4,7 +4,7 @@
 // ---------- which map and game mode this page builds ----------
 // The world is built once when the page loads, so changing the map or mode reloads the page.
 // A join that needs a different map stores what it needs in sessionStorage first ('bf_force').
-const MAPS = { green: 'Green valley', snow: 'Snow mountain', desert: 'Desert', houston: 'Houston city', wake: 'Wake Island', normandy: 'Normandy beach', europe: 'Berlin 1945', dam: 'The Dam', afghan: 'Desert Combat', dogfight: 'Dogfight: old planes', jetfight: 'Dogfight: jets', wwifight: 'Dogfight: WW1 triplanes' };
+const MAPS = { green: 'Green valley', snow: 'Snow mountain', desert: 'Desert', houston: 'Houston city', wake: 'Wake Island', normandy: 'Normandy beach', europe: 'Berlin 1945', dam: 'The Dam', afghan: 'Desert Combat: Gulf War', dogfight: 'Dogfight: old planes', jetfight: 'Dogfight: jets', wwifight: 'Dogfight: WW1 triplanes' };
 const MODES = { conquest: 'Conquest', tdm: 'Team battle', koth: 'King of the hill', four: '4 teams' };
 const WORLD = (() => {
   let w = { map: 'green', mode: 'conquest' };
@@ -14,7 +14,8 @@ const WORLD = (() => {
   if (w.map === 'dogfight' || w.map === 'jetfight' || w.map === 'wwifight') w.mode = 'tdm';   // dogfights are scored on planes shot down   // the island only has room for two sides
   return w;
 })();
-const AFGHAN = WORLD.map === 'afghan';   // Desert Combat: modern Afghanistan (a dusty valley ringed by mountains)
+const AFGHAN = WORLD.map === 'afghan';   // Desert Combat: the Gulf War, Iraq 1991 (flat desert, a river with palm groves, a town, oil fields)
+const RIVER_Z = x => Math.sin(x * 0.006 + 1) * 80 + 60;   // the Desert Combat map's river line
 const SNOW = WORLD.map === 'snow', DESERT = WORLD.map === 'desert' || AFGHAN, HOUSTON = WORLD.map === 'houston', WAKE = WORLD.map === 'wake';
 const NORMANDY = WORLD.map === 'normandy', GERMANY = WORLD.map === 'europe', DAM = WORLD.map === 'dam';
 const DOGFIGHT = WORLD.map === 'dogfight' || WORLD.map === 'jetfight' || WORLD.map === 'wwifight', JETFIGHT = WORLD.map === 'jetfight', WWIFIGHT = WORLD.map === 'wwifight';
@@ -67,7 +68,7 @@ const FOG_COLOR = new THREE.Color(SNOW ? 0xdde4ec : DESERT ? 0xe8d6b0 : HOUSTON 
 if (SNOW) {
   // snowstorm haze: thickens quickly with distance (near and far are kept for the few custom shaders)
   scene.fog = new THREE.FogExp2(FOG_COLOR, LITE ? 0.013 : 0.0112); scene.fog.near = 8; scene.fog.far = 230;
-} else if (AFGHAN) scene.fog = new THREE.Fog(FOG_COLOR, LITE ? 110 : 160, LITE ? 520 : 760);   // clear mountain air with a little dust
+} else if (AFGHAN) scene.fog = new THREE.Fog(FOG_COLOR, LITE ? 100 : 150, LITE ? 500 : 720);   // hot hazy desert air
 else if (DESERT) scene.fog = new THREE.Fog(FOG_COLOR, LITE ? 60 : 90, LITE ? 340 : 470);   // a light dusty haze
 else if (WAKE) scene.fog = new THREE.Fog(FOG_COLOR, LITE ? 90 : 140, LITE ? 480 : 720);   // clear tropical air over the ocean
 else if (HOUSTON) scene.fog = new THREE.Fog(FOG_COLOR, LITE ? 80 : 130, LITE ? 420 : 640);   // warm, humid city haze
@@ -473,16 +474,21 @@ function rawHeight(x, z) {
     return h;
   }
   if (AFGHAN) {
-    // a wide dusty valley with rocky hills and a dry riverbed, ringed by tall bare mountains with snowy peaks
+    // southern Iraq: open, nearly flat desert with low dunes, a long rocky ridge, a shallow river with green banks
+    // (the roads cross it on raised causeways), and low sandy hills round the edge instead of mountains
     const ridge = (f, ox, oz) => 1 - Math.abs(vnoise(x * f + ox, z * f + oz) * 2 - 1);
-    const mtn = 45 + Math.pow(ridge(0.006, 5, 2), 1.8) * 115 + vnoise(x * 0.03, z * 0.03) * 8;
     let pd2 = Infinity; for (const P of POINTS_DEF) pd2 = Math.min(pd2, Math.hypot(x - P.x, z - P.z));
     const bd = Math.min(Math.hypot(x - 0, z - 450), Math.hypot(x - 0, z + 450), Math.hypot(x - 170, z - 470) * 1.5, Math.hypot(x + 170, z + 470) * 1.5);   // bases and runways stay on open ground
-    let floor = 4 + (vnoise(x * 0.008, z * 0.008) - 0.5) * 8 + ridge(0.015, 3, 8) * 3;
-    floor += Math.pow(ridge(0.0035, 11, 4), 3) * 42 * smooth(55, 130, pd2) * smooth(110, 190, bd) * smooth(10, 40, pathDist(x, z));   // rocky hills between the points
-    const wz = Math.sin(x * 0.006 + 1) * 80 + 60, wd = Math.abs(z - wz); floor -= smooth(26, 6, wd) * 3.5;  // the dry riverbed
-    const e = Math.max(Math.abs(x) / 470, Math.abs(z) / 490);
-    return lerp(floor, mtn, smooth(0.84, 1.03, e) * smooth(14, 50, pathDist(x, z)));
+    const road = smooth(8, 26, pathDist(x, z)), open = smooth(45, 110, pd2) * smooth(110, 190, bd) * road;
+    let floor = 4 + (vnoise(x * 0.006, z * 0.006) - 0.5) * 5 + ridge(0.02, 3, 8) * 1.2;
+    const dir = 0.9, ph = (x * Math.cos(dir) + z * Math.sin(dir)) * 0.03 + vnoise(x * 0.005, z * 0.005) * 3;   // low dunes
+    floor += Math.pow(0.5 + 0.5 * Math.sin(ph), 2) * 4 * open;
+    { const t = clamp(((x + 420) * 300 + (z + 160) * 100) / (300 * 300 + 100 * 100), 0, 1), rx = -420 + t * 300, rz = -160 + t * 100, rd = Math.hypot(x - rx, z - rz);   // the long rocky ridge
+      floor += Math.max(0, 1 - rd / 34) ** 1.5 * (16 + ridge(0.05, 1, 1) * 6) * smooth(0, 0.12, t) * smooth(1, 0.88, t) * smooth(12, 36, pathDist(x, z)) * smooth(40, 80, pd2); }
+    const wd = Math.abs(z - RIVER_Z(x)), rv = smooth(17, 8, wd) * smooth(6, 12, pathDist(x, z));   // the river (shallow enough to wade)
+    floor = lerp(floor, WATER_Y - 0.95, rv) - smooth(30, 17, wd) * 1.2 * smooth(6, 12, pathDist(x, z));
+    const e = Math.max(Math.abs(x) / 470, Math.abs(z) / 490), hill = 18 + Math.pow(ridge(0.008, 5, 2), 1.5) * 34 + vnoise(x * 0.03, z * 0.03) * 5;
+    return lerp(floor, hill, smooth(0.86, 1.03, e) * smooth(14, 50, pathDist(x, z)));
   }
   if (DESERT) {
     // rolling sand dunes, and flat-topped rock mesas with cliff sides (kept off the roads)
@@ -558,7 +564,7 @@ function undergroundAt(x, z, y) {
 function groundAt(x, z, y) { const u = y !== undefined ? undergroundAt(x, z, y) : null; return u ? (u.ramp ? underFloor(u, x, z) : u.floor) : heightAt(x, z); }
 
 // water only exists in the lakes (other low ground is just dry valleys)
-function nearLake(x, z) { for (const L of LAKES) if (Math.hypot(x - L.x, z - L.z) < L.r + 20) return true; return WAKE || (NORMANDY && z > 300) || (DAM && z < -60 && z > -400) || (HOUSTON && bayouDist(x, z) < 16); }
+function nearLake(x, z) { for (const L of LAKES) if (Math.hypot(x - L.x, z - L.z) < L.r + 20) return true; return WAKE || (NORMANDY && z > 300) || (DAM && z < -60 && z > -400) || (HOUSTON && bayouDist(x, z) < 16) || (AFGHAN && Math.abs(z - RIVER_Z(x)) < 22); }
 const ICE_Y = 0.15;
 // skyscrapers: planes flown by the computer look out for these as well as the ground
 const TALL = [];

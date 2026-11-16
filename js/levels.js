@@ -14,14 +14,14 @@ function terrainColorLevel(x, z, h, slope) {
   const n = vnoise(x * 0.05, z * 0.05), nf = vnoise(x * 0.21 + 9, z * 0.21 - 3), pd = pathDist(x, z);
   let c;
   if (AFGHAN) {
-    // dusty tan valley, grey-brown rock on the slopes, snow on the high peaks, green irrigated fields by the riverbed
-    c = new THREE.Color().setRGB(0.66 + n * 0.08, 0.57 + n * 0.07, 0.43 + n * 0.05).multiplyScalar(0.9 + nf * 0.14);
-    const wz = Math.sin(x * 0.006 + 1) * 80 + 60, wd = Math.abs(z - wz);
-    if (wd < 9) c.lerp(new THREE.Color(0.72, 0.7, 0.64), smooth(9, 4, wd));                                           // pale stones of the dry riverbed
-    else if (wd < 40 && vnoise(x * 0.03 + 5, z * 0.03) > 0.52 && h < 9) c.lerp(new THREE.Color(0.36 + nf * 0.06, 0.5, 0.22), 0.75);   // fields
-    c.lerp(new THREE.Color(0.5 + nf * 0.05, 0.46 + nf * 0.05, 0.41), clamp((slope - 0.35) * 2.2 + (h - 30) / 40, 0, 0.85));   // rock
-    if (h > 105) c.lerp(new THREE.Color(0.93, 0.94, 0.96), clamp((h - 105) / 12, 0, 1) * (slope > 1.5 ? 0.5 : 1));             // snow caps
-    if (pd < 4.5) c.lerp(new THREE.Color(0.6, 0.52, 0.4), smooth(4.5, 1.5, pd));
+    // pale desert sand, darker gravel plains, green irrigated banks along the river, grey-brown rock on the ridge
+    c = new THREE.Color().setRGB(0.78 + n * 0.06, 0.68 + n * 0.06, 0.5 + n * 0.05).multiplyScalar(0.92 + nf * 0.12);
+    if (vnoise(x * 0.01 + 7, z * 0.01) > 0.6) c.lerp(new THREE.Color(0.62, 0.55, 0.43), 0.45);                        // gravel plain
+    const wd = Math.abs(z - RIVER_Z(x));
+    if (wd < 13) c.lerp(new THREE.Color(0.48, 0.44, 0.34), smooth(13, 9, wd));                                          // wet mud at the water's edge
+    else if (wd < 48) c.lerp(new THREE.Color(0.34 + nf * 0.05, 0.47 + nf * 0.05, 0.2), smooth(48, 24, wd) * (vnoise(x * 0.04, z * 0.04) > 0.35 ? 0.85 : 0.45));   // fields and palm groves
+    c.lerp(new THREE.Color(0.55 + nf * 0.05, 0.48 + nf * 0.04, 0.4), clamp((slope - 0.4) * 2 + (h - 16) / 30, 0, 0.8));   // rock
+    if (pd < 4) c.lerp(new THREE.Color(0.46, 0.44, 0.41), smooth(4, 1.5, pd) * 0.85);                                     // dusty asphalt roads
     return c;
   }
   if (GERMANY) {
@@ -185,18 +185,7 @@ function buildAfghan() {
   { const x = B.x - 40, z = B.z - 30, y = heightAt(x, z); addMesh(new THREE.CylinderGeometry(9, 9, 0.2, 24), LV.concrete, x, y + 0.1, z, false);
     const H = new Part(); H.box(1, 0.05, 6, 0xf2f2f2, -1.8, 0, 0); H.box(1, 0.05, 6, 0xf2f2f2, 1.8, 0, 0); H.box(2.6, 0.05, 1, 0xf2f2f2, 0, 0, 0); const hm = new THREE.Mesh(H.build(), VEH_MAT); hm.position.set(x, y + 0.23, z); scene.add(hm); }
   { const x = B.x + 55, z = B.z - 20, y = heightAt(x, z); addMesh(new THREE.CylinderGeometry(0.15, 0.4, 26, 6), LV.rail, x, y + 13, z); addMesh(new THREE.BoxGeometry(2, 0.1, 0.1), LV.rail, x, y + 22, z); addCircle(x, z, 0.6, y + 26); }
-  // the red side: walled compounds round their base and across the valley, with lookout posts on the hills
-  const Rb = BASES.red;
-  for (const [dx, dz, S] of [[-60, 30, 30], [60, 30, 30], [-90, -10, 24], [90, -10, 24]]) { const x = Rb.x + dx, z = Rb.z + dz; if (lvFree(x, z, S / 2 - 30)) qalat(x, z, S, dz > 0 ? 0 : 2); }
-  let made = 0;
-  for (let i = 0; i < 400 && made < 14; i++) {
-    const x = rand(-420, 420), z = rand(-400, 380), S = rand(20, 30);
-    if (!lvFree(x, z, S * 0.7) || Math.hypot(x - B.x, z - B.z) < 140 || heightAt(x, z) > 14) continue;
-    const hs = [heightAt(x - S / 2, z - S / 2), heightAt(x + S / 2, z - S / 2), heightAt(x - S / 2, z + S / 2), heightAt(x + S / 2, z + S / 2)];
-    if (Math.max(...hs) - Math.min(...hs) > 3) continue;
-    let near = false; for (const o of nearbyColliders(x, z)) if (o.kind === 'box' && Math.abs(o.minX - x) < S && Math.abs(o.minZ - z) < S) near = true; if (near) continue;
-    qalat(x, z, S, Math.floor(rand(0, 4))); made++;
-  }
+  buildGulfWar();
   // wrecked vehicles and sandbag posts dotted around
   for (let i = 0; i < 18; i++) { const x = rand(-420, 420), z = rand(-400, 400); if (!lvFree(x, z, 3)) continue; const y = heightAt(x, z), P = new Part(); P.box(2, 1, 4.2, 0x3a3430, 0, 0.7, 0); P.box(1.8, 0.8, 1.8, 0x2a2622, 0, 1.5, 0.5); for (const sx of [-1, 1]) for (const sz of [-1.4, 1.4]) P.cyl(0.45, 0.45, 0.3, 0x1a1a1a, sx * 1.05, 0.45, sz, 0, 0, Math.PI / 2, 1, 8); const m = new THREE.Mesh(P.build(), VEH_MAT); m.position.set(x, y, z); m.rotation.set(rand(-0.1, 0.1), rand(0, 6.28), rand(-0.3, 0.3)); scene.add(m); addBlock(x, z, 2.4, 1.8, 2.4, LV.hidden); }
   for (let i = 0; i < 20; i++) { const x = rand(-430, 430), z = rand(-420, 420); if (!lvFree(x, z, 3)) continue; const y = heightAt(x, z), P = new Part(); for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 1.6; P.add(new THREE.SphereGeometry(0.5, 7, 5), 0xa8935f, Math.cos(a) * 2.2, 0.35, Math.sin(a) * 2.2, 0, 0, 0, 1.4, 0.6, 1); P.add(new THREE.SphereGeometry(0.5, 7, 5), 0x9a8552, Math.cos(a + 0.15) * 2.2, 0.9, Math.sin(a + 0.15) * 2.2, 0, 0, 0, 1.4, 0.6, 1); } const m = new THREE.Mesh(P.build(), VEH_MAT); m.position.set(x, y, z); m.rotation.y = rand(0, 6.28); scene.add(m); }
@@ -375,10 +364,11 @@ function applyDamState(d) { if (!Array.isArray(d)) return; DAMWALL.hp = d[0]; if
 function updateLevel(dt) {
   if (DAM) updateDam(dt);
   if ((GERMANY || NORMANDY) && typeof updatePointsVisual === 'function') installWW2Flags();
-  if ((GERMANY || NORMANDY) && typeof applyWW2Weapons === 'function') applyWW2Weapons(player.team);
+  if ((GERMANY || NORMANDY || AFGHAN) && typeof applyWW2Weapons === 'function') applyWW2Weapons(player.team);
   if (GERMANY) { installLeaderHooks(); installGuardHook(); updateBombers(dt); updateLeader(dt); updateBerlinWar(dt); }
   if ((GERMANY || NORMANDY) && started) updateBarrage(dt);
-  if (AFGHAN && started && !AFG.told && player.alive) { AFG.told = true; showMessage('Desert Combat: Afghanistan. Blue holds the base in the south of the valley, red holds the mountain villages. Humvees, jets and helicopters are at your base', 7); }
+  if (AFGHAN) updateGulfWar(dt);
+  if (AFGHAN && started && !AFG.told && player.alive) { AFG.told = true; showMessage('Desert Combat: Gulf War, 1991. US forces (blue) against the Iraqi army (red): a river town, oil fields and a refinery. Tanks, Humvees, jets and helicopters are at your base', 8); }
   if ((GERMANY || NORMANDY) && started && !BARRAGE.told && player.alive) { BARRAGE.told = true; showMessage(NORMANDY ? 'June 6, 1944: D-Day. Blue storms the beach, red holds the bunkers' : 'Berlin, April 1945: the last battle in Europe. Hitler hides in one of the bunkers. Blue: find the clues by the landmarks (red blinking lights) to track him down', 8); }
   if (NORMANDY) {
     updateLandingCraft();
@@ -1023,4 +1013,151 @@ function buildBerlinSigns() {
   };
   for (const [x, z, list] of [[TOWN_R + 12, 14, ['Spandau 12 km', 'Potsdam 26 km']], [-TOWN_R - 12, -14, ['Köpenick 15 km', 'Frankfurt (Oder) 80 km']], [14, -TOWN_R - 12, ['Oranienburg 30 km', 'Bernau 22 km']]]) if (lvFree(x, z, 1)) board(x, z, list, '#efe9d6', '#1e1e1e');
   { const B = BASES.blue, s = teamSide('blue'), x = B.x + 16, z = B.z - s * 30; if (lvFree(x, z, 1)) board(x, z, ['BERLIN 3 MI', 'HQ  →', 'MOTOR POOL'], '#e9e6d8', '#2b3a1e'); }
+}
+
+
+// ---------- Desert Combat: the Gulf War (Iraq, 1991) ----------
+// An Iraqi river town with flat-roofed houses and a mosque, palm groves along the river, an oil field with
+// nodding pumps and burning wells, a refinery with tanks and a flare stack, a SAM site with a turning radar,
+// a highway lined with burned-out vehicles, and the Iraqi base dug in behind sand berms.
+const GULF = { pumps: [], fires: [], radar: null, flare: null, t: 0 };
+function gulfHouse(P, x, z, w, d, h, col, y) {
+  const trim = new THREE.Color(col).multiplyScalar(0.82).getHex();
+  P.box(w, h, d, col, x, y + h / 2, z); P.box(w + 0.3, 0.6, d + 0.3, trim, x, y + h + 0.3, z);                       // walls, parapet
+  P.box(w - 0.6, 0.1, d - 0.6, new THREE.Color(col).multiplyScalar(0.7).getHex(), x, y + h + 0.05, z);              // roof
+  for (const sd of [-1, 1]) {
+    P.box(1.1, 2.1, 0.08, 0x3a2a1e, x + sd * w * 0.18, y + 1.05, z + sd * (d / 2 + 0.02));                         // doors
+    for (const k of [-1, 1]) P.box(0.8, 0.9, 0.08, 0x1e2226, x + k * w * 0.3, y + h - 1.4, z + sd * (d / 2 + 0.02));   // windows
+    for (const k of [-1, 1]) P.box(0.08, 0.9, 0.8, 0x1e2226, x + sd * (w / 2 + 0.02), y + h - 1.4, z + k * d * 0.25);
+  }
+  if (Math.random() < 0.4) { P.cyl(0.7, 0.7, 1.2, 0x9aa0a6, x + w * 0.25, y + h + 0.9, z - d * 0.25, 0, 0, 0, 1, 10); }   // roof water tank
+  if (Math.random() < 0.3) P.box(1.2, 0.04, 1.6, 0x5a6a8a, x - w * 0.2, y + h + 0.25, z + d * 0.2, 0.4);           // satellite-free 1991: a solar water heater
+}
+function buildGulfWar() {
+  const T = TOWN_AT, sand = 0xcdb88e, white = 0xe6dfcf, mud = 0xb59a72;
+  // the river town: blocks of flat-roofed houses round a mosque, with market awnings on the main street
+  { const P = new Part();
+    for (let gx = -3; gx <= 3; gx++) for (let gz = -3; gz <= 3; gz++) {
+      const x = T.x + gx * 20 + rand(-2, 2), z = T.z + gz * 20 + rand(-2, 2);
+      if (Math.hypot(gx, gz) > 3.3 || (gx === 0 && gz === 0)) continue;
+      const w = rand(8, 12), d = rand(8, 12), h = rand(3.6, 7.5);
+      if (!lvFree(x, z, Math.max(w, d) / 2 - 2)) continue;
+      const y = groundMin(x, z, w / 2, d / 2) - 0.3; gulfHouse(P, x, z, w, d, h, pick([sand, white, mud, 0xd8c8a0]), y);
+      addBlock(x, z, w, h + 0.6, d, LV.hidden, { y });
+    }
+    const m = new THREE.Mesh(P.build(), VEH_MAT); m.castShadow = true; m.receiveShadow = true; scene.add(m);
+  }
+  { // the mosque: a square hall, a big turquoise dome and a tall minaret with a balcony
+    const x = T.x, z = T.z, y = groundMin(x, z, 9, 9) - 0.3, P = new Part();
+    P.box(17, 7, 17, 0xe8e0cc, x, y + 3.5, z); P.box(17.6, 0.7, 17.6, 0xc8b890, x, y + 7.3, z);
+    P.cyl(4.6, 4.6, 2, 0xe8e0cc, x, y + 8.6, z, 0, 0, 0, 1, 20); P.dome(4.6, 0x2a9a9a, x, y + 9.6, z, 1, 1.15, 1); P.cyl(0.1, 0.1, 1.4, 0xd8b040, x, y + 15.4, z);
+    for (const sd of [-1, 1]) for (const k of [-1, 0, 1]) { P.box(1.6, 3, 0.1, 0x2a2420, x + k * 5, y + 3, z + sd * 8.53); P.dome(0.8, 0x2a2420, x + k * 5, y + 4.5, z + sd * 8.53, 1, 1, 0.1); }   // arched windows
+    const mx = x + 10, mz = z - 7; P.cyl(1.1, 1.3, 26, 0xe8e0cc, mx, y + 13, mz, 0, 0, 0, 1, 12); P.cyl(1.9, 1.7, 0.8, 0xc8b890, mx, y + 21, mz, 0, 0, 0, 1, 12);
+    P.cyl(0.9, 1.1, 3, 0xe8e0cc, mx, y + 27.5, mz, 0, 0, 0, 1, 12); P.dome(1.0, 0x2a9a9a, mx, y + 29, mz, 1, 1.4, 1);
+    const m = new THREE.Mesh(P.build(), VEH_MAT); m.castShadow = true; m.receiveShadow = true; scene.add(m);
+    addBlock(x, z, 17, 8, 17, LV.hidden, { y }); addBlock(mx, mz, 2.6, 30, 2.6, LV.hidden, { y });
+    TALL.push({ x: mx, z: mz, hw: 2, hd: 2, top: y + 31 });
+  }
+  { // market awnings along the town's main road
+    const P = new Part(); let n = 0;
+    for (let i = 0; i < 80 && n < 10; i++) { const x = T.x + rand(-60, 60), z = T.z + rand(-60, 60); const pd = pathDist(x, z); if (pd < 5 || pd > 8 || Math.hypot(x - T.x, z - T.z) < 14) continue;
+      const y = heightAt(x, z), c = pick([0xb03a2e, 0x2a6a9a, 0xd8a030, 0x3a7a3a]); for (const [a, b] of [[-1.4, -1], [1.4, -1], [-1.4, 1], [1.4, 1]]) P.cyl(0.05, 0.05, 2.4, 0x5a4a3a, x + a, y + 1.2, z + b);
+      P.box(3.2, 0.06, 2.4, c, x, y + 2.45, z, 0.15); P.box(2.6, 0.8, 1.4, 0x7a5a3a, x, y + 0.4, z); for (let k = 0; k < 6; k++) P.ball(0.18, pick([0xd84a2a, 0xe0b030, 0x6a9a3a]), x - 1 + k * 0.4, y + 0.9, z); n++; }
+    scene.add(new THREE.Mesh(P.build(), VEH_MAT));
+  }
+  // palm groves along both river banks, around the town and at the oasis
+  { const palms = [];
+    for (let x = -480; x <= 480; x += 7) for (const sd of [-1, 1]) {
+      if (Math.random() < 0.35) continue;
+      const z = RIVER_Z(x) + sd * rand(21, 46), px = x + rand(-3, 3);
+      if (!lvFree(px, z, 1.5) || waterDepth(px, z) > 0 || Math.hypot(px - T.x, z - T.z) < 75) continue;
+      const h = heightAt(px, z); palms.push({ x: px, z, y: h, s: rand(0.8, 1.25), r: rand(0, 6.28), lean: rand(-0.25, 0.25) }); addCircle(px, z, 0.4, h + 9);
+    }
+    for (let i = 0; i < 40; i++) { const a = rand(0, 6.28), r = rand(70, 95), x = T.x + Math.cos(a) * r, z = T.z + Math.sin(a) * r; if (!lvFree(x, z, 1.5) || waterDepth(x, z) > 0) continue; const h = heightAt(x, z); palms.push({ x, z, y: h, s: rand(0.8, 1.2), r: rand(0, 6.28), lean: rand(-0.25, 0.25) }); addCircle(x, z, 0.4, h + 9); }
+    if (typeof wkPalms === 'function') wkPalms(palms);
+  }
+  // farm compounds of mud brick near the river
+  for (let i = 0, made = 0; i < 200 && made < 6; i++) { const x = rand(-450, 450), z = RIVER_Z(x) + pick([-1, 1]) * rand(55, 90), S = rand(18, 24); if (!lvFree(x, z, S * 0.7) || Math.hypot(x - T.x, z - T.z) < 100) continue; qalat(x, z, S, Math.floor(rand(0, 4))); made++; }
+  // the oil field round point D: nodding pumpjacks, and wells set on fire, with black smoke pouring out
+  { const D = PD.D;
+    for (let i = 0, made = 0; i < 300 && made < 9; i++) {
+      const a = rand(0, 6.28), r = rand(26, 80), x = D.x + Math.cos(a) * r, z = D.z + Math.sin(a) * r; if (!lvFree(x, z, 3) || Math.abs(x) > EDGE - 20 || Math.abs(z) > EDGE - 20) continue;
+      const y = heightAt(x, z), g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = rand(0, 6.28); scene.add(g);
+      const P = new Part(); P.box(1.6, 0.4, 5, 0x5a5e62, 0, 0.2, 0); for (const sd of [-1, 1]) P.box(0.15, 3.4, 0.15, 0x3a6a8a, sd * 0.5, 2, 0.2, 0, 0, -sd * 0.12); P.box(1.2, 0.8, 1.2, 0x5a5e62, 0, 0.8, 1.9); P.cyl(0.6, 0.6, 0.3, 0x3a3e42, 0, 1.3, 1.9, 0, 0, Math.PI / 2, 1, 12);
+      P.cyl(0.12, 0.12, 1.6, 0x2a2a2a, 0, 0.8, -2.0);
+      g.add(new THREE.Mesh(P.build(), VEH_MAT));
+      const beam = new THREE.Group(); beam.position.set(0, 3.8, 0.2); g.add(beam);
+      const B = new Part(); B.box(0.35, 0.4, 5.2, 0x3a6a8a, 0, 0, -0.3); B.box(0.5, 1.6, 0.8, 0x3a6a8a, 0, -0.5, -2.9, 0.3); B.box(0.2, 1.4, 0.2, 0x3a3e42, 0, -1.4, 1.8);
+      beam.add(new THREE.Mesh(B.build(), VEH_MAT)); addBlock(x, z, 2.2, 4, 2.2, LV.hidden);
+      GULF.pumps.push({ beam, ph: rand(0, 6.28) }); made++;
+    }
+    for (let i = 0, made = 0; i < 300 && made < 4; i++) {
+      const a = rand(0, 6.28), r = rand(40, 120), x = D.x + Math.cos(a) * r, z = D.z + Math.sin(a) * r; if (!lvFree(x, z, 5) || Math.abs(x) > EDGE - 20 || Math.abs(z) > EDGE - 20 || GULF.fires.some(f => Math.hypot(f.x - x, f.z - z) < 40)) continue;
+      const y = heightAt(x, z); addMesh(new THREE.CylinderGeometry(0.5, 0.7, 2, 8), LV.rust, x, y + 1, z); addMesh(new THREE.CylinderGeometry(6, 6, 0.08, 18), new THREE.MeshLambertMaterial({ color: 0x141210 }), x, y + 0.05, z, false);   // wellhead in a pool of crude
+      GULF.fires.push({ x, y, z, p: new THREE.Vector3(x, y + 2, z) }); addCircle(x, z, 4, y + 6); made++;
+    }
+  }
+  // the refinery at point E: white storage tanks, distillation towers with ladders, pipe racks and a flare stack
+  { const E = PD.E, P = new Part();
+    for (let i = 0, made = 0; i < 200 && made < 6; i++) { const a = made / 6 * 6.28 + rand(-0.2, 0.2), r = rand(36, 52), x = E.x + Math.cos(a) * r, z = E.z + Math.sin(a) * r; if (!lvFree(x, z, 7) || Math.abs(x) > EDGE - 20 || Math.abs(z) > EDGE - 20) continue;
+      const y = groundMin(x, z, 7, 7) - 0.2, R = rand(5, 7), H = rand(6, 9); P.cyl(R, R, H, 0xe0e2e0, x, y + H / 2, z, 0, 0, 0, 1, 24); P.cyl(R + 0.05, R + 0.05, 0.3, 0x9a9e9a, x, y + H * 0.7, z, 0, 0, 0, 1, 24); P.dome(R, 0xd0d2d0, x, y + H, z, 1, 0.18, 1);
+      for (let k = 0; k < 8; k++) P.box(0.08, H, 0.08, 0x6a6e72, x + R + 0.1, y + H / 2, z + (k - 4) * 0.12 * 0);   // ladder
+      addBlock(x, z, R * 1.7, H, R * 1.7, LV.hidden, { y }); made++; }
+    for (let i = 0, made = 0; i < 200 && made < 3; i++) { const x = E.x + rand(-30, 30), z = E.z + rand(-30, 30); if (!lvFree(x, z, 3) || Math.hypot(x - E.x, z - E.z) < 22) continue;
+      const y = heightAt(x, z), H = rand(18, 26); P.cyl(1.4, 1.6, H, 0xb8bab8, x, y + H / 2, z, 0, 0, 0, 1, 14); for (let k = 1; k < 5; k++) { P.cyl(2.2, 2.2, 0.15, 0x7a7e82, x, y + H * k / 5, z, 0, 0, 0, 1, 14); }
+      P.box(0.1, H, 0.6, 0x5a5e62, x + 1.6, y + H / 2, z); addBlock(x, z, 3.2, H, 3.2, LV.hidden, { y }); TALL.push({ x, z, hw: 2, hd: 2, top: y + H }); made++; }
+    for (let k = 0; k < 4; k++) { const x0 = E.x - 30 + k * 4, z0 = E.z + 26; if (!lvFree(x0, z0, 2)) continue; const y = heightAt(x0, z0); P.box(0.3, 3, 0.3, 0x6a6e72, x0, y + 1.5, z0); P.box(0.3, 3, 0.3, 0x6a6e72, x0, y + 1.5, z0 + 3); }
+    for (const dz of [0, 1.2, 2.4]) { const y = heightAt(E.x - 24, E.z + 27); P.cyl(0.3, 0.3, 16, pick([0x8a8e92, 0xa06a3a, 0x3a5a8a]), E.x - 24, y + 3.2 + dz * 0.1, E.z + 26 + dz, 0, 0, Math.PI / 2, 1, 8); }
+    const fx = E.x - 40, fz = E.z - 22; if (lvFree(fx, fz, 2)) { const y = heightAt(fx, fz); P.cyl(0.5, 0.7, 30, 0x8a8e92, fx, y + 15, fz, 0, 0, 0, 1, 10); GULF.flare = new THREE.Vector3(fx, y + 31, fz); addBlock(fx, fz, 1.4, 30, 1.4, LV.hidden); TALL.push({ x: fx, z: fz, hw: 1, hd: 1, top: y + 32 }); }
+    const m = new THREE.Mesh(P.build(), VEH_MAT); m.castShadow = true; m.receiveShadow = true; scene.add(m);
+  }
+  // the SAM site at point G: a ring of sand berm, three missiles on launch rails, a turning radar dish and a bunker
+  { const G = PD.G, P = new Part();
+    for (let k = 0; k < 3; k++) { const a = k / 3 * 6.28 + 0.5, x = G.x + Math.cos(a) * 30, z = G.z + Math.sin(a) * 30; if (!lvFree(x, z, 4) && Math.hypot(x - G.x, z - G.z) < 24) continue; const y = heightAt(x, z);
+      for (let b = 0; b < 12; b++) { const t = b / 12 * 6.28; P.box(2.6, 1.6, 1.6, 0xc4ad80, x + Math.cos(t) * 7, y + 0.6, z + Math.sin(t) * 7, 0, -t, 0); }
+      P.box(2.4, 0.8, 2.4, 0x6a6a4a, x, y + 0.4, z); P.box(0.6, 0.4, 7, 0x5a5e48, x, y + 1.6, z, -0.6, a, 0);
+      P.cyl(0.32, 0.32, 9, 0xd8dcd8, x - Math.sin(a) * 0.5, y + 3.2, z - Math.cos(a) * 0.5, -0.6 + Math.PI / 2, a, 0, 1, 10);   // the missile
+      addBlock(x, z, 3, 2, 3, LV.hidden); }
+    const rx = G.x - 16, rz = G.z + 14, ry = heightAt(rx, rz); P.box(3, 2, 4, 0x5a5e48, rx, ry + 1, rz); P.box(0.4, 3, 0.4, 0x3a3e42, rx, ry + 3.5, rz);
+    scene.add(new THREE.Mesh(P.build(), VEH_MAT)); addBlock(rx, rz, 3, 2, 4, LV.hidden);
+    const dish = new THREE.Group(); dish.position.set(rx, ry + 5, rz); scene.add(dish);
+    const Dp = new Part(); Dp.box(5, 1.6, 0.15, 0x8a8e88, 0, 0, 0, 0.25); Dp.box(0.2, 0.2, 1.2, 0x3a3e42, 0, 0, 0.6); dish.add(new THREE.Mesh(Dp.build(), VEH_MAT)); GULF.radar = dish;
+  }
+  // the highway between B and G: a column of burned-out trucks, cars and tanks
+  { const a = PD.B, b = PD.G, P = new Part();
+    for (let i = 0; i < 16; i++) {
+      const t = 0.12 + i / 16 * 0.76 + rand(-0.02, 0.02), x = lerp(a.x, b.x, t) + rand(-1, 1) * 0 , z = lerp(a.z, b.z, t), nx = -(b.z - a.z), nz = b.x - a.x, nl = Math.hypot(nx, nz), off = pick([-1, 1]) * rand(8, 13);
+      const px = x + nx / nl * off, pz = z + nz / nl * off; if (!lvFree(px, pz, 0) && pathDist(px, pz) < 6) continue;
+      const y = heightAt(px, pz), yaw = Math.atan2(b.x - a.x, b.z - a.z) + rand(-0.6, 0.6), c = pick([0x2a2622, 0x3a3028, 0x4a3a2a]), kind = i % 3;
+      const g = new Part();
+      if (kind === 0) { g.box(2.2, 1.6, 2.2, c, 0, 1.3, -2.2); g.box(2.4, 0.4, 5, 0x1e1c1a, 0, 0.7, 1); for (let k = 0; k < 4; k++) g.box(0.1, 1.2, 4.6, c, -1.1 + k * 0.7, 1.4, 1.1, 0.2 * (k % 2)); }   // truck
+      else if (kind === 1) { g.box(1.8, 0.8, 4.2, c, 0, 0.7, 0); g.box(1.5, 0.6, 2, 0x1a1a1a, 0, 1.3, 0.2); }   // car
+      else { g.box(3.4, 1.0, 6.4, c, 0, 0.9, 0); g.dome(1.3, c, 0.3, 1.4, -0.3, 1, 0.55, 1.1); g.cyl(0.1, 0.12, 4.6, 0x1a1a1a, 0.3, 1.7, -3.5, Math.PI / 2 - 0.2, 0, 0, 1, 8); }   // tank with a low round turret
+      const m = new THREE.Mesh(g.build(), VEH_MAT); m.position.set(px, y - 0.1, pz); m.rotation.set(rand(-0.05, 0.05), yaw, rand(-0.1, 0.1)); scene.add(m); addBlock(px, pz, 3.5, 2, 3.5, LV.hidden);
+      if (i % 4 === 0) BARRAGE.smoke.push(new THREE.Vector3(px, y + 2, pz));
+    }
+  }
+  // the Iraqi base: long sand berms round it (open where the roads go through), dug-in tank revetments and AA guns
+  { const Rb = BASES.red, s = teamSide('red'), P = new Part(), R = 80;
+    const by = heightAt(Rb.x, Rb.z);
+    for (let k = 0; k < 64; k++) { const a = k / 64 * 6.28, x = Rb.x + Math.cos(a) * R, z = Rb.z + Math.sin(a) * R * 0.75; if (pathDist(x, z) < 10 || Math.abs(x) > EDGE - 10 || Math.abs(z) > EDGE - 10 || inRunwayZone(x, z, 4) || Math.abs(heightAt(x, z) - by) > 4) continue;
+      const y = heightAt(x, z); P.box(8.5, 2.4, 4, 0xc8b084, x, y + 0.6, z, 0, -a + Math.PI / 2, 0); P.box(7.5, 1.2, 2.6, 0xd2bc90, x, y + 1.9, z, 0, -a + Math.PI / 2, 0); addBlock(x, z, 5, 2.6, 5, LV.hidden); }
+    for (const dx of [-40, -20, 20, 40]) { const x = Rb.x + dx, z = Rb.z - s * 50; if (!lvFree(x, z, 0) && pathDist(x, z) < 6) continue; const y = heightAt(x, z);
+      P.box(8, 2.2, 1.5, 0xc8b084, x, y + 1.1, z - 4); P.box(1.5, 2.2, 8, 0xc8b084, x - 4, y + 1.1, z); P.box(1.5, 2.2, 8, 0xc8b084, x + 4, y + 1.1, z); }
+    scene.add(new THREE.Mesh(P.build(), VEH_MAT));
+    if (typeof makeTurret === 'function') for (const dx of [-55, 55]) { const x = Rb.x + dx, z = Rb.z - s * 30; if (lvFree(x, z, 1) || pathDist(x, z) > 4) makeTurret(x, z, 'mg', s > 0 ? Math.PI : 0); }
+  }
+}
+function updateGulfWar(dt) {
+  GULF.t += dt;
+  for (const p of GULF.pumps) p.beam.rotation.x = Math.sin(GULF.t * 1.1 + p.ph) * 0.28;
+  if (GULF.radar) GULF.radar.rotation.y += dt * 0.9;
+  GULF.fireT = (GULF.fireT || 0) - dt; if (GULF.fireT > 0) return; GULF.fireT = 0.08;
+  const cx = camera.position.x, cz = camera.position.z;
+  for (const f of GULF.fires) {   // the oil well fires: a roaring column of flame under a towering plume of black smoke
+    const d = Math.hypot(f.x - cx, f.z - cz); if (d > 650) continue;
+    if (d < 300) for (let k = 0; k < 2; k++) smokePuff(f.p.clone().add(new THREE.Vector3(rand(-1.2, 1.2), rand(0, 5), rand(-1.2, 1.2))), pick([0xff7a1a, 0xffb23a, 0xe85a10]), rand(1.2, 2.2), rand(0.5, 0.9), rand(5, 8));
+    for (let k = 0; k < 2; k++) smokePuff(f.p.clone().add(new THREE.Vector3(rand(-2, 2), rand(5, 9), rand(-2, 2))), pick([0x141414, 0x1e1c1a, 0x262422]), rand(1.8, 2.8), rand(9, 13), rand(6, 9));   // a tall column drifting up
+  }
+  if (GULF.flare && Math.hypot(GULF.flare.x - cx, GULF.flare.z - cz) < 400) smokePuff(GULF.flare.clone().add(new THREE.Vector3(rand(-0.4, 0.4), rand(0, 1.5), rand(-0.4, 0.4))), pick([0xff9a2a, 0xffc04a]), rand(0.8, 1.4), rand(0.4, 0.7), rand(3, 5));
 }

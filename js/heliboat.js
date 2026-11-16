@@ -288,6 +288,11 @@ function buildHelisAndBoats() {
       const v = makeGV('heli', t, spot[0], spot[1], yaw);
       helipadMesh(spot[0], v.pos.y, spot[1]);
     }
+    if (AFGHAN && (t === 'blue' || t === 'red')) for (const [type, dx] of [['apache', -105], ['blackhawk', 105]]) {   // Desert Combat: an attack helicopter and a transport (Apache and Black Hawk, or Hind and Mi-8)
+      let spot = null;
+      for (let d = 0; d <= 60 && !spot; d += 4) for (let k = 0; k < (d ? 12 : 1) && !spot; k++) { const a = k / 12 * Math.PI * 2 + d * 0.3, x = B.x + dx + Math.cos(a) * d, z = B.z - s * 30 + Math.sin(a) * d; if (vehicleSpotFree(x, z, 9)) spot = [x, z]; }
+      if (spot) { const v = makeGV(type, t, spot[0], spot[1], yaw); helipadMesh(spot[0], v.pos.y, spot[1]); }
+    }
     // a gun boat on each of the two big lakes, on each team's side
     if (NORMANDY && t === 'blue') { for (const x of [-120, -40, 40, 120]) makeGV('boat', t, x, 390, Math.PI, WATER_Y); continue; }   // landing boats off the beach
     if (NORMANDY) continue;

@@ -341,6 +341,12 @@ function buildTerrain() {
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
     const rm = new THREE.Mesh(g, waterMat); rm.position.y = WATER_Y; waterMesh.add(rm);
   }
+  if (AFGHAN) {   // the Desert Combat river: a ribbon of water along its winding line
+    const pos = [], idx = []; let n = 0;
+    for (let x = -HALF; x <= HALF; x += 6) { const z = RIVER_Z(x), dz = (RIVER_Z(x + 1) - RIVER_Z(x - 1)) / 2, l = Math.hypot(1, dz), nx = -dz / l, nz = 1 / l; pos.push(x + nx * 18, 0, z + nz * 18, x - nx * 18, 0, z - nz * 18); if (n) idx.push(n * 2 - 2, n * 2, n * 2 - 1, n * 2 - 1, n * 2, n * 2 + 1); n++; }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+    const rm = new THREE.Mesh(g, waterMat); rm.position.y = WATER_Y; waterMesh.add(rm);
+  }
   for (const L of LAKES) { const wm = new THREE.Mesh(new THREE.CircleGeometry(L.r + 8, 64), waterMat); wm.rotation.x = -Math.PI / 2; wm.position.set(L.x, WATER_Y, L.z); waterMesh.add(wm); }
 }
 
@@ -689,7 +695,7 @@ function buildNature() {
     if (vnoise(x * 0.02 + 100, z * 0.02) < 0.42 && Math.random() < 0.8) continue;
     if (!okSpot(x, z, 10)) continue;
     const s = rand(0.8, 1.35), h = heightAt(x, z);
-    (heightAt(x, z) > 12 || Math.random() < 0.4 ? pines : oaks).push({ x, z, y: h, s, r: rand(0, Math.PI) });
+    ((heightAt(x, z) > 12 || Math.random() < 0.4) && !AFGHAN ? pines : oaks).push({ x, z, y: h, s, r: rand(0, Math.PI) });   /* no pine trees in the Iraqi desert */
     addCircle(x, z, 0.55 * s, h + 7 * s);
   }
   tries = 0;
@@ -962,7 +968,7 @@ function buildWorld() {
   buildTerrain();
   if (!WAKE && !DAM) buildBunkers();
   if (typeof buildNests === 'function') buildNests();
-  if (!SNOW && !HOUSTON && !WAKE && !DAM) { if (TOWN_AT) buildTown(); if (!NORMANDY && !AFGHAN) buildFarm(); }
+  if (!SNOW && !HOUSTON && !WAKE && !DAM) { if (TOWN_AT && !AFGHAN) buildTown(); if (!NORMANDY && !AFGHAN) buildFarm(); }   /* Desert Combat builds its own Iraqi town */
   TEAMS.forEach(t => { if (!(WAKE && t === 'blue')) buildBase(t); });
   buildPoints();
   if (!NO_TUNNELS) buildTunnels();

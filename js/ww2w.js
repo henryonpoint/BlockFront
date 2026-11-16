@@ -101,6 +101,36 @@ const WW2_GUNS = {
     return { g, ...vmuzzle(g, 0, 0, -0.9, 0.2), pos: [0.2, -0.1, -0.35], warhead, sight: 0.1525 };
   },
 };
+// Desert Combat (Gulf War): the Iraqi side carries the AK-47 and the RPG-7; names follow the mod's lists
+WW2_GUNS.ak47 = function (team) {
+  const g = new THREE.Group();
+  vbox(g, 0.056, 0.07, 0.3, WM.blued, 0, 0.03, -0.08); vbox(g, 0.05, 0.03, 0.26, WM.steel, 0, 0.075, -0.06);    // receiver and dust cover
+  vbox(g, 0.05, 0.06, 0.2, WM.wood, 0, 0.01, -0.33); vbox(g, 0.04, 0.03, 0.2, WM.wood, 0, 0.065, -0.33);        // wooden handguard
+  vcyl(g, 0.012, 0.012, 0.26, WM.steel, 0, 0.03, -0.55); vcyl(g, 0.009, 0.009, 0.22, WM.steel, 0, 0.065, -0.52); vbox(g, 0.012, 0.04, 0.012, WM.black, 0, 0.065, -0.66);   // barrel, gas tube, front sight
+  vbox(g, 0.05, 0.1, 0.26, WM.wood, 0, -0.01, 0.2, 0.08); vbox(g, 0.04, 0.12, 0.05, WM.wood2, 0, -0.08, 0.03, -0.3);   // wooden stock, grip
+  for (let i = 0; i < 5; i++) vbox(g, 0.034, 0.05, 0.05, WM.blued, 0, -0.04 - i * 0.045, -0.13 - i * 0.025, 0.3 + i * 0.07);   // the banana magazine
+  whand(g, team, 0, -0.12, 0.06, -0.3); whand(g, team, -0.02, -0.06, -0.34, 0, -0.45);
+  return { g, ...vmuzzle(g, 0, 0.03, -0.7), pos: [0.17, -0.17, -0.4], sight: 0.105 };
+};
+WW2_GUNS.rpg7 = function (team) {
+  const g = new THREE.Group();
+  vcyl(g, 0.045, 0.045, 1.0, WM.steel, 0, 0, -0.1); vcyl(g, 0.06, 0.045, 0.14, WM.steel, 0, 0, 0.45);          // tube, flared back
+  vcyl(g, 0.05, 0.05, 0.3, WM.wood, 0, 0, -0.05);                                                            // wooden heat guard
+  const warhead = new THREE.Group(); g.add(warhead);
+  vcyl(warhead, 0.04, 0.04, 0.12, WM.od, 0, 0, -0.66); vcyl(warhead, 0.085, 0.04, 0.16, WM.od, 0, 0, -0.8);
+  const cone = new THREE.Mesh(new THREE.ConeGeometry(0.085, 0.2, 12), WM.od); cone.rotation.x = -Math.PI / 2; cone.position.set(0, 0, -0.98); warhead.add(cone);
+  vbox(g, 0.04, 0.13, 0.06, WM.wood2, 0, -0.1, 0.02, -0.25); vbox(g, 0.04, 0.12, 0.06, WM.blued, 0, -0.1, -0.22);
+  vbox(g, 0.02, 0.08, 0.04, WM.black, -0.05, 0.08, -0.1);                                                     // the optical sight
+  whand(g, team, 0, -0.14, 0.04, -0.25); whand(g, team, 0, -0.14, -0.22, 0, -0.45);
+  return { g, ...vmuzzle(g, 0, 0, -1.05, 0.2), pos: [0.2, -0.1, -0.35], warhead, sight: 0.1 };
+};
+const GULF_MAP = {
+  pistol: { blue: ['M9'], red: ['Browning Hi-Power'] },
+  rifle: { blue: ['M16A2'], red: ['AK-47', 'ak47'] },
+  smg: { blue: ['MP5'], red: ['Scorpion'] },
+  sniper: { blue: ['M25 Sniper'], red: ['Tabuk Sniper'] },
+  rpg: { blue: ['SMAW'], red: ['RPG-7', 'rpg7'] },
+};
 const WW2_MAP = {
   pistol: { blue: ['Colt M1911', 'm1911'], red: ['Luger P08', 'luger'] },
   rifle: { blue: ['M1 Garand', 'garand'], red: ['StG 44', 'stg44'] },
@@ -110,13 +140,14 @@ const WW2_MAP = {
   shotgun: { blue: ['M97 Trench Gun'], red: ['Trench Shotgun'] },
 };
 function applyWW2Weapons(team) {
-  if (!(typeof GERMANY !== 'undefined' && (GERMANY || NORMANDY)) || (team !== 'blue' && team !== 'red') || WW2W.team === team) return;
+  const gulf = typeof AFGHAN !== 'undefined' && AFGHAN, MAP = gulf ? GULF_MAP : WW2_MAP;
+  if (!(gulf || (typeof GERMANY !== 'undefined' && (GERMANY || NORMANDY))) || (team !== 'blue' && team !== 'red') || WW2W.team === team) return;
   WW2W.team = team;
   for (const w of WEAPONS) {
-    const m = WW2_MAP[w.id]; if (!m) continue;
+    const m = MAP[w.id]; if (!m) continue;
     if (!w._orig) w._orig = { name: w.name, model: w.model };
     const [name, build] = m[team]; w.name = name;
-    if (!build) continue;
+    if (!build) { if (w.model !== w._orig.model) { const vis = w.model.g.visible; w.model.g.visible = false; w.model = w._orig.model; w.model.g.visible = vis; } continue; }
     const key = team + w.id; let model = WW2W.cache[key];
     if (!model) { model = WW2W.cache[key] = WW2_GUNS[build](team); model.g.visible = false; vmHolder.add(model.g); }
     const vis = w.model.g.visible; w.model.g.visible = false; w.model = model; model.g.visible = vis;

@@ -9,6 +9,10 @@ const VPAINT = {
   green: { a: 0x55704a, b: 0x3e5536, c: 0x6d8a60, team: 0x2fa84f, acc: 0xa0f0b4 },
   yellow: { a: 0x8a7a4a, b: 0x665a36, c: 0xa6955e, team: 0xe0b020, acc: 0xffe9a0 },
 };
+if (typeof AFGHAN !== 'undefined' && AFGHAN) {   // Desert Combat: US vehicles in desert tan, Iraqi ones in sand and olive
+  Object.assign(VPAINT.blue, { a: 0xbba27a, b: 0x977f5a, c: 0xcbb48c });
+  Object.assign(VPAINT.red, { a: 0x8c8458, b: 0x6c6644, c: 0x9e966a });
+}
 // WWII maps (Berlin, Normandy): olive drab Allied vehicles with white stars, dark-yellow German ones
 const WW2V = typeof GERMANY !== 'undefined' && (GERMANY || NORMANDY);
 const VPAINT_WW2 = {
@@ -99,7 +103,7 @@ function makeVehicleModel(type, team) {
 
   if (type === 'jeep' && AFGHAN) {   // a desert-tan Humvee: wide and low, long hood, boxy cab, cargo bed, armoured roof gun
     main = vcached('humvee' + team, () => {
-      const p = new Part(), tan = 0xb8a47a, tan2 = 0xa28f68, dk = 0x3a3a34, blk = 0x1c1c1c;
+      const p = new Part(), tan = team === 'red' ? 0x8c8458 : 0xb8a47a, tan2 = team === 'red' ? 0x6c6644 : 0xa28f68, dk = 0x3a3a34, blk = 0x1c1c1c;   // Iraqi ones in sand-olive
       p.box(2.1, 0.5, 4.4, tan, 0, 0.85, 0); p.box(1.8, 0.14, 4.2, dk, 0, 0.56, 0);                       // body, underside
       p.box(2.0, 0.34, 1.6, tan, 0, 1.26, -1.4); p.box(1.9, 0.5, 0.14, tan2, 0, 1.05, -2.2, -0.35);         // long hood, sloped grille
       for (let i = 0; i < 6; i++) p.box(0.06, 0.32, 0.05, dk, -0.5 + i * 0.2, 1.05, -2.29, -0.35);          // grille slots
@@ -194,6 +198,42 @@ function makeVehicleModel(type, team) {
     const mgPitch = new THREE.Group(); mgYaw.add(mgPitch); mesh(hmgGeo(true, P), VEH_MAT, mgPitch);
     const mz = new THREE.Object3D(); mz.position.z = -1.95; mgPitch.add(mz);
     Object.assign(out, { mgYaw, mgPitch, mgMuzzle: mz, mgBase: 2.32 });
+
+  } else if (type === 'tank' && typeof AFGHAN !== 'undefined' && AFGHAN && team === 'red') {   // Desert Combat: the Iraqi T-72, low with a round turret and a long gun
+    main = vcached('t72', () => {
+      const p = new Part();
+      p.box(3.3, 0.9, 6.6, P.a, 0, 1.15, 0.2); p.box(3.3, 0.14, 1.4, P.a, 0, 1.45, -3.2, -0.4); p.box(3.0, 0.5, 0.8, P.b, 0, 0.8, -3.35, 0.7);   // hull, sharp glacis, lower nose
+      p.box(3.6, 0.06, 6.6, P.b, 0, 1.6, 0.2);                                                                 // fenders
+      for (const sd of [-1, 1]) {
+        p.box(0.6, 0.65, 6.8, VC.dark, 1.45 * sd, 0.55, 0.2); for (let i = 0; i < 26; i++) p.box(0.62, 0.05, 0.14, VC.dark2, 1.45 * sd, 0.9, -3.0 + i * 0.25);
+        for (let i = 0; i < 4; i++) p.box(0.04, 0.5, 1.5, 0x2a2a28, 1.78 * sd, 1.35, -2.3 + i * 1.55);       // rubber side skirts
+        p.cyl(0.36, 0.36, 0.3, VC.dark2, 1.5 * sd, 0.7, -3.25, 0, 0, RX, 1, 10); p.cyl(0.32, 0.32, 0.3, VC.dark2, 1.5 * sd, 0.6, 3.55, 0, 0, RX, 1, 10);
+        for (let i = 0; i < 2; i++) p.cyl(0.38, 0.38, 1.0, 0x4a4a34, 0.75 * sd, 1.95, 2.9 + 0, 0, 0, RX, 1, 10);   // fuel drums on the back
+        p.box(0.6, 0.35, 1.6, 0x4a4a34, 1.55 * sd, 1.85, 1.2);                                              // fuel tanks on the fenders
+      }
+      p.cyl(0.08, 0.08, 1.8, VC.wood, 0, 1.9, 3.4, 0, 0, RX);                                                 // unditching log
+      p.box(2.4, 0.2, 1.8, P.b, 0, 1.68, 2.0); for (let i = 0; i < 6; i++) p.box(2.0, 0.03, 0.08, VC.dark, 0, 1.79, 1.4 + i * 0.25);   // engine deck
+      return p;
+    });
+    for (const sd of [-1, 1]) for (let i = 0; i < 6; i++) wheels.push(mesh(vcached('t72wheel', () => { const p = new Part(); p.cyl(0.4, 0.4, 0.22, VC.dark, 0, 0, 0, 0, 0, RX, 1, 12); p.cyl(0.3, 0.3, 0.26, P.b, 0, 0, 0, 0, 0, RX, 1, 10); return p; }), VEH_MAT, body, 1.45 * sd, 0.45, -2.5 + i * 1.0));
+    const turret = new THREE.Group(); turret.position.set(0, 1.62, -0.4); body.add(turret);
+    mesh(vcached('t72turret', () => {
+      const p = new Part();
+      p.dome(1.45, P.a, 0, 0.0, 0.1, 1, 0.5, 1.08);                                                            // low rounded turret
+      p.cyl(0.42, 0.42, 0.22, P.b, 0.55, 0.7, 0.35, 0, 0, 0, 1, 10); p.cyl(0.36, 0.36, 0.2, P.b, -0.5, 0.66, 0.5, 0, 0, 0, 1, 10);   // hatches
+      p.box(0.6, 0.5, 0.5, P.b, 0, 0.3, -1.25);                                                                // mantlet
+      p.box(0.5, 0.25, 0.3, VC.dark, -0.8, 0.7, -0.6); for (let i = 0; i < 6; i++) p.box(0.4, 0.3, 0.3, 0x4a4a34, -1.2 + i * 0.48, 0.25, 1.5);   // searchlight, stowage boxes
+      p.cyl(0.012, 0.012, 2.4, VC.dark, 0.9, 1.6, 0.9);                                                       // aerial
+      return p;
+    }), VEH_MAT, turret);
+    const barrel = new THREE.Group(); barrel.position.set(0, 0.3, -1.45); turret.add(barrel);
+    mesh(vcached('t72barrel', () => { const p = new Part(); p.cyl(0.11, 0.13, 4.8, VC.dark2, 0, 0, -2.4, RX, 0, 0, 1, 12); p.cyl(0.16, 0.16, 1.0, P.b, 0, 0, -1.6, RX, 0, 0, 1, 12); p.cyl(0.16, 0.16, 0.6, P.b, 0, 0, -3.0, RX, 0, 0, 1, 12); return p; }), VEH_MAT, barrel);   // long gun with a thermal sleeve
+    const cmz = new THREE.Object3D(); cmz.position.z = -4.9; barrel.add(cmz);
+    const mgYaw = new THREE.Group(); mgYaw.position.set(0.55, 0.85, 0.35); turret.add(mgYaw);
+    const mgPitch = new THREE.Group(); mgYaw.add(mgPitch); mesh(hmgGeo(false, P), VEH_MAT, mgPitch);
+    const mz = new THREE.Object3D(); mz.position.z = -1.95; mgPitch.add(mz);
+    for (const sd of [-1, 1]) glow.cyl(0.09, 0.09, 0.03, VC.lamp, sd * 1.1, 1.62, -3.25, RX);
+    Object.assign(out, { turret, barrel, cannonMuzzle: cmz, mgYaw, mgPitch, mgMuzzle: mz });
 
   } else if (type === 'tank' && WW2V) {   // a Sherman for the Allies, a Panzer IV for the Germans
     const sher = team === 'blue', rw = sher ? 0.3 : 0.27;
