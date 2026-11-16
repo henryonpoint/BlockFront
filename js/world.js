@@ -532,7 +532,7 @@ function buildBase(team) {
   baseFlags.push(fl);
   // hangar near runway
   const r = RUNWAYS[team] && !RUNWAYS[team].carrier ? RUNWAYS[team] : null;
-  if (r) hangar(r.x - s * 30, r.z - s * 28); else hangar(B.x - Math.sign(B.x) * 30, B.z + s * 26);
+  if (!r) hangar(B.x - Math.sign(B.x) * 30, B.z + s * 26);   /* by a runway, the walk-in plane hangar (hangar.js) stands here instead */
   // supplies
   for (let i = 0; i < 3; i++) addCrateStack(B.x + 10 + i * 2.5, B.z + s * 14, 2);
   addBarrel(B.x - 8, B.z + s * 14); addBarrel(B.x - 9.2, B.z + s * 14.6); addDrum(B.x - 7.8, B.z + s * 15.6);

@@ -124,3 +124,49 @@ function updateRadiation(dt) {
     }
   }
 }
+
+// napalm: a canister tumbles down and bursts into a long strip of fire along the line it was dropped on. The fire
+// burns for a while, burning away trees and hurting anyone caught in it (the dropper's teammates are spared)
+const NAPALM = [];
+function dropNapalm(at, yaw, owner, ghost) {
+  const gy = heightAt(at.x, at.z), can = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 2.4, 10), new THREE.MeshLambertMaterial({ color: 0x8a8a5a }));
+  can.position.set(at.x, gy + 60, at.z); can.rotation.z = Math.PI / 2; scene.add(can);
+  NAPALM.push({ kind: 'drop', can, at: new THREE.Vector3(at.x, gy, at.z), yaw, owner, ghost, vy: 0 });
+  if (SFX.siren) SFX.siren(0.4);
+}
+function igniteNapalm(f) {
+  const dx = -Math.sin(f.yaw), dz = -Math.cos(f.yaw), team = f.owner && f.owner.team;
+  for (let i = 0; i < 9; i++) {
+    const x = f.at.x + dx * (i - 4) * 6.5 + rand(-1.5, 1.5), z = f.at.z + dz * (i - 4) * 6.5 + rand(-1.5, 1.5);
+    const p = new THREE.Vector3(x, heightAt(x, z), z);
+    setTimeout(() => { explosion(p.clone().setY(p.y + 1), 6, 40, f.owner, 60, f.ghost); burst(p.clone().setY(p.y + 1), 26, 0xff9a2a, 14, 1.2, 0.5); }, i * 70);
+    NAPALM.push({ kind: 'fire', p, r: 7.5, t: 0, life: 14 + rand(0, 2), team, owner: f.owner, hurtT: 0 });
+    if (typeof clearAround === 'function') clearAround(p, 0, 8);   // trees in the fire burn away
+  }
+  if (SFX.boom) SFX.boom(0.9); camShake = Math.max(camShake, clamp(0.2 - camera.position.distanceTo(f.at) / 800, 0, 0.2));
+}
+function updateNapalm(dt) {
+  const host = !net.active || net.isHost;
+  for (let i = NAPALM.length - 1; i >= 0; i--) {
+    const f = NAPALM[i];
+    if (f.kind === 'drop') {
+      f.vy -= 20 * dt; f.can.position.y += f.vy * dt; f.can.rotation.x += dt * 3;
+      if (f.can.position.y <= f.at.y + 0.6) { scene.remove(f.can); NAPALM.splice(i, 1); igniteNapalm(f); }
+      continue;
+    }
+    f.t += dt; const k = Math.max(0, 1 - f.t / f.life);
+    if (f.t >= f.life) { NAPALM.splice(i, 1); continue; }
+    // flames licking up and thick black smoke above
+    for (let j = 0; j < 14 * k * dt * 10; j++) smokePuff(f.p.clone().add(new THREE.Vector3(rand(-f.r, f.r) * 0.8, rand(0, 1.5), rand(-f.r, f.r) * 0.8)), pick([0xff7a1a, 0xffb23a, 0xffd25a, 0xe84a10]), rand(0.8, 1.8) * (0.6 + k * 0.6), rand(0.5, 0.9), rand(2, 4));
+    if (Math.random() < dt * 6 * k) smokePuff(f.p.clone().add(new THREE.Vector3(rand(-3, 3), rand(3, 6), rand(-3, 3))), 0x1e1e1e, rand(2, 3.5), rand(2.5, 4), rand(3, 5));
+    f.hurtT -= dt; if (f.hurtT > 0) continue; f.hurtT = 0.5;
+    for (const c of chars) {
+      if (!c.alive || c.isRemote || (!host && !c.isPlayer) || c.vehicle) continue;
+      if (c.team === f.team && c !== f.owner) continue;
+      if (Math.hypot(c.pos.x - f.p.x, c.pos.z - f.p.z) > f.r || Math.abs(c.pos.y - f.p.y) > 4) continue;
+      damage(c, 14 * (0.5 + 0.5 * k), f.owner && f.owner !== c ? f.owner : null, new THREE.Vector3(0, 1, 0), 0);
+      if (c.isPlayer && !CHEAT.god) showMessage('You are on fire! Get out of the flames', 1);
+    }
+    if (host) for (const v of gvehicles) if (v.alive && v.team !== f.team && Math.hypot(v.pos.x - f.p.x, v.pos.z - f.p.z) < f.r) damageVehicle(v, 30, f.owner);
+  }
+}

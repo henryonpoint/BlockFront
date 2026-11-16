@@ -57,6 +57,7 @@ function makeCrater(at, blast, huge) {
   // everything standing on the ground the blast moved goes down (or up the rim) with it, so nothing is left floating:
   // turrets, flags, crates, fences, wrecks, sheds, signs, and the instanced trees and rocks
   settleOnCrater(at, r, depth);
+  if (huge) NUKED.push({ x: at.x, z: at.z, r2: (r * 1.6) * (r * 1.6) });
   // the ground itself is scorched (its colours above); no separate scorch disc, which used to stay behind as a
   // floating layer once later blasts dug the ground out from under it
   clearAround(at, huge === 'mega' ? 230 : huge ? 34 : 0, huge === 'mega' ? 320 : huge ? 46 : r * 1.1);
@@ -116,6 +117,7 @@ function clearAround(at, rBuild, rTree) {
     if (ch) { if (idx) idx.needsUpdate = true; else pos.needsUpdate = true; }
   }
   for (let i = solidMeshes.length - 1; i >= 0; i--) if (gone.has(solidMeshes[i])) solidMeshes.splice(i, 1);
+  if (typeof TALL !== 'undefined') for (let i = TALL.length - 1; i >= 0; i--) if (Math.hypot(TALL[i].x - at.x, TALL[i].z - at.z) < rBuild) TALL.splice(i, 1);   // blown-away towers no longer count for planes
   for (const b of obstacles) { const cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2; if (Math.hypot(cx - at.x, cz - at.z) < rBuild && (b.maxY > rawHeight(cx, cz) - 1.5 || b.maxY > heightAt(cx, cz) - 0.3)) { b.minY = b.maxY = -1e4; } }
   for (const b of world.bodies.slice()) { if (b.mass !== 0 || !b.shapes[0] || b.shapes[0].type === CANNON.Shape.types.HEIGHTFIELD) continue; const p = b.position; if (Math.hypot(p.x - at.x, p.z - at.z) < rBuild && (p.y > rawHeight(p.x, p.z) - 1.5 || p.y > heightAt(p.x, p.z) - 0.3)) world.removeBody(b); }
   if (typeof props !== 'undefined') for (const p of props) if (!p.exploded && p.mesh && Math.hypot(p.mesh.position.x - at.x, p.mesh.position.z - at.z) < rBuild) { p.exploded = true; p.mesh.visible = false; }

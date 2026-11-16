@@ -64,7 +64,7 @@ function cheatsOK() { return !net.active || !!net.cheatsAllowed; }
     let h = `<div class="box"><button class="close" data-fn="close">Close (\`)</button><h2>Console</h2>
       <div class="sub">Cheats and settings, any time in the battle.${net.active ? (ok ? ' Cheats are ON in this online game.' : ' Online: cheats are off unless the host turns them on.') : ''}</div>`;
     if (host) h += `<div class="row">${b(net.allowCheats ? 'Cheats allowed for everyone' : 'Allow cheats for everyone', net.allowCheats, 'allow')}</div>`;
-    h += `<h3>Cheats</h3><div class="row">${b('God mode', CHEAT.god, 'god', !ok)}${b('Endless ammo', CHEAT.ammo, 'ammo', !ok)}${b('Endless money', CHEAT.money, 'money', !ok)}${b('+$10,000', false, 'cash', !ok)}${b('Full health', false, 'heal', !ok)}${b('☢ Mega nuke', false, 'meganuke', !ok)}</div>`;
+    h += `<h3>Cheats</h3><div class="row">${b('God mode', CHEAT.god, 'god', !ok)}${b('Endless ammo', CHEAT.ammo, 'ammo', !ok)}${b('Endless money', CHEAT.money, 'money', !ok)}${b('+$10,000', false, 'cash', !ok)}${b('Full health', false, 'heal', !ok)}${b('☢ Mega nuke', false, 'meganuke', !ok)}${b('🔥 Napalm', false, 'napalm', !ok)}</div>`;
     if (typeof ZOMBIE !== 'undefined') h += `<h3>Zombies</h3><div class="row">${b(ZOMBIE.on ? 'Zombie mode on' : 'Zombie mode', ZOMBIE.on, 'zombie', !ok || (net.active && !net.isHost))}${b('Start an outbreak', false, 'outbreak', !ok || !ZOMBIE.on || (net.active && !net.isHost))}</div><div class="sub">With zombie mode on, soldiers killed by a nuke get back up as zombies, and anyone a zombie kills turns too.</div>`;
     h += `<h3>Weapons</h3><div class="row">${WEAPONS.map(w => b(w.name, player.owned[w.id], 'give:' + w.id, !ok)).join('')}</div>`;
     const vlist = typeof CHEAT_VEHICLES !== 'undefined' ? CHEAT_VEHICLES : [];
@@ -89,6 +89,10 @@ function cheatsOK() { return !net.active || !!net.cheatsAllowed; }
     else if (fn === 'money' && need()) CHEAT.money = !CHEAT.money;
     else if (fn === 'cash' && need()) { addMoney(10000, 'Cheat'); }
     else if (fn === 'heal' && need()) { player.hp = 100; player.armor = 100; }
+    else if (fn === 'napalm' && need()) {   // pick the spot from above; the fire spreads along the way you are facing
+      const yaw = player.yaw;
+      close(); openTopView({ mode: 'air', span: 700, blast: 30, onPick: p => { closeTopView(); dropNapalm(new THREE.Vector3(p.x, 0, p.z), yaw, player, false); if (typeof netFx === 'function') netFx(['np', teamIdx(player.team), +p.x.toFixed(1), +p.z.toFixed(1), Math.round(yaw * 100)]); showMessage('NAPALM INBOUND!', 3); return true; } }); return;
+    }
     else if (fn === 'meganuke' && need()) {   // pick the spot from above; it comes down on a parachute and wipes out the battlefield (you are spared)
       close(); openTopView({ mode: 'air', span: 900, blast: 140, onPick: p => { closeTopView(); dropNuke(new THREE.Vector3(p.x, 0, p.z), player, false, true); if (typeof netFx === 'function') netFx(['nk', teamIdx(player.team), +p.x.toFixed(1), +p.z.toFixed(1), 1]); if (typeof unlock === 'function') unlock('nopeace'); showMessage('MEGA NUKE INBOUND!', 4); return true; } }); return;
     }

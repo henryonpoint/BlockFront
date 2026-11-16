@@ -545,10 +545,12 @@ function heightAt(x, z) {
 
 // ---------- underground spaces (bunkers) ----------
 const UNDER = [];
+const NUKED = [];   // nuke craters: tunnels and bunkers they dug out are gone (no invisible floors left hanging in the air)
 function undergroundAt(x, z, y) {
   for (const u of UNDER) {
     if (x <= u.minX || x >= u.maxX || z <= u.minZ || z >= u.maxZ) continue;
     const f = u.ramp ? underFloor(u, x, z) : u.floor;
+    if (NUKED.length && f > heightAt(x, z) + 0.3 && NUKED.some(c => (x - c.x) * (x - c.x) + (z - c.z) * (z - c.z) < c.r2)) continue;
     if (y < f + u.h + 0.6 && y > f - 4) return u;
   }
   return null;

@@ -146,7 +146,7 @@ function buildWorld2() {
 }
 
 // ---------- connecting ----------
-const GAME_BUILD = 57;   // bump when vehicles or the world change, so mismatched versions never mix
+const GAME_BUILD = 58;   // bump when vehicles or the world change, so mismatched versions never mix
 // the version number on the start screen and pause menu, so everyone can check they are on the same one
 const GAME_DATE = 'Nov 15, 2026';
 setTimeout(() => { const v = document.getElementById('verTag'); if (v) v.textContent = `Version ${GAME_BUILD}  \u00b7  ${GAME_DATE}${window.STANDALONE ? '' : '  \u00b7  Claude'}`; const p = document.getElementById('verPause'); if (p) p.textContent = `Version ${GAME_BUILD}`; }, 0);
@@ -458,6 +458,8 @@ function applyFx(e, src) {
   } else if (k === 'b') {
     const bomb = e[9] === 1;
     spawnBall(new THREE.Vector3(e[3], e[4], e[5]), new THREE.Vector3(e[6], e[7], e[8]), ghostOwner(e[2], src), { ghost: true, type: bomb ? 'bomb' : 'grenade', bomb, r: bomb ? 0.32 : 0.12, mass: bomb ? 25 : 0.8, fuse: e[10], color: bomb ? 0x30343a : 0x2e7d32, radius: e[11], impact: bomb });
+  } else if (k === 'np') {
+    dropNapalm(new THREE.Vector3(e[3], 0, e[4]), (e[5] || 0) / 100, ghostOwner(e[2], src), true);
   } else if (k === 'nk') {
     dropNuke(new THREE.Vector3(e[3], 0, e[4]), ghostOwner(e[2], src), true, !!e[5]);
   } else if (k === 'zb') {

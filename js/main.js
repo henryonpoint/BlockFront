@@ -230,7 +230,7 @@ function step(dt) {
   guard('builds', () => updateBuilds(dt));
   guard('bullets', () => updateBullets(dt));
   guard('shadowlod', () => updateShadowLOD(dt));
-  for (const [n, f] of [['chutes', 'updateChutes'], ['towers', 'updateTowers'], ['cheats', 'updateCheats'], ['specials', 'updateSpecials'], ['level', 'updateLevel'], ['zombies', 'updateZombies'], ['achievements', 'updateAchievements'], ['ships', 'updateShips'], ['treasure', 'updateTreasure'], ['clown', 'updateClown'], ['craters', 'updateCraters'], ['topview', 'updateTopView'], ['animals', 'updateAnimals'], ['loot', 'updateLoot'], ['stickies', 'updateStickies'], ['nukes', 'updateNukes'], ['radiation', 'updateRadiation'], ['city', 'updateCity']])
+  for (const [n, f] of [['chutes', 'updateChutes'], ['towers', 'updateTowers'], ['cheats', 'updateCheats'], ['specials', 'updateSpecials'], ['level', 'updateLevel'], ['zombies', 'updateZombies'], ['achievements', 'updateAchievements'], ['ships', 'updateShips'], ['treasure', 'updateTreasure'], ['clown', 'updateClown'], ['craters', 'updateCraters'], ['topview', 'updateTopView'], ['animals', 'updateAnimals'], ['loot', 'updateLoot'], ['stickies', 'updateStickies'], ['nukes', 'updateNukes'], ['radiation', 'updateRadiation'], ['napalm', 'updateNapalm'], ['hangars', 'updatePlaneHangars'], ['city', 'updateCity']])
     if (typeof window[f] === 'function') guard(n, () => window[f](dt));
   if (HOUSTON && typeof updateHouston === 'function') guard('houston', () => updateHouston(dt));
   if (WAKE && typeof updateWake === 'function') guard('wake', () => updateWake(dt));
