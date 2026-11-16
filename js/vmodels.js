@@ -685,10 +685,11 @@ function buildMotorPools() {
   for (const t of TEAMS) {
     const B = BASES[t], s = teamSide(t), yaw = s > 0 ? 0 : Math.PI;
     const row = [['bike', -30], ['jeep', -24], ['jeep', -18], ['jeep', -12], ['apc', -4], ['jeep', 5], ['jeep', 11], ['jeep', 17], ['buggy', 23], ['bike', 28]];
-    for (const [type, dx] of row) parkVehicle(type, t, B.x + dx, B.z - s * 52, yaw);
+    const ww2 = t => !WW2V ? t : t === 'apc' ? 'truck' : (t === 'bike' || t === 'buggy' || t === 'quad') ? 'jeep' : t;   // WWII maps: jeeps and trucks only
+    for (const [type, dx] of row) parkVehicle(ww2(type), t, B.x + dx, B.z - s * 52, yaw);
     for (const name of t === 'blue' ? ['A', 'B'] : t === 'red' ? ['D', 'E'] : []) {
       const p = PD[name], toC = Math.atan2(-(0 - p.x), -(0 - p.z)), ox = Math.sign(p.x) * 26, oz = s * 22;
-      [['jeep', 0], ['jeep', 6], ['bike', 11], ['quad', 14]].forEach(([type, k]) => parkVehicle(type, t, p.x + ox + k * 0.9, p.z + oz + (k % 2) * 3, toC));
+      [['jeep', 0], ['jeep', 6], ['bike', 11], ['quad', 14]].forEach(([type, k]) => parkVehicle(ww2(type), t, p.x + ox + k * 0.9, p.z + oz + (k % 2) * 3, toC));
     }
   }
 }
@@ -710,7 +711,29 @@ function carWheelGeo(r, w, sport) {
 let carCount = 0;
 // the body of a civilian vehicle, front towards -z, wheels resting on y = 0. Kinds: sedan, muscle, pickup, suv,
 // taxi, police, van, bus. Returns the parts so a parked car and a car driving in traffic can share the same look.
+// a 1940s car: long bonnet with an upright grille, arched separate mudguards, running boards, lamps on the wings,
+// a tall rounded cabin and a spare wheel on the back (front is -Z, like the other cars)
+function oldCarParts(C) {
+  const p = new Part(), glass = new Part(), glow = new Part(), chrome = 0xa8acb0, dark = 0x1a1a1a, lower = new THREE.Color(C).multiplyScalar(0.8).getHex();
+  p.box(1.3, 0.55, 1.5, C, 0, 0.95, -1.15); p.box(1.2, 0.08, 1.45, lower, 0, 1.26, -1.15);                       // bonnet
+  p.box(0.6, 0.7, 0.1, chrome, 0, 0.98, -1.92); for (let i = 0; i < 6; i++) p.box(0.04, 0.6, 0.11, dark, -0.22 + i * 0.088, 0.98, -1.92);   // upright grille
+  p.box(1.5, 0.75, 1.9, C, 0, 1.1, 0.55); p.add(new THREE.CylinderGeometry(0.75, 0.75, 1.9, 14, 1, false, 0, Math.PI), C, 0, 1.45, 0.55, Math.PI / 2, 0, Math.PI / 2, 1, 1, 0.55);   // cabin and rounded roof
+  p.box(1.5, 0.5, 0.6, C, 0, 0.92, 1.75, -0.3);                                                                  // sloping tail
+  for (const sd of [-1, 1]) {
+    p.add(new THREE.CylinderGeometry(0.48, 0.48, 0.3, 12, 1, false, 0, Math.PI), lower, 0.72 * sd, 0.38, -1.35, 0, 0, Math.PI / 2);   // front mudguard
+    p.add(new THREE.CylinderGeometry(0.48, 0.48, 0.3, 12, 1, false, 0, Math.PI), lower, 0.72 * sd, 0.38, 1.35, 0, 0, Math.PI / 2);    // rear mudguard
+    p.box(0.26, 0.05, 1.6, dark, 0.78 * sd, 0.45, 0); p.cyl(0.13, 0.13, 0.16, chrome, 0.55 * sd, 1.05, -1.75, Math.PI / 2, 0, 0, 1, 10);   // running board, lamp
+    glow.cyl(0.1, 0.1, 0.02, VC.lamp, 0.55 * sd, 1.05, -1.84, Math.PI / 2); glow.box(0.08, 0.08, 0.02, VC.tail, 0.6 * sd, 0.9, 2.0);
+    glass.box(0.03, 0.42, 1.1, 0, 0.76 * sd, 1.55, 0.5);                                                         // side windows
+    p.box(0.03, 0.03, 0.2, chrome, 0.76 * sd, 1.15, 0.2);                                                        // door handle
+  }
+  glass.box(1.3, 0.42, 0.04, 0, 0, 1.58, -0.43, -0.2); glass.box(1.2, 0.36, 0.04, 0, 0, 1.55, 1.48, 0.4);         // windscreen, rear window
+  p.box(1.5, 0.12, 0.12, chrome, 0, 0.55, -1.98); p.box(1.5, 0.12, 0.12, chrome, 0, 0.55, 2.02);                  // bumpers
+  p.cyl(0.34, 0.34, 0.16, dark, 0, 1.0, 2.1, Math.PI / 2, 0, 0, 1, 12); p.cyl(0.2, 0.2, 0.17, lower, 0, 1.0, 2.1, Math.PI / 2, 0, 0, 1, 10);   // spare wheel
+  return { p, glass, glow, wheelR: 0.36, wheelW: 0.2, wz: 1.35, wx: 0.62, sport: false };
+}
 function carParts(kind, C) {
+  if (kind === 'old') return oldCarParts(C);
   const p = new Part(), glass = new Part(), glow = new Part();
   const chrome = 0xc9cdd2, trim = 0x1e2024, dark = 0x2a2d31;
   const lower = new THREE.Color(C).multiplyScalar(0.72).getHex();
@@ -860,7 +883,8 @@ function carParts(kind, C) {
 }
 function addCar(x, z, alongX, color) {
   const h = carCount++ % 4;                                            // same order on every computer, so everyone builds the same cars
-  const kind = ['sedan', 'pickup', 'muscle', 'suv'][h];
+  const kind = WW2V ? 'old' : ['sedan', 'pickup', 'muscle', 'suv'][h];   // the WWII maps get 1940s cars
+  if (WW2V) color = [0x1c1c1e, 0x3a3e3a, 0x4a4436, 0x2e3a30][h];
   const g = new THREE.Group(), car = new THREE.Group(); car.position.y = -0.95; g.add(car);
   const { p, glass, glow, wheelR, wheelW, wz, wx, sport } = carParts(kind, color);
   car.add(new THREE.Mesh(p.build(), VEH_MAT));
@@ -868,7 +892,7 @@ function addCar(x, z, alongX, color) {
   car.add(new THREE.Mesh(glow.build(), VEH_GLOW));
   const wg = carWheelGeo(wheelR, wheelW, sport);
   for (const s of [-1, 1]) for (const zz of [-wz, wz]) { const w = new THREE.Mesh(wg, VEH_MAT); w.position.set((wx + (wheelW - 0.26) / 2 + 0.05) * s, wheelR, zz); car.add(w); }
-  const half = kind === 'sedan' ? [0.95, 0.75, 2.2] : kind === 'muscle' ? [0.95, 0.72, 2.3] : [1.0, 0.95, 2.45];
+  const half = kind === 'old' ? [0.85, 0.8, 2.1] : kind === 'sedan' ? [0.95, 0.75, 2.2] : kind === 'muscle' ? [0.95, 0.72, 2.3] : [1.0, 0.95, 2.45];
   const b = new CANNON.Body({ mass: 70, shape: new CANNON.Box(new CANNON.Vec3(half[0], half[1], half[2])) });
   car.position.y = -half[1] - 0.2;
   b.position.set(x, heightAt(x, z) + half[1] + 0.2, z);

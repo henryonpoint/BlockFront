@@ -277,7 +277,7 @@ function helipadMesh(x, y, z) {
 function buildHelisAndBoats() {
   for (const t of TEAMS) {   // every team gets helicopters, the 4-team corner bases too
     const B = BASES[t], s = teamSide(t), yaw = s > 0 ? 0 : Math.PI;
-    for (const dx of [-62, 62]) {
+    for (const dx of (GERMANY || NORMANDY) ? [] : [-62, 62]) {   /* no helicopters in WWII */
       let spot = null;
       for (let d = 0; d <= 60 && !spot; d += 4) for (let k = 0; k < (d ? 12 : 1) && !spot; k++) {
         const a = k / 12 * Math.PI * 2 + d * 0.3, x = B.x + dx + Math.cos(a) * d, z = B.z - s * 30 + Math.sin(a) * d;
