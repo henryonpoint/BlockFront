@@ -124,10 +124,6 @@ function resetPlane(pl, wait = 6) {
   pl.groundYaw = pl.aiYaw = pl.spawn.yaw; pl.aiPitch = 0; pl.aiBank = 0; pl.wp = null;
   pl.pos.set(pl.spawn.x, heightAt(pl.spawn.x, pl.spawn.z) + 1.6, pl.spawn.z);
   pl.quat.setFromEuler(new THREE.Euler(0, pl.spawn.yaw, 0, 'YXZ'));
-  if (pl.shipSpawn) {   // parked on a carrier's flight deck, wherever the ship has sailed to
-    const sp = pl.shipSpawn, w = shipWorld(sp.s, sp.u, sp.v); pl.pos.set(w.x, sp.s.mainY + WATER_Y + 1.6, w.z);
-    pl.groundYaw = pl.aiYaw = sp.s.yaw; pl.quat.setFromEuler(new THREE.Euler(0, sp.s.yaw, 0, 'YXZ'));
-  }
   planeBodyVisible(pl, true); pl.model.g.visible = true; pl.model.bomb.visible = true;
   if (DOGFIGHT || (RUNWAYS[pl.team] && RUNWAYS[pl.team].carrier && !pl.parked)) {   // straight into the air (dogfights, and planes launched from a carrier), flying towards the enemy
     pl.onGround = false; pl.waitT = 0; pl.pos.set(pl.spawn.x, Math.max(130, skyAt(pl.spawn.x, pl.spawn.z) + 90) + (pl.idx % 4) * 14, pl.spawn.z);   /* always well above the hills */
@@ -181,15 +177,9 @@ function destroyPlane(pl, attacker) {
   if (pl.pilot) { const p = pl.pilot; pl.pilot = null; p.vehicle = null; if (p.alive) kill(p, attacker && attacker !== p ? attacker : null, new THREE.Vector3(0, 1, 0), 10); }
   if (pl.gunner) { const g = pl.gunner; pl.gunner = null; g.planeGun = null; if (g.alive) kill(g, attacker && attacker !== g ? attacker : null, new THREE.Vector3(0, 1, 0), 10); }
 }
-// the ground under a plane: the land, or a ship's deck (so planes can take off from a moving carrier, and land on one)
-function planeGroundH(pl) { let g = heightAt(pl.pos.x, pl.pos.z); if (typeof shipUnder === 'function' && typeof SHIPS2 !== 'undefined' && SHIPS2.length) { const h = shipUnder(pl.pos.x, pl.pos.z, pl.pos.y - 1.1); if (h) g = Math.max(g, h.f); } return g; }
 function planeGroundCheck(pl) {
-  const gh = planeGroundH(pl);
+  const gh = heightAt(pl.pos.x, pl.pos.z);
   const fwd = planeFwd(pl), right = new THREE.Vector3(1, 0, 0).applyQuaternion(pl.quat);
-  if (pl.pos.y - 1.2 < WATER_Y && waterDepth(pl.pos.x, pl.pos.z) > 0.6) {   // into the sea: a big splash
-    if (typeof emitSpray === 'function') for (let i = 0; i < 120; i++) emitSpray(pl.pos.x + rand(-3, 3), WATER_Y + 0.3, pl.pos.z + rand(-3, 3), rand(-6, 6), rand(6, 16), rand(-6, 6), rand(1.2, 2.4));
-    destroyPlane(pl, pl.lastAttacker); return false;
-  }
   if (pl.pos.y - 1.6 < gh) {
     const gentle = pl.speed < 40 && fwd.y > -0.22 && fwd.y < 0.4 && Math.abs(right.y) < 0.35;
     if (gentle) { pl.onGround = true; pl.groundYaw = Math.atan2(-fwd.x, -fwd.z); pl.pos.y = gh + 1.6; return true; }
@@ -225,7 +215,7 @@ function planeGuns(pl, shooter, accurate) {
     let hit = rayHit(o, d, 520, pl.team, { player: pl.team !== player.team, ignorePlane: pl });
     if (lock && (!hit || !hit.plane) && Math.random() < 0.6) hit = { plane: lock.t, point: lock.t.pos.clone() };   // a near miss on the locked plane still counts most of the time
     const end = hit ? hit.point : o.clone().addScaledVector(d, 320);
-    shootTracer(o, end, 0xffd060, 380, 0.06, () => applyHit(hit, d, { dmg: shooter === player ? 24 : DOGFIGHT ? 8 : 20, force: 8 }, shooter));   // computer pilots hit softer in a dogfight
+    shootTracer(o, end, 0xffd060, 380, 0.06, () => applyHit(hit, d, { dmg: shooter === player ? 24 * (pl.gunMul || 1) : DOGFIGHT ? 8 : 20, force: 8 }, shooter));   // computer pilots hit softer in a dogfight
     netShot(o, end, 2);
   }
   playAt('mg', pl.pos, 0.8);
@@ -462,7 +452,7 @@ function updatePlayerPlane(pl, dt) {
     pl.groundYaw += (-pl.inR + pl.inY) * 0.9 * dt * clamp(pl.speed / 10, 0.3, 1);
     pl.quat.setFromEuler(new THREE.Euler(0, pl.groundYaw, 0, 'YXZ'));
     pl.pos.addScaledVector(planeFwd(pl), pl.speed * dt);
-    pl.pos.y = planeGroundH(pl) + 1.6;
+    pl.pos.y = heightAt(pl.pos.x, pl.pos.z) + 1.6;
     if (pl.speed > 24 && (pitchIn > 0 || (planeView === 'cockpit' && pl.aimPitch > 0.12))) { pl.onGround = false; pl.aimPitch = Math.max(pl.aimPitch || 0, 0.25); pl.quat.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(0.12, 0, 0))); pl.pos.y += 0.5; }
     for (const o of nearbyColliders(pl.pos.x, pl.pos.z)) if (o.kind === 'box' && pl.pos.x > o.minX - 1 && pl.pos.x < o.maxX + 1 && pl.pos.z > o.minZ - 1 && pl.pos.z < o.maxZ + 1 && pl.pos.y - 1.5 < o.maxY) { if (pl.speed > 15) { destroyPlane(pl, null); return; } pl.speed = 0; }
   } else if (planeView === 'cockpit' || DOGFIGHT) {   // dogfights use the easy mouse flying in every view
@@ -518,7 +508,7 @@ function updateAIPlane(pl, dt) {
     pl.speed += 16 * dt;
     pl.quat.setFromEuler(new THREE.Euler(0, pl.groundYaw, 0, 'YXZ'));
     pl.pos.addScaledVector(planeFwd(pl), pl.speed * dt);
-    pl.pos.y = planeGroundH(pl) + 1.6;
+    pl.pos.y = heightAt(pl.pos.x, pl.pos.z) + 1.6;
     if (pl.speed > 28) { pl.onGround = false; pl.aiYaw = pl.groundYaw; pl.aiPitch = 0.3; pl.climbT = 5; }
     planeTick(pl, dt); return;
   }

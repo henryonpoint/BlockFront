@@ -956,7 +956,6 @@ function renderSpawnChoices() {
   if (!player.spawnPref) player.spawnPref = 'auto';
   const free = readyPlanes().length;
   const opts = [['auto', 'Best spot'], ['base', 'Base'], ['plane', free ? `Plane (${free} ready)` : 'Plane (none ready)']];
-  if (typeof SHIPS2 !== 'undefined' && SHIPS2.some(s => s.team === player.team && !s.anchored)) opts.push(['ship', 'Ship']);   // start on a ship's deck
   for (const p of points) if (p.owner === player.team) opts.push([p.name, 'Point ' + p.name]);
   if (!opts.some(o => o[0] === player.spawnPref)) player.spawnPref = 'auto';
   for (const [k, label] of opts) {

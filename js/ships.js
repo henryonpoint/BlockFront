@@ -16,17 +16,14 @@ function shipFloor(s, u, v, fy) {
   let best = -Infinity;
   for (const d of s.decks) {
     if (u < d.u0 || u > d.u1 || v < d.v0 || v > d.v1) continue;
-    if (!d.ramp && inHole(s, u, v, d.y)) continue;
     let y = d.y;
     if (d.ramp) { const t = clamp(((d.ramp === 'u' ? u : v) - (d.ramp === 'u' ? d.u0 : d.v0)) / ((d.ramp === 'u' ? d.u1 - d.u0 : d.v1 - d.v0) || 1), 0, 1); y = lerp(d.ya, d.yb, t); }
     y += WATER_Y;
     if (y <= fy + 0.9 && y > best) best = y;
   }
-  if (inHull(s, u, v) && s.mainY + WATER_Y <= fy + 0.9 && !inHole(s, u, v, s.mainY)) best = Math.max(best, s.mainY + WATER_Y);
+  if (inHull(s, u, v) && s.mainY + WATER_Y <= fy + 0.9) best = Math.max(best, s.mainY + WATER_Y);
   return best;
 }
-// hatches: openings in a deck (at height y) where stairs go down
-function inHole(s, u, v, y) { if (!s.holes) return false; for (const h of s.holes) if (Math.abs(h.y - y) < 0.2 && u > h.u0 && u < h.u1 && v > h.v0 && v < h.v1) return true; return false; }
 function shipUnder(x, z, fy) {   // the ship and floor height under a point, if any
   for (const s of SHIPS2) {
     if (Math.abs(x - s.x) > s.L / 2 + 30 || Math.abs(z - s.z) > s.L / 2 + 30) continue;
@@ -37,105 +34,6 @@ function shipUnder(x, z, fy) {   // the ship and floor height under a point, if 
 }
 
 // ---------- the models ----------
-// a gun turret: k scales it (1 = battleship 16-inch guns), n barrels. It turns and its barrels lift to the aim.
-function shipTurret(s, u, fwd, k, n, grey, dark, y) {
-  const tg = new THREE.Group(); tg.position.set(u, y !== undefined ? y : s.mainY, 0); s.g.add(tg);
-  const TP = new Part(); TP.cyl(6.5 * k, 7 * k, 2.5 * k, dark, 0, 1.25 * k, 0, 0, 0, 0, 1, 16); TP.box(13 * k, 5 * k, 15 * k, grey, 0, 4.5 * k, 1 * k); TP.box(13.4 * k, 0.4 * k, 15.4 * k, dark, 0, 7.1 * k, 1 * k);
-  TP.box(2 * k, 1.2 * k, 2 * k, dark, 4 * k, 7.6 * k, 4 * k); for (const sd of [-1, 1]) TP.cyl(0.5 * k, 0.5 * k, 5 * k, dark, sd * 6.8 * k, 5.5 * k, 3 * k, 0, 0, Math.PI / 2, 1, 8);   // rangefinder ears, hatch
-  tg.add(new THREE.Mesh(TP.build(), VEH_MAT));
-  const pitch = new THREE.Group(); pitch.position.set(0, 4.5 * k, -5.5 * k); tg.add(pitch);
-  const sp = n === 1 ? [0] : n === 2 ? [-1.8 * k, 1.8 * k] : [-3.2 * k, 0, 3.2 * k], len = 22 * k;
-  const BP = new Part(); for (const vv of sp) { BP.cyl(0.65 * k, 0.75 * k, len, dark, vv, 0, -len / 2, Math.PI / 2, 0, 0, 1, 10); BP.cyl(0.85 * k, 0.85 * k, 1.4 * k, 0x3a3e44, vv, 0, -len + 0.5, Math.PI / 2, 0, 0, 1, 10); }
-  pitch.add(new THREE.Mesh(BP.build(), VEH_MAT));
-  tg.rotation.y = fwd ? 0 : Math.PI;
-  s.turrets.push({ g: tg, pitch, u, base: fwd ? 0 : Math.PI, yaw: fwd ? 0 : Math.PI, p: 0, k, sp, len, py: (y !== undefined ? y : s.mainY) - s.mainY });
-  s.walls.push({ u0: u - 7.5 * k, u1: u + 7.5 * k, v0: -7.5 * k, v1: 7.5 * k, y0: (y !== undefined ? y : s.mainY), y1: (y !== undefined ? y : s.mainY) + 7 * k });
-}
-// rooms below a deck: a corridor down the middle with rooms off both sides (bunks, mess, galley, sick bay, radio,
-// magazine, engine room, captain's cabin), lamps, and stairs down from a hatch in the deck above
-function shipInterior(s, c) {
-  const { u0, u1, fy, h, hw, stairU, dir, aboveY } = c, top = fy + h, P = new Part(), G = new Part();
-  const wallC = 0xc8ccc8, floorC = 0x6a5a48, trim = 0x7a8088, cw = 1.6, t = 0.16;
-  const sLo = Math.min(stairU, stairU + dir * 8), sHi = Math.max(stairU, stairU + dir * 8);
-  // floor, ceiling (open over the stairs), the inside of the hull, the end walls
-  s.decks.push({ u0, u1, v0: -hw, v1: hw, y: fy });
-  P.box(u1 - u0, 0.2, hw * 2, floorC, (u0 + u1) / 2, fy - 0.1, 0);
-  for (const [a, b] of [[u0, sLo - 0.3], [sHi + 0.3, u1]]) if (b > a) P.box(b - a, 0.15, hw * 2, 0xdcdcd8, (a + b) / 2, top, 0);
-  P.box(sHi - sLo + 0.6, 0.15, hw - cw, 0xdcdcd8, (sLo + sHi) / 2, top, (hw + cw) / 2); P.box(sHi - sLo + 0.6, 0.15, hw - cw, 0xdcdcd8, (sLo + sHi) / 2, top, -(hw + cw) / 2);
-  for (const sd of [-1, 1]) { P.box(u1 - u0, h, t, trim, (u0 + u1) / 2, fy + h / 2, sd * hw); s.walls.push({ u0, u1, v0: sd > 0 ? hw : -hw - t, v1: sd > 0 ? hw + t : -hw, y0: fy, y1: top }); }
-  for (const uu of [u0, u1]) { P.box(t, h, hw * 2, trim, uu, fy + h / 2, 0); s.walls.push({ u0: uu - t, u1: uu + t, v0: -hw, v1: hw, y0: fy, y1: top }); }
-  // the stairs from the deck above, landing in the corridor
-  s.decks.push({ u0: sLo, u1: sHi, v0: -cw + 0.2, v1: cw - 0.2, ramp: 'u', ya: dir > 0 ? aboveY : fy, yb: dir > 0 ? fy : aboveY });
-  (s.holes = s.holes || []).push({ u0: sLo - 0.3, u1: sHi + 0.3, v0: -cw, v1: cw, y: aboveY });
-  for (let i = 0; i < 10; i++) { const uu = lerp(stairU, stairU + dir * 8, (i + 0.5) / 10), yy = lerp(aboveY, fy, (i + 0.5) / 10); P.box(0.8, 0.12, cw * 2 - 0.5, 0x5a5e62, uu, yy - 0.06, 0); }
-  P.box(sHi - sLo + 0.6, 0.03, cw * 2, 0x111316, (sLo + sHi) / 2, aboveY + 0.03, 0);   // the dark hatch opening seen from the deck
-  for (const sd of [-1, 1]) P.box(sHi - sLo, 0.08, 0.08, 0xd8c040, (sLo + sHi) / 2, aboveY + 1.0, sd * cw);   // yellow hatch rails
-  // rooms on both sides of the corridor, each with a door into it
-  const types = ['bunks', 'mess', 'galley', 'sick', 'radio', 'magazine', 'engine', 'captain', 'bunks', 'storage', 'mess', 'bunks'];
-  const blocks = [[u0, sLo - 0.2], [sHi + 0.2, u1]];
-  let ti = 0;
-  for (const [a, b] of blocks) {
-    if (b - a < 6) continue;
-    const n = Math.max(1, Math.round((b - a) / 10)), RL = (b - a) / n;
-    for (let i = 0; i < n; i++) {
-      const ra = a + i * RL, rb = ra + RL, mid = (ra + rb) / 2;
-      for (const sd of [-1, 1]) {
-        const type = types[ti++ % types.length], vin = sd * cw, vout = sd * hw;
-        // corridor wall with a door gap, and the wall between this room and the next
-        for (const [w0, w1] of [[ra, mid - 0.8], [mid + 0.8, rb]]) { P.box(w1 - w0, h, t, wallC, (w0 + w1) / 2, fy + h / 2, vin); s.walls.push({ u0: w0, u1: w1, v0: vin - t / 2, v1: vin + t / 2, y0: fy, y1: top }); }
-        P.box(1.8, 0.3, t + 0.02, trim, mid, top - 0.25, vin);
-        if (i < n - 1) { P.box(t, h, hw - cw, wallC, rb, fy + h / 2, (vin + vout) / 2); s.walls.push({ u0: rb - t / 2, u1: rb + t / 2, v0: Math.min(vin, vout), v1: Math.max(vin, vout), y0: fy, y1: top }); }
-        const cv = (vin + vout) / 2, rw = hw - cw;
-        if (type === 'bunks') for (let k = 0; k < Math.floor(RL / 2.6); k++) { const uu = ra + 1.3 + k * 2.6; for (const yy of [0.4, 1.4, 2.4]) if (yy < h - 0.6) { P.box(2.0, 0.12, 0.9, 0x5a5e62, uu, fy + yy, vout - sd * 0.6); P.box(1.9, 0.12, 0.8, 0x4a6a8a, uu, fy + yy + 0.12, vout - sd * 0.6); } }
-        else if (type === 'mess') for (let k = 0; k < Math.floor(RL / 3.5); k++) { const uu = ra + 1.8 + k * 3.5; P.box(2.6, 0.08, Math.min(1.2, rw - 0.8), 0x8a6a48, uu, fy + 0.8, cv); P.box(0.1, 0.8, 0.1, 0x3a3a3a, uu, fy + 0.4, cv); for (const o of [-0.9, 0.9]) P.box(2.4, 0.06, 0.35, 0x6a5a48, uu, fy + 0.45, cv + o * Math.min(0.6, rw / 3)); }
-        else if (type === 'galley') { P.box(RL - 1, 0.9, 0.7, 0xb8bcc0, mid, fy + 0.45, vout - sd * 0.4); for (let k = 0; k < 3; k++) P.cyl(0.25, 0.25, 0.3, 0x3a3a3a, mid - 2 + k * 2, fy + 1.05, vout - sd * 0.4); }
-        else if (type === 'sick') for (let k = 0; k < 3; k++) { const uu = ra + 1.6 + k * (RL - 2) / 2.5; P.box(1.9, 0.5, 0.9, 0xeeeeee, uu, fy + 0.5, vout - sd * 0.6); P.box(0.4, 0.4, 0.04, 0xd03030, mid, fy + 2, vout - sd * 0.08); }
-        else if (type === 'radio') { P.box(RL - 1.2, 1.2, 0.6, 0x4a5048, mid, fy + 0.6, vout - sd * 0.35); for (let k = 0; k < 6; k++) G.box(0.3, 0.2, 0.02, k % 2 ? 0x7dffb0 : 0xffc060, mid - 2 + k * 0.8, fy + 1.05, vout - sd * 0.66); }
-        else if (type === 'magazine') for (let k = 0; k < Math.floor(RL / 1.2); k++) for (let r = 0; r < 3; r++) P.cyl(0.25, 0.25, 1.2, 0xb08a40, ra + 0.6 + k * 1.2, fy + 0.6, vout - sd * (0.4 + r * 0.6), 0, 0, 0, 1, 8);
-        else if (type === 'engine') { P.cyl(0.9, 0.9, RL - 1.5, 0x8a3a2a, mid, fy + 1.2, cv, 0, 0, Math.PI / 2, 1, 12); P.cyl(0.25, 0.25, h - 0.3, 0x9a9a9a, mid - RL / 3, fy + h / 2, cv); P.cyl(0.25, 0.25, h - 0.3, 0x9a9a9a, mid + RL / 3, fy + h / 2, cv); for (let k = 0; k < 3; k++) P.cyl(0.18, 0.18, 0.05, 0xf2f2ee, mid - 1 + k, fy + 2.2, vout - sd * 0.08, Math.PI / 2, 0, 0, 1, 10); }
-        else if (type === 'captain') { P.box(1.8, 0.8, 1.0, 0x6a4a2a, mid, fy + 0.4, cv); P.box(2.0, 0.5, 0.9, 0x8a2a2a, mid + RL / 3, fy + 0.25, vout - sd * 0.6); P.box(1.2, 0.8, 0.04, 0x3a5a8a, mid, fy + 1.9, vout - sd * 0.08); }
-        else for (let k = 0; k < Math.floor(RL / 1.6); k++) P.box(1.2, 1.0 + (k % 2) * 0.5, 1.0, 0x7a6a4a, ra + 0.9 + k * 1.6, fy + 0.5 + (k % 2) * 0.25, vout - sd * 0.7);
-        G.box(1.2, 0.05, 0.3, 0xfff2c8, mid, top - 0.1, cv);   // ceiling lamp
-      }
-    }
-  }
-  for (let uu = u0 + 3; uu < u1; uu += 6) if (uu < sLo - 1 || uu > sHi + 1) G.box(0.8, 0.05, 0.3, 0xfff2c8, uu, top - 0.1, 0);   // corridor lamps
-  const m = new THREE.Mesh(P.build(), new THREE.MeshLambertMaterial({ vertexColors: true, emissive: 0x2a2a28 })); s.g.add(m);   /* not shadowed by the hull: the rooms are lit */
-  s.g.add(new THREE.Mesh(G.build(), new THREE.MeshBasicMaterial({ vertexColors: true })));
-}
-// destroyers and cruisers: slim fast hulls, a bridge, funnels, gun turrets fore and aft, AA guns and torpedo tubes
-function buildWarship(kind, x, z, yaw, team) {
-  const DD = kind === 'destroyer', L = DD ? 110 : 150, B = DD ? 12 : 17, mainY = DD ? 5 : 6.5;
-  const s = { kind, name: DD ? 'Destroyer' : 'Cruiser', team, x, z, yaw, L, B, mainY, speed: 0, throttle: 0, rudder: 0, decks: [], walls: [], turrets: [], fireT: 0, maxSpd: DD ? 20 : 17 };
-  s.halfW = u => u > L * 0.22 ? lerp(B / 2, 1.2, clamp((u - L * 0.22) / (L * 0.28), 0, 1)) : u < -L * 0.42 ? lerp(B / 2, B / 2 - 2, clamp((-u - L * 0.42) / (L * 0.08), 0, 1)) : B / 2;
-  const g = new THREE.Group(); scene.add(g); s.g = g;
-  const P = new Part(), grey = DD ? 0x7a8290 : 0x747c86, dark = 0x50565e, deck = 0x8a7656, red = 0x6a2a24;
-  shipSlab(P, s, mainY, mainY + 3.8, grey); shipSlab(P, s, -3.8, 1.4, red, -0.05); shipSlab(P, s, mainY + 0.25, 0.25, deck, 0.35);
-  for (let u = -L / 2 + 4; u < L / 2 - 4; u += 4) for (const sd of [-1, 1]) P.box(4, 0.08, 0.08, dark, u + 2, mainY + 1.0, sd * (s.halfW(u + 2) - 0.25));   // railings
-  for (let u = -L * 0.4; u < L * 0.25; u += 4) for (const sd of [-1, 1]) P.cyl(0.25, 0.25, 0.08, 0x1c2228, u, mainY - 1.8, sd * (s.halfW(u) + 0.02), Math.PI / 2, 0, 0, 1, 8);   // portholes
-  // superstructure: a block, the bridge on top with windows, a mast and radar
-  const su0 = DD ? 0 : -20, su1 = DD ? 22 : 12, sw = B / 2 - 1.5;
-  P.box(su1 - su0, 4.5, sw * 2, grey, (su0 + su1) / 2, mainY + 2.25, 0); P.box(10, 3.2, sw * 1.6, grey, su1 - 6, mainY + 6.1, 0); P.box(10.2, 1, sw * 1.62, 0x1c2228, su1 - 6, mainY + 6.8, 0);
-  P.cyl(0.25, 0.3, 12, dark, su1 - 10, mainY + 13, 0); P.box(4, 0.25, 0.25, dark, su1 - 10, mainY + 16, 0);
-  for (const fu of DD ? [-8, -18] : [-28, -40]) { P.cyl(DD ? 1.4 : 2, DD ? 1.6 : 2.3, DD ? 7 : 9, grey, fu, mainY + (DD ? 3.5 : 4.5), 0); P.cyl(DD ? 1.45 : 2.05, DD ? 1.45 : 2.05, 0.6, 0x2a2e33, fu, mainY + (DD ? 7.1 : 9.1), 0); }   // funnels
-  if (DD) for (const tu of [-26, -34]) { P.cyl(0.8, 0.8, 1, dark, tu, mainY + 0.5, 0); for (const vv of [-0.6, 0, 0.6]) P.cyl(0.25, 0.25, 6, 0x5a6068, tu, mainY + 1.2, vv, Math.PI / 2, Math.PI / 2, 0, 1, 8); }   // torpedo tubes
-  for (let i = 0; i < (DD ? 4 : 8); i++) { const uu = -L * 0.3 + i * (DD ? 12 : 10); for (const sd of [-1, 1]) { P.cyl(0.9, 0.9, 0.6, dark, uu, mainY + 0.3, sd * (B / 2 - 1.6)); P.cyl(0.08, 0.08, 1.6, 0x2a2e33, uu, mainY + 1, sd * (B / 2 - 1.6), 0.6, 0, 0); } }   // AA guns
-  const m = new THREE.Mesh(P.build(), VEH_MAT); m.castShadow = true; m.receiveShadow = true; g.add(m);
-  { const r = new THREE.Group(); r.position.set(su1 - 10, mainY + 17.5, 0); const RP = new Part(); RP.box(3.5, 1.4, 0.2, 0x3a3e44, 0, 0, 0); r.add(new THREE.Mesh(RP.build(), VEH_MAT)); g.add(r); s.radar = r; }
-  // guns: destroyers carry twin turrets, cruisers triple ones (the aft guns face backwards)
-  const k = DD ? 0.42 : 0.6, n = DD ? 2 : 3;
-  for (const [u, fwd] of DD ? [[L * 0.3, true], [-L * 0.36, false]] : [[L * 0.32, true], [L * 0.2, true], [-L * 0.36, false]]) shipTurret(s, u, fwd, k, n, grey, dark);
-  // decks: the superstructure roof (up a ramp), the bridge with the wheel
-  s.decks.push({ u0: su0, u1: su1, v0: -sw, v1: sw, y: mainY + 4.5 });
-  s.decks.push({ u0: su0 - 6, u1: su0, v0: sw - 3, v1: sw, ramp: 'u', ya: mainY, yb: mainY + 4.5 });
-  s.walls.push({ u0: su0, u1: su1, v0: -sw, v1: sw, y0: mainY, y1: mainY + 4.1 });
-  s.walls.push({ u0: su1 - 11, u1: su1 - 1, v0: -sw * 0.8, v1: sw * 0.8, y0: mainY + 4.5, y1: mainY + 7.7, door: { u0: su1 - 11.5, u1: su1 - 11, v0: -1.5, v1: 1.5 } });
-  s.helm = { u: su1 - 13, v: 0, y: mainY + 4.5 };
-  const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.07, 6, 16), new THREE.MeshLambertMaterial({ color: 0x6b4a2a })); wheel.position.set(su1 - 13, mainY + 5.6, 0); wheel.rotation.y = Math.PI / 2; g.add(wheel);
-  shipInterior(s, { u0: DD ? -36 : -52, u1: DD ? 26 : 36, fy: mainY - (DD ? 3.8 : 4.2), h: DD ? 3.5 : 3.9, hw: B / 2 - 1.1, stairU: su0 - 8, dir: 1, aboveY: mainY });
-  addShipDeckRamps(s);
-  SHIPS2.push(s); placeShip(s); return s;
-}
 // a smooth one-piece hull or deck from the ship's outline (seen from above), extruded downwards from y
 function shipSlab(P, s, top, depth, color, shrink = 0) {
   const sh = new THREE.Shape(), pts = [];
@@ -175,7 +73,17 @@ function buildBattleship(x, z, yaw, team) {
   const m = new THREE.Mesh(P.build(), VEH_MAT); m.castShadow = true; m.receiveShadow = true; g.add(m);
   { const r = new THREE.Group(); r.position.set(-2, mainY + 36, 0); const RP = new Part(); RP.box(6, 2.4, 0.3, 0x3a3e44, 0, 0, 0); RP.box(0.4, 0.4, 1.2, 0x3a3e44, 0, -1.2, 0.5); r.add(new THREE.Mesh(RP.build(), VEH_MAT)); g.add(r); s.radar = r; }
   // the big gun turrets: two forward, one aft. Each turns and its three barrels lift.
-  for (const [u, fwd] of [[42, true], [24, true], [-58, false]]) shipTurret(s, u, fwd, 1, 3, grey, dark);
+  for (const [u, fwd] of [[42, true], [24, true], [-58, false]]) {
+    const tg = new THREE.Group(); tg.position.set(u, mainY, 0); g.add(tg);
+    const TP = new Part(); TP.cyl(6.5, 7, 2.5, dark, 0, 1.25, 0, 0, 0, 0, 1, 16); TP.box(13, 5, 15, grey, 0, 4.5, 1); TP.box(13.4, 0.4, 15.4, dark, 0, 7.1, 1);
+    tg.add(new THREE.Mesh(TP.build(), VEH_MAT));
+    const pitch = new THREE.Group(); pitch.position.set(0, 4.5, -5.5); tg.add(pitch);
+    const BP = new Part(); for (const vv of [-3.2, 0, 3.2]) { BP.cyl(0.65, 0.75, 22, dark, vv, 0, -11, Math.PI / 2, 0, 0, 1, 10); BP.cyl(0.85, 0.85, 1.4, 0x3a3e44, vv, 0, -21.5, Math.PI / 2, 0, 0, 1, 10); }
+    pitch.add(new THREE.Mesh(BP.build(), VEH_MAT));
+    tg.rotation.y = fwd ? 0 : Math.PI;
+    s.turrets.push({ g: tg, pitch, u, base: fwd ? 0 : Math.PI, yaw: fwd ? 0 : Math.PI, p: 0 });
+    s.walls.push({ u0: u - 7.5, u1: u + 7.5, v0: -7.5, v1: 7.5, y0: mainY, y1: mainY + 7 });
+  }
   // walkable decks: superstructure levels, connected by ramps, and the bridge with the wheel
   s.decks.push({ u0: -30, u1: 10, v0: -11, v1: 11, y: mainY + 6 });                          // first level (its roof)
   s.decks.push({ u0: 10, u1: 22, v0: 7, v1: 11, ramp: 'u', ya: mainY + 6, yb: mainY, flip: true });   // ramp down to the main deck (starboard)
@@ -186,7 +94,6 @@ function buildBattleship(x, z, yaw, team) {
   s.walls.push({ u0: -11, u1: -1, v0: -5, v1: 5, y0: mainY + 12, y1: mainY + 20 });           // bridge tower
   s.walls.push({ u0: -23, u1: -17, v0: -3, v1: 3, y0: mainY + 12, y1: mainY + 20 });          // funnel
   s.helm = { u: 2, v: 0, y: mainY + 12 };                                                       // the wheel, in front of the bridge
-  shipInterior(s, { u0: -48, u1: 40, fy: 3.6, h: 4.2, hw: 13.8, stairU: -38, dir: 1, aboveY: mainY });
   const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.6, 0.08, 6, 16), new THREE.MeshLambertMaterial({ color: 0x6b4a2a })); wheel.position.set(2, mainY + 13.2, 0); wheel.rotation.y = Math.PI / 2; g.add(wheel);
   addShipDeckRamps(s);
   SHIPS2.push(s); placeShip(s); return s;
@@ -215,10 +122,9 @@ function buildCarrier(x, z, yaw, team) {
   P.box(18.4, 0.3, 7.6, 0x2a2e34, -12, mainY + 20.2, 15);
   const m = new THREE.Mesh(P.build(), VEH_MAT); m.castShadow = true; m.receiveShadow = true; g.add(m);
   { const r = new THREE.Group(); r.position.set(-10, mainY + 34, 15); const RP = new Part(); RP.box(7, 2.6, 0.3, 0x3a3e44, 0, 0, 0); RP.box(0.4, 0.4, 1.2, 0x3a3e44, 0, -1.3, 0.5); r.add(new THREE.Mesh(RP.build(), VEH_MAT)); g.add(r); s.radar = r; }
-  // jets parked on the flight deck and in the hangar (on Wake the flight deck has real planes instead)
+  // jets parked on the flight deck and in the hangar
   for (const [u, v, h] of [[-80, -10, mainY], [-62, -10, mainY], [-44, -10, mainY], [-80, 4, mainY], [-62, 4, mainY], [30, 6, mainY], [-40, -4, hangY], [-10, 4, hangY], [20, -4, hangY], [50, 4, hangY]]) {
     if (typeof PLANE_KINDS === 'undefined') break;
-    if (WAKE && h === mainY) continue;
     const j = PLANE_KINDS.f18.model(team); scene.remove(j.g); j.g.position.set(u, h + 1.6, v); j.g.rotation.y = Math.PI / 2; j.g.scale.setScalar(0.9); g.add(j.g);
   }
   const lamp = new THREE.MeshBasicMaterial({ color: 0xfff2c8 });   // lights along the hangar ceiling
@@ -229,27 +135,7 @@ function buildCarrier(x, z, yaw, team) {
   s.walls.push({ u0: -25, u1: 5, v0: 11, v1: 19, y0: mainY, y1: mainY + 20 });               // the island
   s.walls.push({ u0: -100, u1: 85, v0: 16, v1: 17, y0: hangY, y1: mainY - 0.4 });            // hangar side walls
   s.walls.push({ u0: -100, u1: 85, v0: -17, v1: -16, y0: hangY, y1: mainY - 0.4, door: { u0: 84, u1: 86, v0: -18, v1: -10 } });
-  s.helm = { u: 6, v: 9, y: mainY };
-  // the hangar's inside: lit ceiling and wall panels (so it isn't lost in the hull's shadow), and floor markings
-  { const H = new Part();
-    H.box(196, 0.15, 31.6, 0xc8ccc8, -8, mainY - 0.7, 0);
-    for (const sd of [-1, 1]) { H.box(196, mainY - hangY - 0.8, 0.12, 0xa8aca8, -8, (mainY + hangY) / 2 - 0.4, sd * 15.85); for (let u = -100; u < 86; u += 12) H.box(0.3, mainY - hangY - 0.8, 0.3, 0x7a8088, u, (mainY + hangY) / 2 - 0.4, sd * 15.7); }
-    for (let u = -96; u < 84; u += 8) H.box(4, 0.04, 0.25, 0xf2d040, u, hangY + 0.33, 0);
-    g.add(new THREE.Mesh(H.build(), new THREE.MeshLambertMaterial({ vertexColors: true, emissive: 0x262624 }))); }
-  // finer detail: catapult tracks, lift outlines, deck-edge lights, gun galleries with AA guns along both sides,
-  // lifeboats, the hull number on the island and the bow, more radar and antennas on the island
-  { const D = new Part(), dk = 0x2a2e33, lt = 0xe8e0a0;
-    for (const v of [-6, 6]) D.box(60, 0.06, 0.35, 0x8a8e92, 72, mainY + 0.64, v);
-    for (const [u, v] of [[-40, -12], [50, 12]]) for (const [a, b, w, d] of [[0, -7, 16, 0.3], [0, 7, 16, 0.3], [-8, 0, 0.3, 14], [8, 0, 0.3, 14]]) D.box(w, 0.06, d, 0xf2d040, u + a, mainY + 0.64, v + b);
-    for (let u = -105; u < 80; u += 10) for (const sd of [-1, 1]) D.box(0.4, 0.12, 0.4, lt, u, mainY + 0.68, sd * (s.halfW(u) - 0.4));
-    for (let u = -96; u < 70; u += 14) for (const sd of [-1, 1]) { const vv = sd * (B / 2 + 1.6); D.box(10, 0.3, 3, dk, u, mainY - 2.2, vv); D.cyl(0.7, 0.7, 0.6, 0x50565e, u - 2, mainY - 1.8, vv); D.cyl(0.7, 0.7, 0.6, 0x50565e, u + 2, mainY - 1.8, vv); for (const o of [-2, 2]) D.cyl(0.08, 0.08, 1.6, dk, u + o, mainY - 1.2, vv, 0.6, 0, 0); }
-    for (const sd of [-1, 1]) for (const u of [-70, -30, 10]) { D.box(6, 1.4, 2, 0xd8d4c8, u, mainY - 5, sd * (B / 2 + 0.9)); }
-    D.box(0.2, 3, 4, 0xf2f2f2, -10, mainY + 12, 19.05); D.box(0.2, 3, 4, 0xf2f2f2, -6, mainY + 12, 19.05);   // '12' on the island, roughly
-    D.box(4, 3.6, 0.2, 0xf2f2f2, 92, mainY - 4, B / 2 - 0.6); D.box(4, 3.6, 0.2, 0xf2f2f2, 92, mainY - 4, -B / 2 + 0.6);
-    D.cyl(1.6, 1.6, 0.3, dk, -16, mainY + 25, 15, Math.PI / 2, 0, 0, 1, 14); D.box(0.2, 6, 0.2, dk, -4, mainY + 30, 15); D.box(3, 0.2, 0.2, dk, -4, mainY + 32, 15);
-    for (let i = 0; i < 6; i++) D.box(2.6, 0.9, 0.1, 0x1c2228, -18 + i * 3, mainY + 10.5, 11.05);   // bridge windows facing the deck
-    g.add(new THREE.Mesh(D.build(), VEH_MAT)); }
-  shipInterior(s, { u0: -90, u1: 70, fy: 3.6, h: 4.2, hw: 15, stairU: 52, dir: -1, aboveY: hangY });                                                            // the steering station by the island
+  s.helm = { u: 6, v: 9, y: mainY };                                                            // the steering station by the island
   const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.6, 0.08, 6, 16), new THREE.MeshLambertMaterial({ color: 0x6b4a2a })); wheel.position.set(6, mainY + 1.2, 9); wheel.rotation.y = Math.PI / 2; g.add(wheel);
   addShipDeckRamps(s);
   SHIPS2.push(s); placeShip(s); return s;
@@ -300,28 +186,8 @@ function installShipHooks() {
     }
     return floor;
   };
-  const _fs = findSpawn;
-  findSpawn = function (team, pref) {
-    if (pref === 'ship') { const sp = shipSpawnSpot(team, false); if (sp) return sp; }
-    const sp = _fs.apply(this, arguments);
-    if (WAKE && team === 'blue' && Math.abs(sp.x - CARRIER.x) < 125 && Math.abs(sp.z - CARRIER.z) < 30) { const s2 = shipSpawnSpot(team, true); if (s2) return s2; }   // on the base carrier
-    return sp;
-  };
   const _fw = fireWeapon;
   fireWeapon = function () { if (player.ship) return; return _fw.apply(this, arguments); };   // in command, the click fires the ship's guns
-}
-
-// a place to start on a ship: players on the flight deck or main deck; soldiers on Wake's base carrier start in its
-// hangar near the open stern, so they can walk straight out and down to the boats
-function shipSpawnSpot(team, base) {
-  const list = SHIPS2.filter(s => s.team === team && (base ? s.anchored : !s.anchored));
-  if (!list.length) return null;
-  const s = base ? list[0] : (list.find(x => x.kind === 'carrier') || list[0]);
-  let u, v, y;
-  if (s.kind === 'carrier' && (!base || (_spawnFor && _spawnFor.isPlayer))) { u = rand(-60, -20); v = rand(-12, 2); y = s.mainY; }
-  else if (s.kind === 'carrier') { u = rand(-98, -70); v = pick([-10, 10]) + rand(-3, 3); y = 8; }
-  else { u = rand(-s.L * 0.3, -s.L * 0.15); v = rand(-s.B / 4, s.B / 4); y = s.mainY; }
-  const w = shipWorld(s, u, v); return { x: w.x, z: w.z, y: y + WATER_Y + 0.05, ship: s };
 }
 
 // ---------- building them on the maps ----------
@@ -330,22 +196,7 @@ function buildShips() {
   if (!NORMANDY && !WAKE) return;
   installShipHooks();
   if (NORMANDY) { buildBattleship(-420, 470, -Math.PI / 2, 'blue'); buildCarrier(410, 475, Math.PI / 2, 'blue'); }
-  if (WAKE) {   // blue's anchored carrier (its base), and a battle fleet you can board and sail
-    const C = CARRIER, base = buildCarrier(C.x - 5, C.z, Math.PI / 2, 'blue');
-    base.anchored = true; base.name = 'Carrier (anchored, blue base)';
-    base.decks.push({ u0: -111, u1: -99, v0: -16, v1: 16, y: 8 });   // the hangar runs right out to the open stern, where the ramp to the dock starts
-    if (typeof makeGV === 'function') for (const u of [70, -92]) { const w = shipWorld(base, u, -10); makeGV('heli', 'blue', w.x, w.z, base.yaw, base.mainY + WATER_Y + 0.1); }
-    if (typeof planes !== 'undefined') planes.filter(p => p.team === 'blue' && !p.shipSpawn).forEach((p, i) => { p.shipSpawn = { s: base, u: -70 + i * 16, v: 6 }; resetPlane(p, p.waitT); });
-    buildBattleship(-410, 470, -Math.PI / 2, 'blue');
-    const cv = buildCarrier(330, 515, Math.PI / 2, 'blue');
-    buildWarship('cruiser', -150, 428, Math.PI / 2, 'blue');
-    buildWarship('destroyer', -40, 540, Math.PI / 2, 'blue');
-    buildWarship('destroyer', 480, 330, 0, 'blue');
-    if (typeof makePlane === 'function') for (const [u, v] of [[-80, -8], [-62, -8], [-44, -8]]) {   // fighters on the flight deck, nose to the bow, ready to launch even underway
-      const w = shipWorld(cv, u, v), pl = makePlane('blue', w.x, w.z, cv.yaw, 4 + Math.abs(u) * 0.2, 'prop');
-      pl.shipSpawn = { s: cv, u, v }; resetPlane(pl, pl.waitT);
-    }
-  }
+  if (WAKE) buildBattleship(-410, 470, -Math.PI / 2, 'blue');
 }
 // ---------- moving, carrying, steering, firing ----------
 function updateShips(dt) {
@@ -357,11 +208,10 @@ function updateShips(dt) {
     const captain = s.captain === player ? player : null;
     if (host) {
       let wantRudder = 0;
-      if (s.anchored) { s.speed = 0; continue; }
       if (captain) { s.throttle = clamp(s.throttle + ((keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0)) * dt * 0.5, -0.4, 1); if (keys.KeyX) s.throttle = 0; wantRudder = (keys.KeyA ? 1 : 0) - (keys.KeyD ? 1 : 0); }
       else if (!s.captain) s.throttle *= Math.exp(-dt * 0.3);
       s.rudder += clamp(wantRudder - s.rudder, -dt * 1.5, dt * 1.5);              // the rudder swings over smoothly, and centres when you let go
-      s.speed += (s.throttle * (s.maxSpd || 15) - s.speed) * dt * 0.22;                       // big ships still build speed gradually
+      s.speed += (s.throttle * 15 - s.speed) * dt * 0.22;                       // big ships still build speed gradually
       const turn = s.rudder * 0.11 * clamp(0.25 + Math.abs(s.speed) / 6, 0, 1) * Math.sign(s.speed || 1);
       s.lean = (s.lean || 0) + (-s.rudder * clamp(Math.abs(s.speed) / 15, 0, 1) * 0.035 - (s.lean || 0)) * Math.min(1, dt * 1.5);   // heel over a little in a hard turn
       const b = shipBasis(s), nx = s.x + b.fx * s.speed * dt, nz = s.z + b.fz * s.speed * dt, ny = s.yaw + turn * dt;
@@ -384,11 +234,11 @@ function updateShips(dt) {
 // three views at the wheel: C cycles a chase camera behind the ship, the bridge, and (battleship) the gun sight
 const SHIP_VIEWS = ['chase', 'bridge', 'guns'];
 function shipCamera(s, dt) {
-  const view = s.turrets.length || SH.view !== 'guns' ? SH.view || 'chase' : 'chase';
+  const view = s.kind === 'battleship' || SH.view !== 'guns' ? SH.view || 'chase' : 'chase';
   const dir = new THREE.Vector3(-Math.sin(player.yaw) * Math.cos(player.pitch), Math.sin(player.pitch), -Math.cos(player.yaw) * Math.cos(player.pitch));
   let fov = SET.fov || 75;
   if (view === 'chase') {
-    const dist = s.L * 0.8 + 30, c = new THREE.Vector3(s.x, WATER_Y + s.mainY + 10, s.z);
+    const dist = s.kind === 'carrier' ? 190 : 165, c = new THREE.Vector3(s.x, WATER_Y + s.mainY + 10, s.z);
     camera.position.copy(c).addScaledVector(dir, -dist); camera.position.y = Math.max(camera.position.y + 30, WATER_Y + 6);
   } else if (view === 'guns') {
     const t = s.turrets[1] || s.turrets[0], tw = shipWorld(s, t.u, 0);
@@ -472,7 +322,6 @@ function moveShip(s, dx, dz, dyaw) {
   const onShip = (p, y) => { const { u, v } = shipLocal(s, p.x, p.z); return inHull(s, u, v, 0.5) && y > WATER_Y + 1; };
   for (const ch of chars) if (ch.alive && !ch.gv && !ch.vehicle && onShip(ch.pos, ch.pos.y) && ch !== s.captain) { carry(ch.pos); if (ch.isPlayer) player.yaw -= dyaw; else if (ch.heading !== undefined) ch.heading -= dyaw; }
   for (const v of gvehicles) if (v.alive && onShip(v.pos, v.pos.y)) { carry(v.pos); v.yaw -= dyaw; }
-  if (typeof planes !== 'undefined') for (const pl of planes) if (pl.alive && pl.onGround && onShip(pl.pos, pl.pos.y)) { carry(pl.pos); pl.groundYaw += dyaw; pl.aiYaw = pl.groundYaw; if (pl.aimYaw !== undefined) pl.aimYaw += dyaw; pl.quat.premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), dyaw)); pl.model.g.position.copy(pl.pos); pl.model.g.quaternion.copy(pl.quat); }
   s.x += dx; s.z += dz; s.yaw += dyaw; placeShip(s);
 }
 // turrets swing round to where you aim; click fires every turret that can bear
@@ -497,30 +346,29 @@ function aimShipGuns(s, dt) {
     t.p += clamp(wantP - t.p, -0.4 * dt, 0.4 * dt);
     t.g.rotation.y = t.yaw; t.pitch.rotation.x = t.p;   /* barrels lift with the aim */
     if (mouse.left && s.fireT <= 0 && canBear && Math.abs(wrapAngle(want - t.yaw)) < 0.08) {
-      const k = t.k || 1;
-      for (const vv of t.sp || [-3.2, 0, 3.2]) {
-        const m = new THREE.Vector3(vv, 0, -(t.len || 22)).applyEuler(new THREE.Euler(t.p, 0, 0)).add(new THREE.Vector3(0, 4.5 * k, -5.5 * k)).applyEuler(new THREE.Euler(0, t.yaw, 0)).add(new THREE.Vector3(t.u, s.mainY + (t.py || 0), 0));
+      for (const vv of [-3.2, 0, 3.2]) {
+        const m = new THREE.Vector3(vv, 0, -22).applyEuler(new THREE.Euler(t.p, 0, 0)).add(new THREE.Vector3(0, 4.5, -5.5)).applyEuler(new THREE.Euler(0, t.yaw, 0)).add(new THREE.Vector3(t.u, s.mainY, 0));
         const wp = new THREE.Vector3(m.z * 0, 0, 0); s.g.localToWorld(wp.set(m.x, m.y, m.z));
         const d = target.clone().sub(wp).normalize();
-        spawnRocket(wp, d, player, { speed: 240, dmg: 520 * k, radius: 16 * Math.max(0.5, k), shell: true });
+        spawnRocket(wp, d, player, { speed: 240, dmg: 520, radius: 16, shell: true });
         burst(wp, 12, 0xffc060, 8, 0.5, 0.15); smokePuff(wp.clone(), 0x9a9a9a, 3, 3, 1);
       }
       fired++;
     }
   }
-  if (fired) { s.fireT = s.kind === 'destroyer' ? 1.2 : s.kind === 'cruiser' ? 2 : 3; playAt('boom', player.pos, 1.3); camShake = Math.max(camShake, 0.12); showMessage('FIRE! Main guns reloading...', 1.5); }
+  if (fired) { s.fireT = 3; playAt('boom', player.pos, 1.3); camShake = Math.max(camShake, 0.12); showMessage('FIRE! Main guns reloading...', 1.5); }
 }
 function updateShipHud(s) {
   let el = document.getElementById('shipHud');
   if (!el) { el = document.createElement('div'); el.id = 'shipHud'; el.className = 'hud'; el.style.cssText = 'position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:rgba(0,0,0,.5);color:#fff;padding:8px 16px;border-radius:10px;font:600 13px system-ui,sans-serif;text-align:center;pointer-events:none'; document.body.appendChild(el); }
   el.style.display = 'block';
-  const rud = Math.round(s.rudder * 100), view = s.turrets.length ? (SH.view || 'chase') : (SH.view === 'guns' ? 'chase' : SH.view || 'chase');
+  const rud = Math.round(s.rudder * 100), view = s.kind === 'battleship' ? (SH.view || 'chase') : (SH.view === 'guns' ? 'chase' : SH.view || 'chase');
   const guns = s.turrets.length ? `<br>Guns: ${s.fireT > 0 ? `reloading ${s.fireT.toFixed(1)}s` : `<b style="color:#9be38a">READY</b>`} &nbsp; ${s.onTarget}/${s.turrets.length} turrets on target &nbsp; Click to fire${view === 'guns' ? ', right click to zoom' : ''}` : '';
   el.innerHTML = `<b>${s.name}</b> &nbsp; ${Math.round(Math.abs(s.speed) * 1.94)} knots &nbsp; Throttle ${Math.round(s.throttle * 100)}% &nbsp; Rudder ${rud > 0 ? 'left ' + rud : rud < 0 ? 'right ' + -rud : 'centre'}${guns}<br><span style="opacity:.8">W/S throttle, X stop &nbsp; A/D steer &nbsp; C change view (${view === 'chase' ? 'behind the ship' : view === 'bridge' ? 'bridge' : 'gun sight'}) &nbsp; E leave the wheel</span>`;
 }
 function updateShipPrompt() {
   let near = null;
-  if (player.alive && !player.gv && !player.vehicle) for (const s of SHIPS2) { if (s.anchored) continue; const hw = shipWorld(s, s.helm.u, s.helm.v); if (Math.hypot(player.pos.x - hw.x, player.pos.z - hw.z) < 3 && Math.abs(player.pos.y - (s.helm.y + WATER_Y)) < 2) near = s; }
+  if (player.alive && !player.gv && !player.vehicle) for (const s of SHIPS2) { const hw = shipWorld(s, s.helm.u, s.helm.v); if (Math.hypot(player.pos.x - hw.x, player.pos.z - hw.z) < 3 && Math.abs(player.pos.y - (s.helm.y + WATER_Y)) < 2) near = s; }
   SH.near = near;
   let el = document.getElementById('shipPrompt');
   if (!el) { el = document.createElement('div'); el.id = 'shipPrompt'; el.className = 'hud'; el.style.cssText = 'position:fixed;left:50%;top:62%;transform:translateX(-50%);background:rgba(0,0,0,.55);color:#fff;padding:6px 14px;border-radius:8px;font:600 14px system-ui,sans-serif;pointer-events:none'; document.body.appendChild(el); }

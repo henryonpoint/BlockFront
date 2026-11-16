@@ -255,7 +255,7 @@ function fbm(x, z) {
 // Wake Island: a U-shaped atoll. Red holds the island, blue comes in from an aircraft carrier to the south
 const WAKE_U = [[-330, -260], [-305, 210], [-230, 255], [230, 255], [305, 210], [330, -260]].map(([x, z]) => ({ x, z }));
 function wakeDist(x, z) { let m = Infinity; for (let i = 0; i < WAKE_U.length - 1; i++) m = Math.min(m, distToSeg(x, z, WAKE_U[i].x, WAKE_U[i].z, WAKE_U[i + 1].x, WAKE_U[i + 1].z)); return Math.min(m, Math.hypot(x, z + 20) + 2); }
-const CARRIER = { x: 0, z: 470, hl: 105, hw: 17, deck: 17.4, hangar: 7.4 };   // blue's anchored carrier (a full ship, built in ships.js): flight deck and hangar heights
+const CARRIER = { x: 0, z: 470, hl: 105, hw: 17, deck: 13 };
 // the smaller islands round Wake, each one different
 const WAKE_ISLES = [
   { kind: 'volcano', x: 400, z: -400, r: 95 },     // a smoking volcano with a crater
@@ -372,7 +372,8 @@ function rawHeight(x, z) {
   if (WAKE) {
     // the carrier: a flat steel deck standing out of the sea, a ramp down its stern to a floating dock
     const C = CARRIER;
-    if (x >= C.x + C.hl && x < C.x + C.hl + 46 && Math.abs(z - (C.z + 9)) < 4.5) return lerp(C.hangar, 0.5, (x - C.x - C.hl) / 46);   // from the hangar's stern opening down to the dock
+    if (Math.abs(x - C.x) < C.hl && Math.abs(z - C.z) < C.hw) return C.deck;
+    if (x >= C.x + C.hl && x < C.x + C.hl + 46 && Math.abs(z - (C.z + 9)) < 4.5) return lerp(C.deck, 0.5, (x - C.x - C.hl) / 46);
     if (x >= C.x + C.hl + 46 && x < C.x + C.hl + 70 && Math.abs(z - (C.z + 8)) < 13) return 0.45;
     // the atoll: jungle in the middle, sandy beaches, shallow water, then the deep ocean
     const d = wakeDist(x, z), bump = vnoise(x * 0.03 + 4, z * 0.03 - 7) * 3.2 + vnoise(x * 0.09, z * 0.09) * 0.8;
