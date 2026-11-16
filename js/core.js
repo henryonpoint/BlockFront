@@ -20,7 +20,7 @@ const NORMANDY = WORLD.map === 'normandy', GERMANY = WORLD.map === 'europe', DAM
 const DOGFIGHT = WORLD.map === 'dogfight' || WORLD.map === 'jetfight' || WORLD.map === 'wwifight', JETFIGHT = WORLD.map === 'jetfight', WWIFIGHT = WORLD.map === 'wwifight';
 const NO_TUNNELS = WAKE || DAM;   // tunnels sit at a fixed depth: they would break into the dam's gorge
 // ===================== core.js : setup, sky, sound, terrain math =====================
-const HALF = DOGFIGHT ? 1000 : 560, GRID = 336,   // dogfights get a map almost twice as wide (same detail cost)
+const HALF = DOGFIGHT ? 1800 : 560, GRID = DOGFIGHT ? 400 : 336,   // dogfights get a huge map (3.6 km across) for long canyon runs
   CELL = (HALF * 2) / GRID, W1 = GRID + 1;
 const MTN = HALF - 50, EDGE = HALF - 24;   // mountains start, players stay inside
 const BLUE = 'blue', RED = 'red';
@@ -74,9 +74,10 @@ else if (HOUSTON) scene.fog = new THREE.Fog(FOG_COLOR, LITE ? 80 : 130, LITE ? 4
 else if (GERMANY) scene.fog = new THREE.Fog(FOG_COLOR, LITE ? 60 : 90, LITE ? 360 : 520);   // grey wartime overcast and smoke
 else if (NORMANDY) scene.fog = new THREE.Fog(FOG_COLOR, LITE ? 80 : 120, LITE ? 420 : 620);   // sea mist over the beach
 else if (DAM) scene.fog = new THREE.Fog(FOG_COLOR, LITE ? 90 : 140, LITE ? 460 : 700);   // cool mountain air
+else if (DOGFIGHT) scene.fog = new THREE.Fog(FOG_COLOR, LITE ? 160 : 260, LITE ? 650 : 950);   // clear air: you can see far down the canyons
 else scene.fog = new THREE.Fog(FOG_COLOR, LITE ? 70 : 110, LITE ? 360 : 520);
 
-const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 2000);
+const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, DOGFIGHT ? 3200 : 2000);
 camera.rotation.order = 'YXZ';
 
 // ---------- sky dome with sun ----------
@@ -386,18 +387,26 @@ function rawHeight(x, z) {
     return Math.max(g, wakeIsles(x, z));
   }
   if (DOGFIGHT) {
-    // tall mountains cut by deep winding canyons to fly through, and a wide open valley in the middle
+    // tall mountains cut by a network of long, deep, winding canyons that all join up, so a canyon run never ends
+    // at the edge of the world: an outer ring canyon loops right round the map, a middle ring inside it, six
+    // winding canyons run out from the open middle valley to the outer ring like spokes, and one long straight
+    // "trench" crosses the whole map. Beyond the outer ring the mountains rise into a high wall.
     const ridge = (f, ox, oz) => 1 - Math.abs(vnoise(x * f + ox, z * f + oz) * 2 - 1);
-    const mtn = 50 + Math.pow(ridge(0.0045, 7, 3), 1.7) * 150 + vnoise(x * 0.03, z * 0.03) * 12;
-    const cz1 = Math.sin(x * 0.0042 + 1.3) * 210 + Math.sin(x * 0.011) * 50 + 420;
-    const cz2 = Math.sin(x * 0.0037 - 0.7) * 230 + Math.sin(x * 0.009 + 2) * 45 - 430;
-    const cx3 = Math.sin(z * 0.004 + 2.1) * 220 + Math.sin(z * 0.012) * 40 + 520;
-    const cx4 = Math.sin(z * 0.0046 - 1.4) * 200 + Math.sin(z * 0.010 + 1) * 40 - 540;
-    const cd = Math.min(Math.abs(z - cz1), Math.abs(z - cz2), Math.abs(x - cx3), Math.abs(x - cx4));
-    const valley = Math.hypot(x / 1.5, z / 1.25) - 400;                            // the open middle where the bases are
-    const open = Math.min(cd - 22, valley);
-    const floor = 4 + vnoise(x * 0.02, z * 0.02) * 6;
-    return lerp(floor, mtn, Math.pow(smooth(0, 70, open), 1.4)) + h * 0.15;
+    const r = Math.hypot(x, z), th = Math.atan2(z, x);
+    const mtn = 60 + Math.pow(ridge(0.0032, 7, 3), 1.6) * 170 + vnoise(x * 0.02, z * 0.02) * 16 + smooth(1420, 1760, r) * 170;
+    const Rout = 1270 + Math.sin(th * 3 + 1) * 110 + Math.sin(th * 7) * 45, Rmid = 790 + Math.sin(th * 4 + 2) * 80 + Math.sin(th * 9) * 30;
+    let cd = Math.min(Math.abs(r - Rout) - 8 - vnoise(th * 9, 3) * 18, Math.abs(r - Rmid) - vnoise(th * 11, 7) * 14);
+    if (r > 300 && r < Rout + 20) for (let k = 0; k < 6; k++) {
+      const a = k * Math.PI / 3 + 0.35 + Math.sin(r * 0.0055 + k * 1.7) * 0.22 + Math.sin(r * 0.017 + k) * 0.05;
+      let da = th - a; da = Math.atan2(Math.sin(da), Math.cos(da));
+      cd = Math.min(cd, Math.abs(da) * r - (k % 2 ? 4 : 10));
+    }
+    const tz = Math.sin(x * 0.0021 + 0.5) * 140 + Math.sin(x * 0.009) * 25;   // the trench, east to west, between the outer ring's walls
+    if (Math.abs(x) < Rout) cd = Math.min(cd, Math.abs(z - tz) - 2);
+    const valley = Math.hypot(x / 1.35, z / 1.15) - 380;                           // the open middle where both squadrons start
+    const open = Math.min(cd - 24, valley);
+    const floor = 4 + vnoise(x * 0.015, z * 0.015) * 8;
+    return lerp(floor, mtn, Math.pow(smooth(0, 75, open), 1.35)) + h * 0.12;
   }
   if (NORMANDY) {
     // the beach: the sea to the south, wide sand, a low sea wall, steep bluffs cut by gullies (the roads), then

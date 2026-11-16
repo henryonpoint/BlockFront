@@ -492,7 +492,7 @@ function chooseAIWaypoint(pl) {
   if (DOGFIGHT) {   // nothing to bomb: always hunt the nearest enemy plane
     let best = null, bd = Infinity; for (const p of planes) if (p.alive && p.team !== pl.team && !p.onGround) { const d = p.pos.distanceTo(pl.pos); if (d < bd) { bd = d; best = p; } }
     if (best) { pl.wp = { plane: best }; pl.wpT = 8; return; }
-    pl.wp = { x: rand(-300, 300), z: rand(-300, 300), alt: 140 }; pl.wpT = 10; return;
+    { const x = rand(-HALF * 0.6, HALF * 0.6), z = rand(-HALF * 0.6, HALF * 0.6); pl.wp = { x, z, alt: Math.max(140, skyAt(x, z) + 70) }; pl.wpT = 12; return; }
   }
   const foes = planes.filter(p => p.alive && p.team !== pl.team && !p.onGround && p.pos.distanceTo(pl.pos) < 320);
   if (foes.length && (Math.random() < 0.5 || pl.bombs === 0)) { pl.wp = { plane: pick(foes) }; pl.wpT = 10; return; }

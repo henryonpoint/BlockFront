@@ -311,8 +311,8 @@ function buildTerrain() {
   } else if (WAKE || NORMANDY) {
     // nothing: the ocean runs to the horizon
   } else {
-    const outer = new THREE.Mesh(new THREE.RingGeometry(HALF * 1.35, 1400, 48, 1), new THREE.MeshLambertMaterial({ color: DESERT ? 0xc9a46c : 0x8f9a86 }));
-    outer.rotation.x = -Math.PI / 2; outer.position.y = 35; scene.add(outer);
+    const outer = new THREE.Mesh(new THREE.RingGeometry(DOGFIGHT ? HALF * 0.99 : HALF * 1.35, Math.max(1400, HALF * 2.2), 48, 1), new THREE.MeshLambertMaterial({ color: DESERT ? 0xc9a46c : 0x8f9a86 }));
+    outer.rotation.x = -Math.PI / 2; outer.position.y = DOGFIGHT ? 170 : 35; scene.add(outer);   /* dogfights: tucked under the high wall of peaks round the edge */
     const skirt = new THREE.Mesh(new THREE.CylinderGeometry(HALF * 1.36, HALF * 1.42, 40, 48, 1, true), new THREE.MeshLambertMaterial({ color: DESERT ? 0xb08a55 : 0x7d8a76, side: THREE.DoubleSide }));
     skirt.position.y = 20; scene.add(skirt);
   }
