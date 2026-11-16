@@ -171,6 +171,7 @@ function simHeli(v, dt, inp) {
   const onGround = v.pos.y <= ground + 0.05;
   // forward and back
   const thr = flying ? inp.thr : 0, want = thr * (thr > 0 ? T.maxSpeed : T.maxSpeed * 0.35);
+  v.strafeIn = flying ? (inp.strafe || 0) : 0;
   const sw = flying ? (inp.strafe || 0) * T.maxSpeed * 0.45 : 0, rx = -fz, rz = fx;   // sideways slide (right is +)
   const vx = fx * want + rx * sw, vz = fz * want + rz * sw;
   const k = Math.min(1, dt * (T.agile ? 4 : thr || inp.strafe ? 0.9 : 0.55));

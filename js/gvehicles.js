@@ -204,6 +204,7 @@ function leaveSeat(c, switching) {
   const v = c.gv; if (!v) return;
   if (v.seats[c.seat] === c) v.seats[c.seat] = null;
   c.gv = null; c.seat = -1; c.exposed = false;
+  { const m = c.isPlayer ? player.body3p : c.model; if (m && m.head) m.head.rotation.set(0, 0, 0); }
   c.noVehT = simTime + 25; c.vehTarget = null;
   if (switching) return;
   const right = new THREE.Vector3(Math.cos(v.yaw), 0, -Math.sin(v.yaw));
@@ -613,6 +614,7 @@ function npcBoard(n) {
   enterSeat(n, v, seat);
   if (seat === 0) v.aiGoal = n.goalPoint;
 }
+let SURF_SIGN = 1, SURF_LOOK = -1.0;   // the lean direction and the head turn towards the board's nose
 // put everyone sitting in vehicles in the right place and pose
 function updateOccupants() {
   for (const c of chars) {
@@ -624,13 +626,18 @@ function updateOccupants() {
     const m = c.isPlayer ? player.body3p : c.model; if (!m) continue;
     m.root.visible = c.alive && S.pose !== 'hide' && !(c.isPlayer && S.role === 'gun') && !(c.isPlayer && v.T.heli && S.role === 'drive' && typeof heliView !== 'undefined' && heliView === 'cockpit');
     m.root.position.copy(c.pos);
-    limbsStraight(m); m.body.rotation.x = 0;
+    limbsStraight(m); m.body.rotation.x = 0; m.head.rotation.set(0, 0, 0);
     if (S.role === 'gun') { const gy = S.gun ? v.mg2Yaw : v.mgYaw, gp = S.gun ? v.mg2Pitch : v.mgPitch; m.root.rotation.set(0, gy + Math.PI, 0); m.armR.rotation.set(-Math.PI / 2 - gp, 0, 0); m.armL.rotation.set(-Math.PI / 2 - gp, 0.3, 0); m.legL.rotation.x = 0; m.legR.rotation.x = 0; m.gun.visible = false; }
-    else if (S.pose === 'surf') {   // sideways on the board like a surfer, knees bent, arms out, leaning into the turn
-      const lean = v.lean || 0;
-      m.root.rotation.set(-lean, v.yaw + Math.PI * 1.5, 0, 'YXZ');
-      m.legL.rotation.set(-0.35, 0, 0.32); m.legR.rotation.set(0.25, 0, -0.32); m.shinL.rotation.x = 0.55; m.shinR.rotation.x = 0.45;
-      m.armL.rotation.set(0, 0, -1.15 + lean * 0.4); m.armR.rotation.set(0, 0, 1.15 + lean * 0.4); m.body.rotation.x = 0.18; m.gun.visible = false;
+    else if (S.pose === 'surf') {   // sideways on the board in a low surfer's crouch, leaning in towards the inside of the turn
+      const lean = v.lean || 0, k = Math.abs(lean);
+      m.root.rotation.set(SURF_SIGN * lean, v.yaw + Math.PI * 1.5, 0, 'YXZ');
+      m.root.position.y -= 0.3 + k * 0.08;                                   // knees bent: the hips drop
+      m.legL.rotation.set(-0.95 - lean * 0.3, 0, 0.42); m.legR.rotation.set(-0.95 + lean * 0.3, 0, -0.42);   // wide stance along the board
+      m.shinL.rotation.x = 1.45 + lean * 0.3; m.shinR.rotation.x = 1.45 - lean * 0.3;
+      m.body.rotation.x = Math.max(0.12, 0.42 - lean * 0.45);                  // chest low over the board (less when already leaning over the toes)
+      m.armL.rotation.set(-0.35, 0, -1.25 - lean * 0.5); m.armR.rotation.set(-0.35, 0, 1.25 - lean * 0.5);   // arms out for balance, swinging with the lean
+      m.head.rotation.set(-0.3, SURF_LOOK, 0);                                 // eyes up and looking where the board goes
+      m.gun.visible = false;
     } else if (S.pose === 'bike') {
       m.root.rotation.set(v.pitch, v.yaw + Math.PI, -v.roll, 'YXZ');
       m.legL.rotation.set(-1.0, 0, -0.3); m.legR.rotation.set(-1.0, 0, 0.3); m.shinL.rotation.x = m.shinR.rotation.x = 1.5;

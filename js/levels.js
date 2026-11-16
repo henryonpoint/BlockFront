@@ -611,16 +611,46 @@ function placeLeader() {
   for (const o of [LEADER.g, LEADER.eva, LEADER.desk]) if (o) scene.remove(o);
   const b = leaderBunker(); LEADER.placed = LEADER.idx;
   const w = bW(b, 18, 13); LEADER.at = new THREE.Vector3(w.x, b.F, w.z); LEADER.bunker = b.name;
-  const P = new Part(), coat = 0x6a6e66, dark = 0x2b2c2a, skin = 0xe2b896;
-  P.box(0.62, 0.95, 0.36, coat, 0, 1.15, 0); P.box(0.66, 0.5, 0.4, coat, 0, 0.62, 0);
-  for (const s of [-1, 1]) { P.box(0.2, 0.62, 0.22, dark, s * 0.15, 0.31, 0); P.box(0.18, 0.75, 0.18, coat, s * 0.42, 1.2, 0, 0, 0, s * 0.12); }
-  P.box(0.34, 0.36, 0.32, skin, 0, 1.82, 0); P.box(0.12, 0.04, 0.02, 0x1a1a1a, 0, 1.75, 0.165);
-  P.box(0.42, 0.08, 0.42, coat, 0, 2.03, 0.02); P.box(0.36, 0.1, 0.36, dark, 0, 2.1, 0); P.box(0.36, 0.03, 0.14, dark, 0, 2.0, 0.24);
-  LEADER.g = new THREE.Mesh(P.build(), VEH_MAT); LEADER.g.position.copy(LEADER.at); scene.add(LEADER.g);
-  const E = new Part(), dress = 0x2a3a5a, hair = 0xc8a060;   // Eva: a dark blue dress, fair hair
+  // dressed as an officer: grey-green tunic with a high collar, black breeches tucked into tall riding boots, a brown
+  // belt and cross strap with a pistol holster, the peaked cap; a pale face with dark side-parted hair, the
+  // small square moustache, eyes, brows, nose and ears. (No party insignia; the iron cross medal on the pocket.)
+  const P = new Part(), tunic = 0x6e7262, tunic2 = 0x5c6052, black = 0x18181a, leather = 0x5a3a20, skin = 0xe6bfa0, hair = 0x241a14;
+  for (const sd of [-1, 1]) {
+    P.cyl(0.1, 0.085, 0.5, black, 0.13 * sd, 0.3, 0, 0, 0, 0, 1, 10); P.box(0.17, 0.09, 0.3, black, 0.13 * sd, 0.045, 0.05);   // riding boots
+    P.cyl(0.13, 0.1, 0.42, black, 0.14 * sd, 0.72, 0, 0, 0, 0, 1.15, 10); P.ball(0.14, black, 0.17 * sd, 0.82, 0, 1.1, 0.9, 1);   // breeches, flared at the thigh
+  }
+  P.cyl(0.25, 0.23, 0.36, tunic, 0, 1.1, 0, 0, 0, 0, 0.62, 12); P.cyl(0.3, 0.25, 0.42, tunic, 0, 1.45, 0, 0, 0, 0, 0.6, 12);   // tunic skirt and chest
+  P.cyl(0.11, 0.12, 0.1, tunic2, 0, 1.7, 0, 0, 0, 0, 1, 10); P.box(0.07, 0.06, 0.02, 0xf0f0f0, 0, 1.69, 0.12);   // high collar, shirt
+  for (let i = 0; i < 4; i++) P.ball(0.016, 0x9a9a8a, 0, 1.62 - i * 0.12, 0.185);   // buttons
+  for (const sd of [-1, 1]) { P.box(0.13, 0.11, 0.03, tunic2, 0.12 * sd, 1.5, 0.17); P.box(0.15, 0.12, 0.03, tunic2, 0.14 * sd, 1.13, 0.16); }   // pockets
+  P.add(plusGeo(0.08, 0.035, 0).rotateX(Math.PI / 2), 0x141414, -0.12, 1.5, 0.19);   // the medal on the left pocket
+  P.box(0.5, 0.07, 0.33, leather, 0, 1.27, 0); P.box(0.06, 0.05, 0.02, 0xb8a060, 0, 1.27, 0.17);   // belt and buckle
+  P.box(0.05, 0.62, 0.02, leather, -0.04, 1.5, 0.175, 0, 0, -0.55); P.box(0.12, 0.16, 0.08, leather, 0.22, 1.16, 0.08);   // cross strap, holster
+  for (const sd of [-1, 1]) {   // arms: the right hand at his side, the left bent with the hand on the belt
+    P.cyl(0.085, 0.075, 0.36, tunic, 0.33 * sd, 1.5, 0, 0, 0, 0.12 * sd, 1, 8); P.box(0.17, 0.05, 0.1, tunic2, 0.27 * sd, 1.66, 0);   // upper arm, shoulder board
+    if (sd > 0) { P.cyl(0.07, 0.065, 0.34, tunic, 0.37, 1.17, 0.02, 0, 0, 0.05, 1, 8); P.ball(0.065, skin, 0.38, 0.97, 0.02); }
+    else { P.cyl(0.07, 0.065, 0.32, tunic, -0.3, 1.27, 0.08, 1.0, 0, -0.6, 1, 8); P.ball(0.065, skin, -0.2, 1.27, 0.15); }
+  }
+  // the head
+  P.cyl(0.07, 0.075, 0.08, skin, 0, 1.76, 0, 0, 0, 0, 1, 8);
+  P.add(new THREE.SphereGeometry(0.15, 14, 11), skin, 0, 1.9, 0.01, 0, 0, 0, 0.92, 1.18, 1.0);
+  for (const sd of [-1, 1]) {
+    P.ball(0.03, skin, 0.14 * sd, 1.9, 0, 0.5, 1, 0.8);                                             // ears
+    P.box(0.045, 0.022, 0.012, 0xf4f2ee, 0.055 * sd, 1.93, 0.142); P.box(0.022, 0.022, 0.014, 0x2a3a5a, 0.052 * sd, 1.93, 0.145);   // eyes (blue)
+    P.box(0.06, 0.013, 0.014, hair, 0.056 * sd, 1.962, 0.141, 0, 0, 0.12 * sd);                     // brows
+  }
+  P.box(0.03, 0.06, 0.04, skin, 0, 1.885, 0.15, 0.25); P.box(0.04, 0.02, 0.03, 0xd4a888, 0, 1.86, 0.155);   // nose
+  P.box(0.05, 0.032, 0.02, hair, 0, 1.838, 0.148);                                                  // the small square moustache
+  P.box(0.07, 0.01, 0.012, 0x8a4a3a, 0, 1.812, 0.14);                                                // mouth
+  P.box(0.27, 0.07, 0.22, hair, 0, 2.01, -0.01); P.box(0.15, 0.05, 0.05, hair, -0.04, 1.995, 0.13, 0, 0, 0.35);   // dark hair, the side-swept fringe
+  // the peaked cap: dark band, grey crown wider at the top, black peak, a gold chin cord
+  P.cyl(0.16, 0.16, 0.06, tunic2, 0, 2.04, 0, 0, 0, 0, 1, 14); P.cyl(0.21, 0.165, 0.08, tunic, 0, 2.1, -0.01, -0.08, 0, 0, 1, 14);
+  P.box(0.24, 0.02, 0.1, black, 0, 2.02, 0.17, 0.25); P.box(0.22, 0.012, 0.01, 0xc8a040, 0, 2.045, 0.165);
+    LEADER.g = new THREE.Mesh(P.build(), VEH_MAT); LEADER.g.position.copy(LEADER.at); scene.add(LEADER.g);
+  const E = new Part(), dress = 0x2a3a5a, evaHair = 0xc8a060;   // Eva: a dark blue dress, fair hair
   E.box(0.5, 0.8, 0.32, dress, 0, 1.2, 0); E.cyl(0.36, 0.26, 0.75, dress, 0, 0.45, 0, 0, 0, 0, 1, 10);
   for (const s of [-1, 1]) { E.box(0.14, 0.7, 0.14, skin, s * 0.34, 1.2, 0, 0, 0, s * 0.1); E.box(0.12, 0.12, 0.2, 0x1a1a1a, s * 0.1, 0.05, 0.03); }
-  E.box(0.3, 0.32, 0.28, skin, 0, 1.78, 0); E.box(0.36, 0.22, 0.34, hair, 0, 1.94, -0.03); E.box(0.36, 0.3, 0.12, hair, 0, 1.75, -0.16);
+  E.box(0.3, 0.32, 0.28, skin, 0, 1.78, 0); E.box(0.36, 0.22, 0.34, evaHair, 0, 1.94, -0.03); E.box(0.36, 0.3, 0.12, evaHair, 0, 1.75, -0.16);
   const ew = bW(b, 17, 11.2); LEADER.eva = new THREE.Mesh(E.build(), VEH_MAT); LEADER.eva.position.set(ew.x, b.F, ew.z); scene.add(LEADER.eva);
   const desk = bW(b, 20.5, 13); LEADER.desk = addMesh(new THREE.BoxGeometry(2.2, 0.85, 1.1), MATS.darkWood, desk.x, b.F + 0.43, desk.z);
   placeClues();

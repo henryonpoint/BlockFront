@@ -151,8 +151,8 @@ function updateSpecials(dt) {
       v.model.body.position.y = Math.sin(simTime * 3 + v.idx) * 0.05;
       const yr = dt > 0 ? wrapAngle(v.yaw - (v._lastYaw === undefined ? v.yaw : v._lastYaw)) / dt : 0; v._lastYaw = v.yaw;
       const side = v.vel ? (v.vel.x * Math.cos(v.yaw) - v.vel.z * Math.sin(v.yaw)) : 0;   // sliding right is +
-      v.lean = lerp(v.lean || 0, clamp(yr * 0.35 + side * 0.025, -0.7, 0.7), Math.min(1, dt * 6));
-      v.model.body.rotation.z = -v.lean;   // the board tilts with the rider
+      v.lean = lerp(v.lean || 0, clamp(yr * 0.3 - (v.strafeIn || 0) * 0.4, -0.55, 0.55), Math.min(1, dt * 5));   // lean the way you steer or slide (left is +)
+      v.model.body.rotation.z = v.lean;   // the board carves: its inside edge dips into the turn, under the rider
     }
   }
 }
