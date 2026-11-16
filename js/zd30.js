@@ -12,78 +12,82 @@
 // taking down the target (Hitler in Berlin, the target on the third floor here).
 const ZD_GRID = [
   [
-    "#####dd###################",
-    "#     #         #        #",
-    "#     #         #        #",
-    "#     #  #####  #        #",
-    "#     #  #   #  #        #",
-    "#        #   #  #####    #",
-    "#        #   #           #",
-    "###  #####   #####  ######",
+    "###########dd#############",
+    "#        #    #    #     #",
+    "#                  #     #",
+    "#        #    #          #",
+    "#        ##  ##    #     #",
+    "#         #  ##    #     #",
+    "#         #  ##    #     #",
+    "###########  #############",
+    "#         #  #     #SS####",
+    "#            #     #SS####",
+    "####      #        #SS####",
+    "#   #     #  #     #SS####",
+    "#         #  #     #SS####",
+    "#   #     #  #     #gg####",
+    "#                         ",
     "#                        #",
-    "#                        #",
-    "#####  ######  ###########",
-    "#   #  #    #  #         #",
-    "#   #  #    #  #         #",
-    "#   #  #    #  #   ####  #",
-    "#   #  #    #  #   #SS#  #",
-    "#   #  #    #  #   #SS#  #",
-    "###### ####  ###   #SS#  #",
-    "#              #   #SS#  #",
-    "#              #   #SS#  #",
-    "#  ####  ###            ee",
-    "#  #          #          #",
+    "### ##### #### #### ### ##",
+    "#      #   #      #  #   #",
+    "#      #   #      #  #   #",
+    "#      #   #      #  #   #",
+    "#      #   #      #  #   #",
     "##########################",
   ],
   [
     "##########################",
-    "#      #          #      #",
-    "# #### #          #  #   #",
-    "# #SS# #             #   #",
-    "# #SS# #   #####     #   #",
-    "# #SS#     #   #  #      #",
-    "# #SS#     #   #  #  #   #",
-    "# #SS# #   #  ##  #  #   #",
-    "# #gg# #          #  #####",
-    "#      ##  ########      #",
-    "#      #   #             #",
-    "#          #             #",
-    "#          #   ########  #",
-    "#      #       #         #",
-    "#      #       #   #oo#  #",
-    "#      #   #   #   #oo#  #",
-    "#####  #####   #   #oo#  #",
-    "#                  #oo#  #",
-    "#                  #oo#  #",
-    "#              #   ####  #",
-    "#              #         #",
-    "##########################",
+    "#      #   #      #      #",
+    "#      #   #      #      #",
+    "#      #   #      #      #",
+    "#      #   #      #      #",
+    "### ##### #### ###### ####",
+    "#                        #",
+    "#                     #gg#",
+    "###########  #######oo#UU#",
+    "#         #  #     #oo#UU#",
+    "#         #  #     #oo#UU#",
+    "#                  #oo#UU#",
+    "#         #  #     #oo#UU#",
+    "#         #  #     #######",
+    "###########  #############",
+    "#   #     #  #       #   #",
+    "#         #  #       #   #",
+    "#   #                #   #",
+    "####      #  #           #",
+    "#         #  #       #   #",
+    "#         #  #       #   #",
+    "###########  #############",
   ],
   [
-    "##################pppppppp",
-    "#        #  #    #TTTTTTTp",
-    "#        #       #TTTTTTTp",
-    "# #oo#   #  #    #TTTTTTTp",
-    "# #oo#   #  #     TTTTTTTp",
-    "# #oo#   #  #  B  TTTTTTTp",
-    "# #oo#####  #    #TTTTTTTp",
-    "# #oo#   #  #    #TTTTTTTp",
-    "# ####   #  #    #TTTTTTTp",
-    "# ####   ## ######TTTTTTTp",
-    "#           #    #TTTTTTTp",
-    "#           #    #TTTTTTTp",
-    "#        ####  ###TTTTTTTp",
-    "#  ##            #TTTTTTTp",
-    "#                #TTTTTTTp",
-    "##################pppTTppp",
+    "qqqqqqqqqqqqqqqqqqqqqqqqqq",
     "qrrrrrrrrrrrrrrrrrrrrrrrrq",
     "qrrrrrrrrrrrrrrrrrrrrrrrrq",
     "qrrrrrrrrrrrrrrrrrrrrrrrrq",
+    "pppppppppppp##############",
+    "pTTTTTTTTTTT#     #   #  #",
+    "pTTTTTTTTTTT#         #  #",
+    "pTTTTTTTTTTT#  B  #   ####",
+    "pTTTTTTTTTTTT     #####oo#",
+    "pTTTTTTTTTTT#     #   #oo#",
+    "pTTTTTTTTTTT#     #   #oo#",
+    "pTTTTTTTTTTT#     #   #oo#",
+    "pTTTTTTTTTTT#### ### ##oo#",
+    "pTTTTTTTTTTT#            #",
+    "pTTTTTTTTTTT#            #",
+    "pTTTTTTTTTTT### #### ## ##",
+    "pTTTTTTTTTTT#     #   #  #",
+    "pTTTTTTTTTTT#     #   #  #",
+    "pppppppppppp##############",
     "qrrrrrrrrrrrrrrrrrrrrrrrrq",
     "qrrrrrrrrrrrrrrrrrrrrrrrrq",
     "qqqqqqqqqqqqqqqqqqqqqqqqqq",
   ],
 ];
+// the rooms (floor, kind, first and last column, first and last row): furniture, lamps and who lives where
+const ZD_ROOMS = [{k: 0, name: "living", c0: 1, c1: 8, r0: 1, r1: 6}, {k: 0, name: "bedroom", c0: 1, c1: 9, r0: 8, r1: 13}, {k: 0, name: "bath", c0: 1, c1: 3, r0: 11, r1: 13}, {k: 0, name: "kitchen", c0: 15, c1: 18, r0: 1, r1: 6}, {k: 0, name: "storage", c0: 20, c1: 24, r0: 1, r1: 6}, {k: 0, name: "storage", c0: 14, c1: 18, r0: 8, r1: 13}, {k: 0, name: "bedroom", c0: 1, c1: 6, r0: 17, r1: 20}, {k: 0, name: "bath", c0: 8, c1: 10, r0: 17, r1: 20}, {k: 0, name: "bedroom", c0: 12, c1: 17, r0: 17, r1: 20}, {k: 0, name: "bath", c0: 19, c1: 20, r0: 17, r1: 20}, {k: 0, name: "bedroom", c0: 22, c1: 24, r0: 17, r1: 20}, {k: 1, name: "bedroom", c0: 1, c1: 6, r0: 1, r1: 4}, {k: 1, name: "bath", c0: 8, c1: 10, r0: 1, r1: 4}, {k: 1, name: "bedroom", c0: 12, c1: 17, r0: 1, r1: 4}, {k: 1, name: "kitchen", c0: 19, c1: 24, r0: 1, r1: 4}, {k: 1, name: "classroom", c0: 1, c1: 9, r0: 9, r1: 13}, {k: 1, name: "bedroom", c0: 1, c1: 9, r0: 15, r1: 20}, {k: 1, name: "bath", c0: 1, c1: 3, r0: 15, r1: 17}, {k: 1, name: "bedroom", c0: 14, c1: 18, r0: 9, r1: 13}, {k: 1, name: "bedroom", c0: 14, c1: 20, r0: 15, r1: 20}, {k: 1, name: "bath", c0: 22, c1: 24, r0: 15, r1: 20}, {k: 2, name: "master", c0: 13, c1: 17, r0: 5, r1: 11}, {k: 2, name: "bath", c0: 19, c1: 21, r0: 5, r1: 7}, {k: 2, name: "kitchenette", c0: 19, c1: 21, r0: 9, r1: 11}, {k: 2, name: "study", c0: 13, c1: 17, r0: 16, r1: 17}, {k: 2, name: "media", c0: 19, c1: 21, r0: 16, r1: 17}, {k: 2, name: "store", c0: 23, c1: 24, r0: 16, r1: 17}];
+const ZD_TOP = { c0: 12, c1: 25, r0: 4, r1: 18 };   // where the third floor stands on the roof
+
 
 // ---------- the compound plan (metres; north is -z) ----------
 const ZC = { x0: -70, x1: 52, z0: -30, z1: 34, wallH: 5.5, innerH: 3.6, HX0: 2, HZ0: -14, CS: 1.25, FH: 4, SLAB: 0.3, gy: 0, fb: 0, lz: { x: 0, z: -80 } };
@@ -97,7 +101,7 @@ const ZM = {
   house: new THREE.MeshLambertMaterial({ color: 0xcfc6b2 }), floor: new THREE.MeshLambertMaterial({ color: 0x8c7f6a }),
   gate: new THREE.MeshLambertMaterial({ color: 0x3f5240 }), door: new THREE.MeshLambertMaterial({ color: 0x5a4030 }),
   wire: new THREE.MeshLambertMaterial({ color: 0x2c2c2c }), win: new THREE.MeshLambertMaterial({ color: 0x23262a }),
-  step: new THREE.MeshLambertMaterial({ color: 0xa49880 }), lamp: new THREE.MeshBasicMaterial({ color: 0xffd890 }),
+  step: new THREE.MeshLambertMaterial({ color: 0xb8ae98 }), nosing: new THREE.MeshLambertMaterial({ color: 0x7a7060 }), rail: new THREE.MeshLambertMaterial({ color: 0x4a3a2a }), hidden: new THREE.MeshBasicMaterial({ visible: false }), lamp: new THREE.MeshBasicMaterial({ color: 0xffd890 }),
   glow: new THREE.MeshBasicMaterial({ color: 0xffc070 }), green: new THREE.MeshLambertMaterial({ color: 0x3e5a2c }),
 };
 if (typeof TEX !== 'undefined' && TEX.concrete && typeof texRepeat === 'function') {   // rough concrete and plaster
@@ -105,6 +109,23 @@ if (typeof TEX !== 'undefined' && TEX.concrete && typeof texRepeat === 'function
   for (const m of [ZM.wall, ZM.wallIn, ZM.house, ZM.floor]) m.needsUpdate = true;
 }
 const zx = a => ZC.HX0 + a * ZC.CS, zz = a => ZC.HZ0 + a * ZC.CS;   // house plan (in cells, 1.25 m each) to world
+// inside: painted walls (cream downstairs, pale green on the family floor, off-white at the top), terrazzo tile floors, white ceilings
+ZD.paintHex = [0xe2d8bf, 0xcfdac8, 0xe4ddd0];
+ZM.paint = ZD.paintHex.map(c => new THREE.MeshLambertMaterial({ color: c }));
+ZM.tile = new THREE.MeshLambertMaterial({ color: 0xffffff, map: canvasTile() });
+ZM.ceil = new THREE.MeshLambertMaterial({ color: 0xf4f2ec });
+ZM.slabMats = [ZM.floor, ZM.floor, ZM.tile, ZM.ceil, ZM.floor, ZM.floor];
+function zTileUV(m) {   // tiles at their real size (about 60 cm), whatever the size of the slab
+  const g = m.geometry, p = g.parameters, uv = g.attributes.uv;
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * p.width / 1.25, uv.getY(i) * p.depth / 1.25);
+  uv.needsUpdate = true; return m;
+}
+function canvasTile() {
+  const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+  for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) { g.fillStyle = (i + j) % 2 ? '#d8cdb4' : '#cfc3a8'; g.fillRect(i * 64, j * 64, 64, 64); for (let k = 0; k < 60; k++) { g.fillStyle = `rgba(${90 + Math.random() * 80},${80 + Math.random() * 60},${60 + Math.random() * 50},0.35)`; g.fillRect(i * 64 + Math.random() * 64, j * 64 + Math.random() * 64, 2, 2); } }
+  g.strokeStyle = '#a89c84'; g.lineWidth = 2; for (const v of [0, 64, 128]) { g.beginPath(); g.moveTo(v, 0); g.lineTo(v, 128); g.stroke(); g.beginPath(); g.moveTo(0, v); g.lineTo(128, v); g.stroke(); }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1, 1); return t;
+}
 const zcx = c => zx(c + 0.5), zcz = r => zz(r + 0.5);
 const zfy = k => ZC.fb + k * ZC.FH;                               // floor k surface height
 
@@ -127,7 +148,7 @@ function zOpen(b, ghost, byEnemy) {
   const p = new THREE.Vector3(b.x, b.y + 1.2, b.z);
   explosion(p, 4.5, 8, byEnemy ? null : (player.team === 'blue' ? player : null), byEnemy ? 0 : 90, !!ghost || !!byEnemy);
   for (let i = 0; i < 6; i++) smokePuff(p.clone().add(new THREE.Vector3(rand(-1.5, 1.5), rand(-0.5, 1.5), rand(-1.5, 1.5))), 0x8a8478, rand(1, 2), 3, 0.6);
-  ZD.blown++; zNoise(p, 12, 1.15);
+  ZD.blown++; zNoise(p, 12, 1.15); ZD.noise = (ZD.noise || 0) + 3;
   if (byEnemy) showMessage(`Fighters blew the ${b.name}! They are coming in`, 4); else if (b.msg) showMessage(b.msg, 3);
 }
 // barbed wire along the top of a wall
@@ -156,7 +177,7 @@ function zInPoly(x, z, poly = ZD_OUTLINE) {
 const ZD_OUTLINE = [[-70, -6], [-30, -30], [44, -30], [52, 4], [46, 34], [-6, 34]];
 // a straight wall along x or z, with gaps [from, to] left open (filled by breach gates)
 function zWall(x0, z0, x1, z1, h, t, mat, gaps = [], y0) {
-  const alongX = z0 === z1, a0 = alongX ? x0 : z0, a1 = alongX ? x1 : z1, base = y0 !== undefined ? y0 : ZC.gy - 0.4, top = (y0 !== undefined ? y0 : ZC.gy) + h;
+  const alongX = z0 === z1, a0 = Math.min(alongX ? x0 : z0, alongX ? x1 : z1), a1 = Math.max(alongX ? x0 : z0, alongX ? x1 : z1), base = y0 !== undefined ? y0 : ZC.gy - 0.4, top = (y0 !== undefined ? y0 : ZC.gy) + h;
   const cuts = [a0]; for (const [g0, g1] of gaps.slice().sort((p, q) => p[0] - q[0])) cuts.push(g0, g1); cuts.push(a1);
   for (let i = 0; i < cuts.length; i += 2) {
     const s0 = cuts[i], s1 = cuts[i + 1]; if (s1 - s0 < 0.05) continue;
@@ -166,7 +187,7 @@ function zWall(x0, z0, x1, z1, h, t, mat, gaps = [], y0) {
 }
 
 // ---------- the main house: three floors read from the plans above ----------
-// '#' wall, ' ' room, 'd' the front door, 'g' the locked metal gate on the stairs, 'S' stairs up, 'o' stair hole,
+// '#' wall, ' ' room, 'd' the front door, 'g' a locked metal gate on the stairs, 'S' stairs up (climbing north), 'U' stairs up (climbing south), 'o' stair hole,
 // 'e' an open side door, 'T' the terrace, 'p' the 7-foot privacy wall, 'q' the low roof wall, 'r' open roof, 'B' the target
 function zRuns(g, want) {   // merge cells into boxes: rows first, then whatever is left in columns
   const H = g.length, W = g[0].length, used = g.map(r => r.split('').map(() => false)), out = [];
@@ -191,40 +212,137 @@ function zRects(g, want) {   // solid rectangles (for floor slabs)
 }
 const zCellBox = ([c0, c1, r0, r1], y0, y1, mat) => zBox(zx(c0), zx(c1 + 1), zz(r0), zz(r1 + 1), y0, y1, mat);
 function zStairs(g, k) {
-  let c0 = 99, c1 = -1, r0 = 99, r1 = -1;
-  g.forEach((row, r) => row.split('').forEach((ch, c) => { if (ch === 'S') { c0 = Math.min(c0, c); c1 = Math.max(c1, c); r0 = Math.min(r0, r); r1 = Math.max(r1, r); } }));
-  if (c1 < 0) return;
-  const F = zfy(k), x0 = zx(c0), x1 = zx(c1 + 1), zb = zz(r1 + 1), run = (r1 - r0 + 1) * ZC.CS / 10;   // ten steps, climbing north
-  for (let i = 1; i <= 10; i++) zBox(x0, x1, zb - run * i, zb - run * (i - 1), F, F + 0.4 * i, ZM.step);
-  ZD.stairs = ZD.stairs || []; ZD.stairs.push({ k, x: (x0 + x1) / 2, zFoot: zb + 0.6, zTop: zz(r0) - 0.6 });
+  for (const ch of ['S', 'U']) {
+    let c0 = 99, c1 = -1, r0 = 99, r1 = -1;
+    g.forEach((row, r) => row.split('').forEach((cc, c) => { if (cc === ch) { c0 = Math.min(c0, c); c1 = Math.max(c1, c); r0 = Math.min(r0, r); r1 = Math.max(r1, r); } }));
+    if (c1 < 0) continue;
+    const F = zfy(k), x0 = zx(c0), x1 = zx(c1 + 1), za = zz(r0), zb = zz(r1 + 1), run = (r1 - r0 + 1) * ZC.CS / 10, north = ch === 'S';   // ten steps of 40 cm
+    for (let i = 1; i <= 10; i++) {
+      const s0 = north ? zb - run * i : za + run * (i - 1), s1 = north ? zb - run * (i - 1) : za + run * i;
+      zBox(x0, x1, Math.min(s0, s1), Math.max(s0, s1), F, F + 0.4 * i, ZM.step);
+      addMesh(new THREE.BoxGeometry(x1 - x0 + 0.01, 0.04, 0.06), ZM.nosing, (x0 + x1) / 2, F + 0.4 * i + 0.01, north ? s0 + 0.03 : s1 - 0.03, false);   // the edge of each tread
+    }
+    for (const xx of [x0 + 0.06, x1 - 0.06]) {   // a handrail up each side
+      const len = Math.hypot(4, run * 10), r = addMesh(new THREE.BoxGeometry(0.05, 0.05, len), ZM.rail, xx, F + 2.0 + 0.0, (za + zb) / 2, false);
+      r.rotation.x = (north ? 1 : -1) * Math.atan2(4, run * 10); r.userData.static = false;
+    }
+    ZD.stairs = ZD.stairs || []; ZD.stairs.push({ k, x: (x0 + x1) / 2, zFoot: north ? zb + 0.6 : za - 0.6, zTop: north ? za - 0.6 : zb + 0.6, north });
+  }
 }
 function zBuildHouse() {
-  ZD_GRID[1][21] = ZD_GRID[1][21].slice(0, 11) + '  ' + ZD_GRID[1][21].slice(13);   // the door out onto the second-floor balcony
-  const [G0, G1, G2] = ZD_GRID, wallTop = 3.7, M = ZM.house;
-  zBox(zx(0) - 0.2, zx(26) + 0.2, zz(0) - 0.2, zz(22) + 0.2, ZC.gy - 0.6, ZC.fb, ZM.floor);   // the ground-floor slab
+  const [G0, G1, G2] = ZD_GRID, wallTop = 3.7, M = ZM.house, T = ZD_TOP;
+  const slab = (g, k) => zRects(g, ch => ch !== 'o').forEach(r => { const m = zTileUV(zCellBox(r, zfy(k) - ZC.SLAB, zfy(k), ZM.floor)); m.material = ZM.slabMats; m.userData.static = false; });
+  const gs = zTileUV(zCellBox([0, 25, 0, 21], ZC.gy - 0.6, ZC.fb, ZM.floor)); gs.material = ZM.slabMats; gs.userData.static = false;   // the ground-floor slab
   for (const [k, g] of [[0, G0], [1, G1]]) {
     const F = zfy(k);
-    for (const r of zRuns(g, ch => ch === '#')) zCellBox(r, F, F + wallTop, (r[2] === 0 || r[3] === 21 || r[0] === 0 || r[1] === 25) ? M : ZM.wallIn);   // outside walls painted, inside plain
-    for (const r of zRuns(g, ch => ch === 'd' || ch === 'g')) zCellBox(r, F + 2.6, F + wallTop, ZM.wallIn);   // lintels over the door and the gate
+    for (const r of zRuns(g, ch => ch === '#')) zCellBox(r, F, F + wallTop, (r[2] === 0 || r[3] === 21 || r[0] === 0 || r[1] === 25) ? M : ZM.paint[k]);   // outside walls plaster, inside painted
+    for (const r of zRuns(g, ch => ch === 'd' || ch === 'g')) zCellBox(r, F + 2.5, F + wallTop, (r[2] === 0) ? M : ZM.paint[k]);   // over the door and the gates
     zStairs(g, k);
   }
-  // floor slabs, with holes over the stairs
-  zRects(G1, ch => ch !== 'o').forEach(r => zCellBox(r, zfy(1) - ZC.SLAB, zfy(1), ZM.floor));
-  zRects(G2, ch => ch !== 'o').forEach(r => zCellBox(r, zfy(2) - ZC.SLAB, zfy(2), ZM.floor));
-  // third floor: walls, the low roof walls, the privacy wall, and its own roof
+  slab(G1, 1); slab(G2, 2);
+  // third floor: its walls, the privacy wall round the terrace, the low wall round the roof, and its own roof
   const F = zfy(2);
-  for (const r of zRuns(G2, ch => ch === '#')) zCellBox(r, F, F + wallTop, (r[2] === 0 || r[3] === 15 || r[0] === 0 || r[1] === 17) ? M : ZM.wallIn);
-  for (const r of zRuns(G2, ch => ch === 'p')) zCellBox(r, F, F + 2.1, M);
+  for (const r of zRuns(G2, ch => ch === '#')) zCellBox(r, F, F + wallTop, (r[2] === T.r0 || r[3] === T.r1 || r[0] === T.c0 || r[1] === T.c1) ? M : ZM.paint[2]);
+  for (const r of zRuns(G2, ch => ch === 'p')) zCellBox(r, F, F + 2.13, M);
   for (const r of zRuns(G2, ch => ch === 'q')) zCellBox(r, F, F + 1.0, M);
-  zBox(zx(0) - 0.1, zx(18) + 0.1, zz(0) - 0.1, zz(16) + 0.1, F + wallTop, F + wallTop + 0.35, ZM.floor);
-  // the front door and the stair gate (blown open with breach charges)
-  zBreachable('front door', zx(5), zx(7), zz(0.1), zz(0.9), zfy(0), zfy(0) + 2.6, ZM.door, 'Front door is open. Clear the ground floor!');
-  zBox(zx(20), zx(22), zz(19.1), zz(19.6), zfy(0) + 2.6, zfy(0) + 3.7, ZM.wallIn);
-  zBreachable('lower stair gate', zx(20), zx(22), zz(19.15), zz(19.55), zfy(0), zfy(0) + 2.6, ZM.gate, 'Lower stair gate is down. Up to the second floor!');
-  zBreachable('stair gate', zx(3), zx(5), zz(8.3), zz(8.7), zfy(1), zfy(1) + 2.6, ZM.gate, 'The gate on the stairs is down. Up to the third floor!');
-  zDressHouse();
-  // where the target is
+  const roof = zBox(zx(T.c0) - 0.1, zx(T.c1 + 1) + 0.1, zz(T.r0) - 0.1, zz(T.r1 + 1) + 0.1, F + wallTop, F + wallTop + 0.35, ZM.floor); roof.material = ZM.slabMats; roof.userData.static = false;
+  // doors and gates you blow open: the front door, and the locked metal gates at the foot of each flight of stairs
+  for (const [k, g] of [[0, G0], [1, G1]]) for (const r of zRuns(g, ch => ch === 'd' || ch === 'g')) {
+    const door = g[r[2]][r[0]] === 'd', zc = r[2] === 0 ? zz(0) + 0.35 : zcz(r[2]), x0 = zx(r[0]), x1 = zx(r[1] + 1);
+    const b = zBreachable(door ? 'front door' : k === 0 ? 'lower stair gate' : 'stair gate', x0 + 0.05, x1 - 0.05, zc - 0.12, zc + 0.12, zfy(k), zfy(k) + 2.5, door ? ZM.door : ZM.gate,
+      door ? 'Front door is open. Clear the ground floor!' : k === 0 ? 'The gate at the foot of the stairs is down. Up to the second floor!' : 'The locked door to his floor is down. Up to the third floor!');
+    if (door) { ZD.frontDoor = { x: (x0 + x1) / 2, z: zz(0) }; zDoorLook(b, x1 - x0); } else zGateLook(b, x1 - x0);
+  }
+  zInteriorDoors(); zDressHouse(); zFurnish();
   G2.forEach((row, r) => { const c = row.indexOf('B'); if (c >= 0) ZD.targetAt = new THREE.Vector3(zcx(c), zfy(2), zcz(r)); });
+}
+// the front door: two panelled leaves with handles (blown off together)
+function zDoorLook(b, w) {
+  const P = new Part(), hw = w / 2 - 0.1;
+  for (const sd of [-1, 1]) {
+    P.box(hw - 0.02, 2.4, 0.05, 0x6a4a30, sd * hw / 2, 0, 0.14); P.box(hw - 0.02, 2.4, 0.05, 0x6a4a30, sd * hw / 2, 0, -0.14);
+    for (const [y, h] of [[0.55, 0.7], [-0.5, 1.0]]) for (const f of [1, -1]) P.box(hw - 0.3, h, 0.03, 0x5a3c24, sd * hw / 2, y, f * 0.17);
+    for (const f of [1, -1]) P.box(0.04, 0.16, 0.05, 0xb8a060, sd * 0.12, 0.0, f * 0.19);
+  }
+  const m = new THREE.Mesh(P.build(), VEH_MAT); m.position.set(0, 0.05, 0); b.mesh.add(m); b.mesh.material = ZM.hidden;
+  const fr = new Part(); for (const sd of [-1, 1]) fr.box(0.14, 2.6, 0.5, 0xf2eee4, sd * (w / 2 + 0.07), 1.3, 0); fr.box(w + 0.42, 0.16, 0.5, 0xf2eee4, 0, 2.58, 0);
+  const fm = new THREE.Mesh(fr.build(), VEH_MAT); fm.position.set(b.x, b.y, b.z); scene.add(fm);
+}
+// a stair gate: a heavy steel door in a frame with a padlocked bolt
+function zGateLook(b, w) {
+  const P = new Part();
+  for (const f of [1, -1]) { P.box(w - 0.15, 2.35, 0.03, 0x3e4a3e, 0, 0, f * 0.13); for (let i = 0; i < 4; i++) P.box(w - 0.3, 0.05, 0.04, 0x2e382e, 0, -0.9 + i * 0.6, f * 0.15); }
+  P.box(0.3, 0.08, 0.06, 0x8a8a84, w / 2 - 0.35, 0.05, 0.17); P.box(0.08, 0.12, 0.05, 0xb89a40, w / 2 - 0.2, -0.06, 0.2);
+  const m = new THREE.Mesh(P.build(), VEH_MAT); b.mesh.add(m); b.mesh.material = ZM.hidden;
+}
+// doorways between rooms: a painted frame, a lintel, and the wooden door standing open against the wall
+function zInteriorDoors() {
+  const P = new Part(), CS = ZC.CS;
+  for (const [k, g] of ZD_GRID.entries()) {
+    const F = zfy(k) - ZC.fb, H = g.length, W = g[0].length;
+    for (let r = 1; r < H - 1; r++) for (let c = 1; c < W - 1; c++) {
+      if (g[r][c] !== ' ') continue;
+      const ew = g[r][c - 1] === '#' && g[r][c + 1] === '#' && g[r - 1][c] !== '#' && g[r + 1][c] !== '#';   // a gap in a wall running east-west
+      const ns = g[r - 1][c] === '#' && g[r + 1][c] === '#' && g[r][c - 1] !== '#' && g[r][c + 1] !== '#';   // a gap in a wall running north-south
+      if ((!ew && !ns) || (k === 1 && r === 6 && c === 22)) continue;   // (that one is the stair landing, not a door)
+      const x = (c + 0.5) * CS, z = (r + 0.5) * CS, wall = 0xf4f0e6, wood = pick([0x7a5434, 0x6a4a2e, 0x8a6a48]);
+      if (ew) {
+        P.box(CS, wallTopOf(k) - 2.25, CS, ZD.paintHex[k], x, F + (2.25 + wallTopOf(k)) / 2, z);   // lintel
+        for (const sd of [-1, 1]) P.box(0.08, 2.25, CS + 0.02, wall, x + sd * (CS / 2 - 0.04), F + 1.125, z);
+        P.box(0.05, 2.1, CS - 0.16, wood, x - CS / 2 + 0.12, F + 1.05, z + (CS - 0.16) / 2 + 0.05);   // the door, swung open against the wall
+      } else {
+        P.box(CS, wallTopOf(k) - 2.25, CS, ZD.paintHex[k], x, F + (2.25 + wallTopOf(k)) / 2, z);
+        for (const sd of [-1, 1]) P.box(CS + 0.02, 2.25, 0.08, wall, x, F + 1.125, z + sd * (CS / 2 - 0.04));
+        P.box(CS - 0.16, 2.1, 0.05, wood, x + (CS - 0.16) / 2 + 0.05, F + 1.05, z - CS / 2 + 0.12);
+      }
+    }
+  }
+  const m = new THREE.Mesh(P.build(), VEH_MAT); m.position.set(ZC.HX0, ZC.fb, ZC.HZ0); scene.add(m);
+}
+function wallTopOf(k) { return 3.7; }
+// furniture by room: low beds and mattresses, cupboards, carpets and floor cushions, a kitchen with a gas stove,
+// washrooms, the children's classroom with a whiteboard, his study with crude wooden shelves and a computer
+function zFurnish() {
+  const P = new Part(), CS = ZC.CS, lamps = [];
+  for (const R of ZD_ROOMS) {
+    const F = zfy(R.k) - ZC.fb, x0 = R.c0 * CS + 0.15, x1 = (R.c1 + 1) * CS - 0.15, z0 = R.r0 * CS + 0.15, z1 = (R.r1 + 1) * CS - 0.15, cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, w = x1 - x0, d = z1 - z0;
+    const rug = (col) => P.box(w * 0.7, 0.02, d * 0.6, col, cx, F + 0.012, cz);
+    P.box(0.25, 0.05, 0.25, 0xf6f0d8, cx, F + 3.66, cz); lamps.push([cx, F, cz]);   // ceiling light
+    if (R.name === 'bedroom' || R.name === 'master') {
+      rug(pick([0x7a2e2a, 0x4a3a6a, 0x2f5a52, 0x8a5a34]));
+      const bw = Math.min(2.0, w - 0.4); P.box(bw, 0.35, 1.9, 0x5a4030, x0 + bw / 2 + 0.1, F + 0.18, z1 - 1.05); P.box(bw - 0.1, 0.18, 1.8, pick([0xd8d2c2, 0xb8c4d8, 0xd8c0b0]), x0 + bw / 2 + 0.1, F + 0.44, z1 - 1.05); P.box(0.5, 0.12, 0.35, 0xf0ece4, x0 + 0.45, F + 0.58, z1 - 0.3);   // bed, sheet, pillow
+      P.box(1.0, 2.0, 0.55, 0x6a4a30, x1 - 0.6, F + 1.0, z0 + 0.3); P.box(0.02, 1.8, 0.02, 0x3a2a1a, x1 - 0.6, F + 1.0, z0 + 0.58);   // cupboard
+      if (w > 4) P.box(0.9, 0.12, 2.0, pick([0x8a5a5a, 0x5a6a8a]), x1 - 0.6, F + 0.06, cz + 0.4);   // a floor mattress for the children
+    } else if (R.name === 'living') {
+      rug(0x8a2a24); for (const [sx, sz, sw, sd] of [[x0 + 0.35, cz, 0.6, d - 0.6], [x1 - 0.35, cz, 0.6, d - 0.6], [cx, z0 + 0.35, w - 1.2, 0.6]]) { P.box(sw, 0.2, sd, 0x8a6a3a, sx, F + 0.1, sz); P.box(sw === 0.6 ? 0.15 : sw, 0.45, sw === 0.6 ? sd : 0.15, 0xa07a44, sx + (sw === 0.6 ? (sx < cx ? -0.22 : 0.22) : 0), F + 0.35, sz + (sw === 0.6 ? 0 : -0.22)); }   // floor cushions round the walls
+      P.box(1.2, 0.8, 0.45, 0x4a3424, cx, F + 0.4, z1 - 0.25); P.box(0.8, 0.5, 0.06, 0x111111, cx, F + 1.05, z1 - 0.28);   // a stand with a television
+    } else if (R.name === 'kitchen' || R.name === 'kitchenette') {
+      P.box(w - 0.2, 0.9, 0.6, 0xbab2a2, cx, F + 0.45, z0 + 0.3); P.box(w - 0.2, 0.04, 0.62, 0x6a6a64, cx, F + 0.92, z0 + 0.3);   // counter
+      P.box(0.6, 0.06, 0.45, 0x2a2a2a, x0 + 0.5, F + 0.96, z0 + 0.3); for (const dx of [-0.15, 0.15]) P.cyl(0.08, 0.08, 0.03, 0x1a1a1a, x0 + 0.5 + dx, F + 1.0, z0 + 0.3);   // gas stove
+      P.cyl(0.16, 0.16, 0.6, 0x2a5a8a, x0 + 0.3, F + 0.3, z0 + 0.95); P.box(0.4, 0.4, 0.4, 0xd0c8b8, x1 - 0.4, F + 1.3, z0 + 0.25);   // gas cylinder, a cupboard on the wall
+      P.cyl(0.18, 0.15, 0.3, 0x9a9a94, cx, F + 1.1, z0 + 0.3);   // a cooking pot
+    } else if (R.name === 'bath') {
+      P.box(0.5, 0.06, 0.7, 0xeeeeea, x0 + 0.35, F + 0.03, z1 - 0.45); P.box(0.5, 0.2, 0.4, 0xe8e8e4, x1 - 0.35, F + 0.85, z0 + 0.25); P.cyl(0.03, 0.03, 0.8, 0xcfcfcf, x1 - 0.35, F + 0.4, z0 + 0.25);   // floor toilet, basin
+      P.cyl(0.18, 0.15, 0.32, 0x3a6aa8, cx, F + 0.16, cz); P.box(0.4, 0.5, 0.03, 0xa8b8c0, x1 - 0.35, F + 1.5, z0 + 0.03);   // bucket, mirror
+      P.box(w, 0.01, d, 0xd8dce0, cx, F + 0.01, cz);   // tiles
+    } else if (R.name === 'storage' || R.name === 'store') {
+      for (let i = 0; i < 6; i++) { const bx = rand(x0 + 0.4, x1 - 0.4), bz = rand(z0 + 0.4, z1 - 0.4), s = rand(0.4, 0.8); P.box(s, s * rand(0.6, 1.2), s, pick([0x8a6a44, 0x9a7a54, 0x6a6a5a]), bx, F + s * 0.4, bz); }   // boxes and sacks
+      P.box(w - 0.3, 0.05, 0.5, 0x6a5038, cx, F + 1.4, z0 + 0.25); P.box(w - 0.3, 0.05, 0.5, 0x6a5038, cx, F + 1.9, z0 + 0.25);   // shelves
+    } else if (R.name === 'classroom') {
+      rug(0x3a4a6a); P.box(2.0, 1.1, 0.05, 0xf8f8f4, cx, F + 1.5, z0 + 0.03); P.box(2.1, 0.06, 0.08, 0x8a8a8a, cx, F + 0.92, z0 + 0.06);   // whiteboard
+      for (let i = 0; i < 3; i++) for (let j = 0; j < 2; j++) P.box(0.7, 0.3, 0.45, 0x7a5a3a, cx - 1.2 + i * 1.2, F + 0.15, cz + j * 1.1);   // low desks
+    } else if (R.name === 'study' || R.name === 'media') {
+      rug(0x5a3a2a); P.box(w - 0.3, 0.04, 0.35, 0x8a6a44, cx, F + 0.8, z0 + 0.2); P.box(w - 0.3, 0.04, 0.35, 0x8a6a44, cx, F + 1.4, z0 + 0.2); P.box(w - 0.3, 0.04, 0.35, 0x8a6a44, cx, F + 2.0, z0 + 0.2);   // crude wooden shelves
+      for (let i = 0; i < 10; i++) P.box(0.05, 0.25, 0.18, pick([0x6a2a2a, 0x2a4a6a, 0x3a5a3a, 0x8a7a5a]), x0 + 0.3 + i * (w - 0.6) / 10, F + 0.95 + (i % 3) * 0.6, z0 + 0.2);   // books
+      P.box(1.2, 0.05, 0.6, 0x6a4a30, cx, F + 0.72, z1 - 0.5); P.box(0.5, 0.35, 0.05, 0x1a1a1a, cx, F + 0.95, z1 - 0.65); P.box(0.4, 0.03, 0.15, 0x2a2a2a, cx, F + 0.76, z1 - 0.4);   // desk, computer screen, keyboard
+      if (R.name === 'media') { P.box(0.6, 0.4, 0.4, 0x2a2a2a, x1 - 0.4, F + 0.2, z1 - 0.3); P.box(0.7, 0.5, 0.06, 0x111111, x1 - 0.4, F + 0.65, z1 - 0.12); }
+    }
+  }
+  const m = new THREE.Mesh(P.build(), VEH_MAT); m.position.set(ZC.HX0, ZC.fb, ZC.HZ0); m.receiveShadow = true; scene.add(m);
+  // a few rooms still have a lamp burning (most of the house was dark: the power was cut that night)
+  ZD.houseLights = [];
+  const pickL = [ZD_ROOMS.findIndex(R => R.name === 'kitchen'), ZD_ROOMS.findIndex(R => R.k === 1 && R.name === 'classroom'), ZD_ROOMS.findIndex(R => R.name === 'master'), ZD_ROOMS.findIndex(R => R.name === 'study')];
+  for (const i of pickL) { if (i < 0) continue; const [x, F, z] = lamps[i], L = new THREE.PointLight(0xffc880, 0.9, 9, 1.8); L.position.set(ZC.HX0 + x, ZC.fb + F + 2.6, ZC.HZ0 + z); scene.add(L); ZD.houseLights.push(L); }
 }
 
 // ---------- walls, gates, the guest house and the yards ----------
@@ -360,7 +478,7 @@ addEventListener('keydown', e => {
 function zPosts() {
   const P = [], F = (k, r, c, face) => P.push({ x: zcx(c), y: zfy(k), z: zcz(r), face: face !== undefined ? face : rand(0, 6.28), floor: k });
   // inside the house, waiting round corners
-  for (const [k, r, c] of [[0, 2, 3], [0, 5, 11], [0, 8, 23], [0, 12, 9], [0, 17, 8], [0, 20, 17], [1, 1, 11], [1, 5, 13], [1, 10, 23], [1, 17, 5], [1, 14, 12], [1, 15, 24], [1, 10, 3], [2, 11, 3], [2, 13, 13], [2, 7, 10]]) F(k, r, c);
+  for (const [k, r, c] of [[0, 3, 6], [0, 11, 7], [0, 4, 16], [0, 10, 16], [0, 18, 15], [0, 15, 23], [1, 6, 22], [1, 2, 4], [1, 2, 14], [1, 11, 5], [1, 11, 16], [1, 18, 6], [1, 17, 17], [2, 13, 14], [2, 16, 15], [2, 16, 20]]) F(k, r, c);
   const O = (x, z, patrol) => P.push({ x, y: ZC.gy, z, face: rand(0, 6.28), floor: -1, patrol: patrol ? patrol.map(([a, b]) => ({ x: a, z: b })) : null });
   O(1, 29); O(10, 30);                                        // the guest house
   O(18, 26, [[18, 26], [44, 26]]); O(-7, 25);                 // the driveway
@@ -390,7 +508,7 @@ function zShout(n) {
 function zRaiseAlarm() {
   ZD.lastSeenT = simTime;
   if (ZD.alarm) return;
-  ZD.alarm = true; showMessage('COMPROMISED! They know you are here. Fighters will come from the streets', 4);
+  ZD.noise = (ZD.noise || 0) + 6; ZD.alarm = true; showMessage('COMPROMISED! They know you are here. Fighters will come from the streets', 4);
   if (typeof SFX !== 'undefined' && SFX.lose) SFX.lose(0.5);
   WAVE.t = Math.min(WAVE.t, 25); netFx(['za', 1]);
 }
@@ -579,7 +697,7 @@ function zBreachUpdate(dt) {
 function zInHouse(c) { return c.pos.x > zx(0) && c.pos.x < zx(26) && c.pos.z > zz(0) && c.pos.z < zz(22); }
 function zUpdate(dt) {
   if (!started) return;
-  zBreachUpdate(dt); zExfilUpdate(dt); zLightsUpdate(); zCivUpdate(dt);
+  zBreachUpdate(dt); zExfilUpdate(dt); zLightsUpdate(); zCivUpdate(dt); zVillageUpdate(dt);
   if (ZD.target && !ZD.down) {   // he watches the door
     const g = ZD.target.g; g.rotation.y = Math.atan2(player.pos.x - ZD.target.at.x, player.pos.z - ZD.target.at.z) * 0.6 + Math.PI * 0.75;
     if (!ZD.seen && player.alive && player.pos.distanceTo(ZD.target.at) < 8 && Math.abs(player.pos.y - ZD.target.at.y) < 1.5) { ZD.seen = true; showMessage('Third floor. There he is: take the shot!', 3); }
@@ -603,9 +721,9 @@ function zUpdate(dt) {
   let obj;
   const k = player.pos.y > zfy(2) - 0.5 ? 2 : player.pos.y > zfy(1) - 0.5 ? 1 : 0, inH = zInHouse(player);
   if (ZD.down) obj = 'GERONIMO E-KIA. Get to the helicopter on the landing zone north of the compound (green smoke)';
-  else if (inH && k === 2) obj = 'Third floor. Find the target';
-  else if (inH && k === 1) obj = ZD.breaches.find(b => b.name === 'stair gate').done ? 'Second floor. Up the stairs in the north-west to the third floor' : 'Second floor. The stairs up are behind a locked metal gate in the north-west: blow it';
-  else if (inH) obj = ZD.breaches.find(b => b.name === 'lower stair gate').done ? 'Ground floor. Up the stairs in the south-east corner' : 'Ground floor. The stairs up (south-east corner) are behind a locked metal gate: blow it';
+  else if (inH && k === 2) obj = 'Third floor. Turn right at the top of the stairs. He is in the bedroom';
+  else if (inH && k === 1) obj = ZD.breaches.find(b => b.name === 'stair gate').done ? 'Second floor. The stairs to his floor go up beside the ones you came up' : 'Second floor. The stairs to his floor are right beside the ones you came up, behind a locked metal door: blow it';
+  else if (inH) obj = ZD.breaches.find(b => b.name === 'lower stair gate').done ? 'Ground floor. Up the stairs at the back of the house' : 'Ground floor. Clear the rooms. The stairs are at the back of the house (east side of the hall), behind a locked gate';
   else if (zZone(player.pos) === 'pen') obj = 'You came down in the animal pen, the big west yard. Blow the pen gate (east wall) into the main courtyard';
   else if (zZone(player.pos) === 'drive') obj = 'The driveway and the guest house. Blow the inner gate (north) into the main courtyard';
   else obj = 'Get into the main house: blow the front door (north side)';
@@ -641,7 +759,7 @@ function zZone(p) {
 }
 function zFighterGoal(n, T) {
   const z = zZone(n.pos), tz = zZone(T.pos), done = nm => ZD.breaches.find(b => b.name === nm).done, near = (x, zz) => Math.hypot(n.pos.x - x, n.pos.z - zz) < 2.5;
-  const V = (x, zz) => new THREE.Vector3(x, 0, zz), fx = (zx(5) + zx(7)) / 2;
+  const V = (x, zz) => new THREE.Vector3(x, 0, zz), fx = ZD.frontDoor.x;
   if (z === tz && z !== 'out') return V(T.pos.x, T.pos.z);
   if (z === 'out') { if (tz === 'out') return V(T.pos.x, T.pos.z); if (!done('main gate')) return V(23, 41); return near(23, 37) || n.zGate ? (n.zGate = true, V(23, 27)) : V(23, 37); }
   n.zGate = false;
@@ -678,6 +796,13 @@ function installCoopHooks() {
     }
     if (ZD30 && n.team === 'blue' && n.alive && !n.inactive) {   // the team stays with you: anyone left far behind or out of sight catches up
       const L = zBlueLeader(n);
+      if (L && L.isPlayer) {   // in front of your gun? step aside at once
+        const fx = -Math.sin(player.yaw), fz = -Math.cos(player.yaw), dx = n.pos.x - L.pos.x, dz = n.pos.z - L.pos.z, along = dx * fx + dz * fz, across = dx * -fz + dz * fx;
+        if (along > 0 && along < 14 && Math.abs(across) < 1.1 && Math.abs(n.pos.y - L.pos.y) < 1.5) {
+          const sd = across >= 0 ? 1 : -1, nx = n.pos.x + -fz * sd * 4.5 * dt - fx * 2 * dt, nz = n.pos.z + fx * sd * 4.5 * dt - fz * 2 * dt;
+          if (!blockedAt(nx, nz, n.pos.y)) { n.pos.x = nx; n.pos.z = nz; }
+        }
+      }
       if (L) {
         n.zFollowT = (n.zFollowT || 0) + dt;
         if (n.zFollowT > 1) {
@@ -702,7 +827,11 @@ function installCoopHooks() {
     if (ZD30 && n.team === 'blue' && !ZD.alarm && n.target && n.target.zPost && !n.target.zAware) { n.target = null; n.tgtVisible = false; }   // weapons tight until you are spotted
     if (ZD30 && n.team === 'blue') {
       const L = zBlueLeader(n);
-      if (L) { const a = (n.npcIdx % 5) * 1.25, r = 2.5 + (n.npcIdx % 3); n.goal = new THREE.Vector3(L.pos.x + Math.sin(a) * r, 0, L.pos.z + Math.cos(a) * r); n.goalT = 30; }
+      if (L) {   // a stack behind you, a step to either side, never between you and what you are aiming at
+        const yaw = L.isPlayer ? player.yaw : (L.heading || 0) + Math.PI, fx = -Math.sin(yaw), fz = -Math.cos(yaw), rx = -fz, rz = fx;
+        const i = n.npcIdx % 5, back = 2.2 + Math.floor(i / 2) * 1.3, side = (i % 2 ? 1 : -1) * (0.9 + (i % 3) * 0.3);
+        n.goal = new THREE.Vector3(L.pos.x - fx * back + rx * side, 0, L.pos.z - fz * back + rz * side); n.goalT = 30;
+      }
     }
   };
   const fs = findSpawn;
@@ -726,9 +855,9 @@ function installCoopHooks() {
     const rh = rayHit; rayHit = function (o, d, m, team, opts) { return zTargetRay(o, d, m, team, rh(o, d, m, team, opts)); };   // (the families are never hit: bullets pass them by)
     const ah = applyHit; applyHit = function (hit, d, wpn, shooter) { if (hit && hit.zdCiv) { if (shooter === player) zCivHit(hit.zdCiv); return false; } if (hit && hit.zdTarget) { if (shooter && (shooter === player || shooter.isPlayer)) zTargetDown(player.name); return false; } return ah.apply(this, arguments); };
     const fw = fireWeapon;
-    fireWeapon = function () { const w = curW(), r = fw.apply(this, arguments); if (w && w.type === 'hit') zNoise(player.pos, w.sfx === 'supp' ? 4.5 : 45, w.sfx === 'supp' ? 0.35 : 2.2); return r; };
+    fireWeapon = function () { const w = curW(), r = fw.apply(this, arguments); if (w && w.type === 'hit' && w.sfx !== 'supp') ZD.noise = (ZD.noise || 0) + 0.25; if (w && w.type === 'hit') zNoise(player.pos, w.sfx === 'supp' ? 4.5 : 45, w.sfx === 'supp' ? 0.35 : 2.2); return r; };
     const ex = explosion;
-    explosion = function (pos, radius) { const r = ex.apply(this, arguments); zNoise(pos, Math.max(18, radius * 5), 2); return r; };
+    explosion = function (pos, radius) { ZD.noise = (ZD.noise || 0) + 1.5; const r = ex.apply(this, arguments); zNoise(pos, Math.max(18, radius * 5), 2); return r; };
     const dm = damage;
     damage = function (c, amount, attacker) {
       if (c && c.zPost && c.alive && attacker && attacker.team === 'blue') {
@@ -762,7 +891,7 @@ function installCoopHooks() {
     if (k === 'zc') { const b = ZD.breaches[e[2]]; if (b) zPlaceCharge(b, false); return; }
     if (k === 'zk') { zTargetDown(e[2], true); return; }
     if (k === 'zw') { showMessage(e[2], 4); return; }
-    if (k === 'za') { ZD.alarm = !!e[2]; if (ZD.alarm) showMessage('COMPROMISED! They know you are here', 3); else showMessage('Quiet again. They lost you', 3); return; }
+    if (k === 'za') { if (e[2] && !ZD.alarm) ZD.noise = (ZD.noise || 0) + 6; ZD.alarm = !!e[2]; if (ZD.alarm) showMessage('COMPROMISED! They know you are here', 3); else showMessage('Quiet again. They lost you', 3); return; }
     return af.apply(this, arguments);
   };
   // the team picker: co-op has only one team
@@ -773,7 +902,7 @@ function installCoopHooks() {
 function buildZD30() {
   if (!ZD30 || ZD.built) return; ZD.built = true;
   ZC.gy = heightAt(0, 0); ZC.fb = ZC.gy + 0.3;
-  zBuildCompound(); zBuildCrash(); zBuildTarget(); zBuildTown(); zBuildSky(); zDecorHouse(); zBuildLights(); zArmTeam(); zFakeDoor(); zPlaceFamilies();
+  zBuildCompound(); zBuildCrash(); zBuildTarget(); zBuildTown(); zBuildSky(); zBuildLights(); zArmTeam(); zFakeDoor(); zPlaceFamilies();
   ZD.posts = zPosts();
   zApplyLight();
   if (IS_TOUCH) {   // a night vision button for phones and tablets
@@ -899,21 +1028,6 @@ function zLightsUpdate() {
     ZD.dot.position.copy(b);
   }
 }
-// rugs, low beds and cushions in the rooms (decoration only: nothing to trip on)
-function zDecorHouse() {
-  const P = new Part(), cols = [0x7a2e2a, 0x4a3a6a, 0x2f5a52, 0x8a6a34, 0x5a2a3e];
-  for (const k of [0, 1, 2]) {
-    const g = ZD_GRID[k], F = zfy(k) - ZC.fb;
-    for (let r = 2; r < 20; r += 3) for (let c = 2; c < 24; c += 3) {
-      let open = true; for (let dr = -1; dr <= 1 && open; dr++) for (let dc = -1; dc <= 1 && open; dc++) if ((g[r + dr] || '')[c + dc] !== ' ') open = false;
-      if (!open || Math.random() < 0.35) continue;
-      P.box(rand(1.8, 2.6), 0.02, rand(1.4, 2.0), pick(cols), c + 0.5, F + 0.012, r + 0.5);
-      if (Math.random() < 0.4) { P.box(0.6, 0.12, 0.6, 0xb8a888, c + 0.5 + rand(-0.6, 0.6), F + 0.07, r + 0.5 + rand(-0.6, 0.6)); }
-    }
-    for (let r = 1; r < 21; r += 4) for (let c = 1; c < 25; c += 5) if (g[r] && g[r][c] === ' ') P.box(0.25, 0.06, 0.25, 0xfff0c0, c + 0.5, F + 3.62, r + 0.5);   // ceiling lamps (off: the power was out)
-  }
-  const m = new THREE.Mesh(P.build(), VEH_MAT); m.position.set(ZC.HX0, ZC.fb, ZC.HZ0); m.scale.set(ZC.CS, 1, ZC.CS); scene.add(m);
-}
 
 // ---------- the outside of the house, as described ----------
 // A plain white concrete house that needed paint: opaque (frosted) windows, few of them facing out; the third
@@ -936,38 +1050,37 @@ function zDressHouse() {
   };
   const y0 = 1.55, y1 = 4 + 1.6, y2 = 8;   // window centres above the ground-floor level (the mesh sits at the ground floor)
   // ground and second floors: ordinary glass windows, most onto the courtyard (north), fewer on the other sides
-  for (const [a, aw, ac] of [[3.2, 1, 0], [13.5, 1, 1], [19, 0, 0], [24.5, 1, 0], [29, 0, 1]]) win('n', a, y0, 1.3, 1.25, { awning: aw, ac });
+  for (const [a, aw, ac] of [[3.2, 1, 0], [8.5, 1, 1], [20.5, 0, 0], [25, 1, 0], [29.5, 0, 1]]) win('n', a, y0, 1.3, 1.25, { awning: aw, ac });
   for (const [a, aw, ac] of [[3.5, 1, 0], [9, 0, 1], [15, 1, 0], [21, 1, 0], [27.5, 0, 1]]) win('n', a, y1, 1.3, 1.25, { awning: aw, ac });
   for (const a of [4, 20.5, 27]) win('s', a, y0, 1.2, 1.1, { awning: 1 });
   for (const a of [4, 23.5, 28.5]) win('s', a, y1, 1.2, 1.1, { awning: a > 25, ac: a === 4 });
   for (const a of [8, 20]) { win('e', a, y0, 1.1, 1.0, { awning: 1 }); win('e', a, y1, 1.1, 1.0, { ac: a === 8 }); }
   win('w', 12, y0 + 0.5, 0.7, 0.5); win('w', 12, y1 + 0.5, 0.7, 0.5);   // small ones toward the outer wall
   // third floor: windows on one side only (north), opaque, four of five just slits high up
-  for (const a of [2.5, 6.5, 15, 19.5]) win('n', a, y2 + 2.6, 1.2, 0.24, { frosted: 1 });
-  win('n', 11, y2 + 1.8, 1.0, 0.9, { frosted: 1 });
+  { const zt = zz(ZD_TOP.r0) - o, slit = (x, y, w, h) => { P.box(w + 0.16, h + 0.16, 0.06, frame, x, y, zt); P.box(w, h, 0.08, frost, x, y, zt - 0.012); P.box(w + 0.3, 0.07, 0.2, 0xd8d0bc, x, y - h / 2 - 0.1, zt - 0.08); };
+    for (const c of [13.5, 15.5, 21, 23.5]) slit(zx(c), y2 + 2.6, 1.2, 0.24); slit(zx(18.2), y2 + 1.8, 1.0, 0.9); }
   // the deep concrete ledges round every floor and the roof (rings, so nothing covers a stair opening)
   const ring = (x0, x1, z0, z1, y, d, col) => {
     P.box(x1 - x0 + d * 2, 0.2, d, col, (x0 + x1) / 2, y, z0 - d / 2); P.box(x1 - x0 + d * 2, 0.2, d, col, (x0 + x1) / 2, y, z1 + d / 2);
     P.box(d, 0.2, z1 - z0, col, x0 - d / 2, y, (z0 + z1) / 2); P.box(d, 0.2, z1 - z0, col, x1 + d / 2, y, (z0 + z1) / 2);
   };
   ring(X0, X1, Z0, Z1, 3.55, 0.9, 0xe6dcc4); ring(X0, X1, Z0, Z1, 7.55, 0.9, 0xe6dcc4);
-  ring(zx(0), zx(18), zz(0), zz(16), 8 + 3.75, 1.1, 0xe6dcc4);
-  for (const [x, z, w, d] of [[(X0 + X1) / 2, Z0 - 0.03, X1 - X0, 0.04], [(X0 + X1) / 2, Z1 + 0.03, X1 - X0, 0.04], [X0 - 0.03, (Z0 + Z1) / 2, 0.04, Z1 - Z0], [X1 + 0.03, (Z0 + Z1) / 2, 0.04, Z1 - Z0]]) P.box(w, 0.45, d, 0xa49c8a, x, 0.22, z);   // dirt splashed up the foot of the walls
+  ring(zx(ZD_TOP.c0), zx(ZD_TOP.c1 + 1), zz(ZD_TOP.r0), zz(ZD_TOP.r1 + 1), 8 + 3.75, 1.1, 0xe6dcc4);
   for (const [x, z] of [[X0 + 0.15, Z0 - 0.12], [X1 - 0.15, Z0 - 0.12], [X1 - 0.15, Z1 + 0.12], [X0 + 0.15, Z1 + 0.12]]) P.cyl(0.06, 0.06, 8, 0x8a8a84, x, 4, z);
   // the porch over the front door
-  const dx = (zx(5) + zx(7)) / 2;
-  P.box(3.4, 0.18, 1.6, 0xc8c2b4, dx, 3.0, Z0 - 0.8); for (const s of [-1, 1]) P.box(0.12, 0.6, 1.5, 0xc8c2b4, dx + s * 1.64, 2.7, Z0 - 0.78);
-  P.box(zx(7) - zx(5) + 0.3, 0.12, 0.12, 0x6a5440, dx, 2.66, Z0 - 0.06);   // door frame top
+  const dx = ZD.frontDoor ? ZD.frontDoor.x : zx(12);
+  P.box(3.6, 0.18, 1.7, 0xd8d0bc, dx, 2.95, Z0 - 0.85); for (const s of [-1, 1]) P.box(0.12, 0.5, 1.6, 0xd8d0bc, dx + s * 1.74, 2.7, Z0 - 0.8);   // a concrete canopy on brackets
+  P.box(0.3, 0.3, 0.12, 0xf6f0d0, dx + 1.6, 2.2, Z0 - 0.06);   // an outside light by the door
   // satellite dishes and water tanks on the roofs; security cameras on the corners
   const roof2 = zfy(2) + 3.7 + 0.35 - ZC.fb, roof1 = zfy(2) - ZC.fb;
-  for (const [x, z, y] of [[zx(4), zz(13), roof2], [zx(14), zz(2), roof2], [zx(20), zz(19), roof1]]) {
+  for (const [x, z, y] of [[zx(15), zz(10), roof2], [zx(22), zz(16), roof2], [zx(5), zz(2), roof1]]) {
     P.add(new THREE.SphereGeometry(0.55, 12, 6, 0, Math.PI * 2, 0, Math.PI * 0.42), 0xe6e6e2, x, y + 1.0, z, -1.0, 0.8, 0);
     P.cyl(0.04, 0.04, 0.9, 0x777777, x, y + 0.45, z); P.box(0.4, 0.06, 0.4, 0x666666, x, y + 0.03, z);
   }
-  for (const [x, z] of [[zx(9), zz(5)], [zx(11), zz(5)]]) { P.cyl(0.55, 0.55, 1.1, 0x26292b, x, roof2 + 0.85, z); P.cyl(0.6, 0.6, 0.3, 0x3a3d3f, x, roof2 + 0.15, z); }
+  for (const [x, z] of [[zx(19), zz(6)], [zx(21), zz(6)]]) { P.cyl(0.55, 0.55, 1.1, 0x26292b, x, roof2 + 0.85, z); P.cyl(0.6, 0.6, 0.3, 0x3a3d3f, x, roof2 + 0.15, z); }
   for (const [x, z, a] of [[X0 - 0.15, Z0 - 0.15, -0.8], [X1 + 0.15, Z0 - 0.15, 0.8]]) { P.box(0.16, 0.12, 0.26, 0xdddddd, x, 3.6, z, -0.3, a); P.cyl(0.04, 0.04, 0.03, 0x111111, x, 3.6, z - 0.14, 1.2); }
   const m = new THREE.Mesh(P.build(), VEH_MAT); m.position.set(0, ZC.fb, 0); m.castShadow = true; m.receiveShadow = true; scene.add(m);
-  zBox(zx(4.6), zx(7.4), Z0 - 1.0, Z0, ZC.gy - 0.3, ZC.fb - 0.1, ZM.floor);   // the step up to the door
+  zBox(dx - 1.7, dx + 1.7, Z0 - 1.2, Z0, ZC.gy - 0.3, ZC.fb - 0.12, ZM.step);   // the step up to the door
   // the second-floor balcony on the south side, behind its 7-foot privacy wall (a door leads out from the room behind)
   const bx0 = zx(8), bx1 = zx(16), bz = Z1 + 1.9, F1 = zfy(1);
   zBox(bx0, bx1, Z1, bz, F1 - 0.3, F1, ZM.floor);
@@ -1058,7 +1171,7 @@ if (ZD30) { const mc = makeCharacter; makeCharacter = function (team, role) { re
 const ZCIV = [];
 function zCivModel(kind, crouch) {
   const P = new Part(), child = kind === 'child', S = child ? 0.62 : 1;
-  const skin = parseInt(pick(ZLOCAL.skins).slice(1), 16), cloth = pick(child ? [0x3a7ab8, 0xc84a4a, 0x5aa05a, 0xd8a038, 0x8a5ab0] : [0x6a3a4a, 0x2e4a6a, 0x5a4a3a, 0x7a6a8a, 0x3a5a4a]), scarf = pick([0x2a2a2e, 0xd8d2c8, 0x5a3a5a, 0x3a4a5a]);
+  const skin = parseInt(pick(ZLOCAL.skins).slice(1), 16), cloth = kind === 'man' ? pick([0xe8e4d8, 0xd8d0c0, 0x9a958a, 0x6a6458, 0x8a7a64, 0x3a3c40]) : pick(child ? [0x3a7ab8, 0xc84a4a, 0x5aa05a, 0xd8a038, 0x8a5ab0] : [0x6a3a4a, 0x2e4a6a, 0x5a4a3a, 0x7a6a8a, 0x3a5a4a]), scarf = pick([0x2a2a2e, 0xd8d2c8, 0x5a3a5a, 0x3a4a5a]);
   const hairC = 0x1a1410;
   if (!crouch) {
     for (const sd of [-1, 1]) { P.cyl(0.1, 0.08, 0.6, cloth, 0.11 * sd, 0.32, 0, 0, 0, 0, 1, 8); P.box(0.12, 0.06, 0.22, 0x3a2a20, 0.11 * sd, 0.03, 0.04); }
@@ -1067,6 +1180,7 @@ function zCivModel(kind, crouch) {
     P.add(new THREE.SphereGeometry(0.15, 12, 10), skin, 0, 1.86, 0.01, 0, 0, 0, 0.92, 1.12, 1.0);
     for (const sd of [-1, 1]) { P.box(0.035, 0.02, 0.012, 0xf0ece4, 0.05 * sd, 1.89, 0.14); P.box(0.018, 0.02, 0.014, 0x1b1410, 0.05 * sd, 1.89, 0.144); }
     if (child) P.dome(0.155, hairC, 0, 1.9, -0.01, 1, 0.9, 1);
+    else if (kind === 'man') { P.dome(0.16, pick([0xf2f0ea, 0xb8a888, 0x1a1612]), 0, 1.93, -0.01, 1, 0.6, 1); P.add(new THREE.SphereGeometry(0.12, 10, 8), pick([0x1a1612, 0x3a3430, 0x6a6660]), 0, 1.76, 0.06, 0, 0, 0, 0.95, 1.2, 0.8); }
     else { P.dome(0.19, scarf, 0, 1.88, -0.02, 1, 1.05, 1.05); P.box(0.4, 0.6, 0.1, scarf, 0, 1.55, -0.17); P.box(0.12, 0.5, 0.06, scarf, 0.18, 1.5, 0.12, 0, 0, 0.15); }   // dupatta over the head and shoulders
   } else {   // crouched down low, arms over the head
     P.cyl(0.3, 0.34, 0.45, cloth, 0, 0.3, 0, 0, 0, 0, 0.75, 12); P.cyl(0.25, 0.28, 0.45, cloth, 0, 0.7, 0.08, 0.5, 0, 0, 0.62, 12);
@@ -1078,9 +1192,9 @@ function zCivModel(kind, crouch) {
 }
 function zPlaceFamilies() {
   const spots = [   // [floor, row, col, kind] in the house; the courier's family in the guest house
-    [0, 1, 20, 'woman'], [0, 4, 22, 'child'], [0, 12, 2, 'woman'], [0, 13, 3, 'child'], [0, 18, 12, 'child'],
-    [1, 1, 2, 'woman'], [1, 1, 24, 'woman'], [1, 6, 24, 'child'], [1, 19, 10, 'child'], [1, 20, 2, 'child'], [1, 11, 20, 'woman'],
-    [2, 3, 14, 'woman'], [2, 7, 15, 'child'], [2, 11, 1, 'woman'], [2, 13, 6, 'child'],
+    [0, 18, 3, 'woman'], [0, 19, 4, 'child'], [0, 18, 23, 'child'], [0, 12, 7, 'woman'],
+    [1, 2, 3, 'woman'], [1, 3, 5, 'child'], [1, 2, 15, 'woman'], [1, 11, 3, 'child'], [1, 12, 5, 'child'], [1, 17, 16, 'woman'], [1, 19, 18, 'child'],
+    [2, 6, 14, 'woman'], [2, 10, 16, 'child'], [2, 16, 14, 'child'],
   ];
   const add = (x, y, z, kind) => {
     const g = new THREE.Group(), up = zCivModel(kind, false); g.add(up);
@@ -1143,5 +1257,38 @@ function zCivUpdate(dt) {
     c.ph += dt * (moving ? 11 : 0);
     c.up.position.y = moving ? Math.abs(Math.sin(c.ph)) * 0.06 : 0;
     c.up.rotation.z = moving ? Math.sin(c.ph) * 0.05 : 0;
+  }
+}
+
+// ---------- the neighbours: the louder it gets, the more people come out and gather round the walls ----------
+// (On the night, neighbours came out to see what was happening; the team kept them back.) They are unarmed and
+// can't be hurt: they stand and watch from outside the walls.
+const ZVILL = [];
+function zVillagerSpot() {   // a place just outside the walls, on a line out from the middle of the compound
+  for (let k = 0; k < 20; k++) {
+    const a = rand(0, 6.28), dx = Math.cos(a), dz = Math.sin(a); let r = 5;
+    while (r < 120 && zInPoly(dx * r, dz * r)) r += 2;
+    const x = dx * (r + rand(5, 13)), z = dz * (r + rand(5, 13));
+    if (Math.abs(x) < EDGE - 10 && Math.abs(z) < EDGE - 10 && !blockedAt(x, z, heightAt(x, z))) return { x, z, a };
+  }
+  return null;
+}
+function zVillageUpdate(dt) {
+  const want = Math.min(LITE ? 16 : 28, Math.floor((ZD.noise || 0) * 1.6));
+  if (ZVILL.length < want && Math.random() < dt * 2) {
+    const S = zVillagerSpot();
+    if (S) {
+      const kind = Math.random() < 0.8 ? 'man' : 'child', g = new THREE.Group(), m = zCivModel(kind, false); g.add(m);
+      const from = { x: S.x + Math.cos(S.a) * rand(40, 70), z: S.z + Math.sin(S.a) * rand(40, 70) };
+      g.position.set(from.x, heightAt(from.x, from.z), from.z); scene.add(g);
+      if (Math.random() < 0.3) { const ph = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.12, 0.02), new THREE.MeshBasicMaterial({ color: 0xbfe0ff })); ph.position.set(0.18, 1.45, 0.25); m.add(ph); }   // a phone held up
+      ZVILL.push({ g, m, goal: S, ph: rand(0, 6), sp: rand(1.3, 2.2) });
+      if (ZVILL.length === 5) showMessage('Neighbours are coming out and gathering outside the walls', 3);
+    }
+  }
+  for (const v of ZVILL) {
+    const p = v.g.position, dx = v.goal.x - p.x, dz = v.goal.z - p.z, d = Math.hypot(dx, dz);
+    if (d > 0.6) { p.x += dx / d * v.sp * dt; p.z += dz / d * v.sp * dt; p.y = heightAt(p.x, p.z); v.g.rotation.y = Math.atan2(dx, dz); v.ph += dt * 10; v.m.position.y = Math.abs(Math.sin(v.ph)) * 0.05; }
+    else { v.g.rotation.y = Math.atan2(-p.x, -p.z); v.m.position.y = 0; }   // watching the compound
   }
 }
