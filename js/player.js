@@ -822,7 +822,7 @@ function drawMap(ctx, S, cx, cz, R, big) {
   if (HUB && (under || big)) { const [x, y] = P(HUB.x, HUB.z + 22); ctx.fillStyle = '#ffd54f'; ctx.font = `bold ${big ? 11 : 9}px system-ui`; ctx.textAlign = 'center'; ctx.fillText('HQ', x, y); }
   const pr = big ? 13 : 8;
   if (ZD30 && typeof ZD !== 'undefined') {   // the raid: the main house, and the landing zone once the target is down
-    const [hx, hy] = P(ZC.HX0 + 13, ZC.HZ0 + 11); ctx.strokeStyle = '#ffd54f'; ctx.lineWidth = 2; ctx.strokeRect(hx - 26 * k / 2, hy - 22 * k / 2, 26 * k, 22 * k);
+    const [hx, hy] = P(zx(13), zz(11)), hw = 26 * ZC.CS * k, hd = 22 * ZC.CS * k; ctx.strokeStyle = '#ffd54f'; ctx.lineWidth = 2; ctx.strokeRect(hx - hw / 2, hy - hd / 2, hw, hd);
     if (ZD.down) { const [lx, ly] = P(ZC.lz.x, ZC.lz.z); ctx.fillStyle = '#5ae05a'; ctx.beginPath(); ctx.arc(lx, ly, pr, 0, 7); ctx.fill(); ctx.fillStyle = '#111'; ctx.font = `bold ${big ? 13 : 9}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('LZ', lx, ly + 0.5); }
   }
   for (const p of ZD30 ? [] : points) {
