@@ -725,7 +725,7 @@ function buildMotorPools() {
   for (const t of TEAMS) {
     const B = BASES[t], s = teamSide(t), yaw = s > 0 ? 0 : Math.PI;
     const row = [['bike', -30], ['jeep', -24], ['jeep', -18], ['jeep', -12], ['apc', -4], ['jeep', 5], ['jeep', 11], ['jeep', 17], ['buggy', 23], ['bike', 28]];
-    const ww2 = t => !WW2V ? t : t === 'apc' ? 'truck' : (t === 'bike' || t === 'buggy' || t === 'quad') ? 'jeep' : t;   // WWII maps: jeeps and trucks only
+    const ww2 = t => (typeof AFGHAN !== 'undefined' && AFGHAN) ? ((t === 'bike' || t === 'quad') ? 'jeep' : t) : !WW2V ? t : t === 'apc' ? 'truck' : (t === 'bike' || t === 'buggy' || t === 'quad') ? 'jeep' : t;   // WWII maps: jeeps and trucks only; Desert Combat: Humvees, APCs and desert patrol buggies
     for (const [type, dx] of row) parkVehicle(ww2(type), t, B.x + dx, B.z - s * 52, yaw);
     for (const name of t === 'blue' ? ['A', 'B'] : t === 'red' ? ['D', 'E'] : []) {
       const p = PD[name], toC = Math.atan2(-(0 - p.x), -(0 - p.z)), ox = Math.sign(p.x) * 26, oz = s * 22;

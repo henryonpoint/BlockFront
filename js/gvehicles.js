@@ -136,6 +136,10 @@ function buildGroundVehicles() {
     const B = BASES[t], s = teamSide(t), yaw = s > 0 ? 0 : Math.PI;
     makeGV('jeep', t, B.x - 21, B.z - s * 38, yaw); makeGV('tank', t, B.x - 8, B.z - s * 38, yaw);
     makeGV('truck', t, B.x + 8, B.z - s * 38, yaw); makeGV('jeep', t, B.x + 21, B.z - s * 38, yaw);
+    if (AFGHAN && (t === 'blue' || t === 'red')) {   // Desert Combat: a proper armoured column at each base (tanks and infantry fighting vehicles)
+      for (const dx of [-34, 34]) makeGV('tank', t, B.x + dx, B.z - s * 38, yaw);
+      for (const dx of [-21, -8, 8, 21]) makeGV(dx === 21 ? 'truck' : 'apc', t, B.x + dx, B.z - s * 24, yaw);
+    }
   }
   buildTunnelQuads();
   buildMotorPools();

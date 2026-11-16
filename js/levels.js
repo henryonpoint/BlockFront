@@ -186,6 +186,7 @@ function buildAfghan() {
     const H = new Part(); H.box(1, 0.05, 6, 0xf2f2f2, -1.8, 0, 0); H.box(1, 0.05, 6, 0xf2f2f2, 1.8, 0, 0); H.box(2.6, 0.05, 1, 0xf2f2f2, 0, 0, 0); const hm = new THREE.Mesh(H.build(), VEH_MAT); hm.position.set(x, y + 0.23, z); scene.add(hm); }
   { const x = B.x + 55, z = B.z - 20, y = heightAt(x, z); addMesh(new THREE.CylinderGeometry(0.15, 0.4, 26, 6), LV.rail, x, y + 13, z); addMesh(new THREE.BoxGeometry(2, 0.1, 0.1), LV.rail, x, y + 22, z); addCircle(x, z, 0.6, y + 26); }
   buildGulfWar();
+  buildGulfDefences();
   // wrecked vehicles and sandbag posts dotted around
   for (let i = 0; i < 18; i++) { const x = rand(-420, 420), z = rand(-400, 400); if (!lvFree(x, z, 3)) continue; const y = heightAt(x, z), P = new Part(); P.box(2, 1, 4.2, 0x3a3430, 0, 0.7, 0); P.box(1.8, 0.8, 1.8, 0x2a2622, 0, 1.5, 0.5); for (const sx of [-1, 1]) for (const sz of [-1.4, 1.4]) P.cyl(0.45, 0.45, 0.3, 0x1a1a1a, sx * 1.05, 0.45, sz, 0, 0, Math.PI / 2, 1, 8); const m = new THREE.Mesh(P.build(), VEH_MAT); m.position.set(x, y, z); m.rotation.set(rand(-0.1, 0.1), rand(0, 6.28), rand(-0.3, 0.3)); scene.add(m); addBlock(x, z, 2.4, 1.8, 2.4, LV.hidden); }
   for (let i = 0; i < 20; i++) { const x = rand(-430, 430), z = rand(-420, 420); if (!lvFree(x, z, 3)) continue; const y = heightAt(x, z), P = new Part(); for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 1.6; P.add(new THREE.SphereGeometry(0.5, 7, 5), 0xa8935f, Math.cos(a) * 2.2, 0.35, Math.sin(a) * 2.2, 0, 0, 0, 1.4, 0.6, 1); P.add(new THREE.SphereGeometry(0.5, 7, 5), 0x9a8552, Math.cos(a + 0.15) * 2.2, 0.9, Math.sin(a + 0.15) * 2.2, 0, 0, 0, 1.4, 0.6, 1); } const m = new THREE.Mesh(P.build(), VEH_MAT); m.position.set(x, y, z); m.rotation.y = rand(0, 6.28); scene.add(m); }
@@ -1146,6 +1147,75 @@ function buildGulfWar() {
       P.box(8, 2.2, 1.5, 0xc8b084, x, y + 1.1, z - 4); P.box(1.5, 2.2, 8, 0xc8b084, x - 4, y + 1.1, z); P.box(1.5, 2.2, 8, 0xc8b084, x + 4, y + 1.1, z); }
     scene.add(new THREE.Mesh(P.build(), VEH_MAT));
     if (typeof makeTurret === 'function') for (const dx of [-55, 55]) { const x = Rb.x + dx, z = Rb.z - s * 30; if (lvFree(x, z, 1) || pathDist(x, z) > 4) makeTurret(x, z, 'mg', s > 0 ? Math.PI : 0); }
+  }
+}
+// a concrete pillbox, half dug in, sandbags on the roof, a dark firing slit and a machine gun out front
+function gulfBunker(x, z, yaw, gun) {
+  if (!lvFree(x, z, 3) && pathDist(x, z) < 6) return;
+  const y = groundMin(x, z, 4, 3) - 0.6, P = new Part();
+  P.box(7, 2.8, 5, 0x9a958a, 0, 1.4, 0); P.box(7.4, 0.4, 5.4, 0x8a857a, 0, 2.9, 0);
+  for (let i = 0; i < 6; i++) P.box(1.0, 0.45, 0.6, 0xb8a47a, -2.6 + i * 1.04, 3.3, -2.1); for (let i = 0; i < 6; i++) P.box(1.0, 0.45, 0.6, 0xa8946a, -2.6 + i * 1.04, 3.3, 2.1);
+  P.box(4.4, 0.35, 0.1, 0x101010, 0, 1.9, -2.53); P.box(1.4, 2.0, 0.1, 0x1a1a1a, 2.4, 1.0, 2.53);   // firing slit, door at the back
+  for (const sd of [-1, 1]) P.box(0.6, 1.4, 6.5, 0xb8a47a, sd * 3.9, 0.5, 0, 0, 0, sd * 0.35);   // earth banked up the sides
+  const m = new THREE.Mesh(P.build(), VEH_MAT); m.position.set(x, y, z); m.rotation.y = yaw; m.castShadow = true; scene.add(m);
+  const c = Math.cos(yaw), s2 = Math.sin(yaw), along = Math.abs(s2) < 0.5;
+  addBlock(x, z, along ? 7 : 5, 3.2, along ? 5 : 7, LV.hidden, { y });
+  if (gun && typeof makeTurret === 'function') makeTurret(x - Math.sin(yaw) * 4.5, z - Math.cos(yaw) * 4.5, gun, yaw);
+}
+// an earth-covered ammunition bunker: a long grassless mound with a concrete face and steel doors
+function ammoBunker(P, x, z, yaw, y) {
+  const c = Math.cos(yaw), s = Math.sin(yaw), at = (u, v) => [x + u * c + v * s, z - u * s + v * c];
+  for (let k = 0; k < 5; k++) { const [px, pz] = at(0, -6 + k * 3); P.add(new THREE.CylinderGeometry(4.2, 4.2, 3.2, 14, 1, false, -Math.PI / 2, Math.PI), 0xc2ab7e, px, y, pz, Math.PI / 2, yaw, 0); }
+  const [fx, fz] = at(0, -7.7); P.box(9, 4.6, 0.6, 0x9a958a, fx, y + 2.1, fz, 0, yaw, 0); const [dx, dz] = at(0, -8.05); P.box(3.6, 3, 0.1, 0x4a5048, dx, y + 1.5, dz, 0, yaw, 0);
+}
+function buildGulfDefences() {
+  // the weapons depot at point F: sand berm walls with gates where the roads go in, rows of earth-covered ammo bunkers, pillboxes, watchtowers
+  { const F = PD.F, P = new Part(), R = 46;
+    const fy = heightAt(F.x, F.z);
+    for (let k = 0; k < 40; k++) { const a = k / 40 * 6.28, x = F.x + Math.cos(a) * R, z = F.z + Math.sin(a) * R; if (pathDist(x, z) < 9 || Math.abs(x) > EDGE - 6 || Math.abs(z) > EDGE - 6 || Math.abs(heightAt(x, z) - fy) > 3.5) continue;
+      const y = heightAt(x, z); P.box(7.8, 3, 4.5, 0xc8b084, x, y + 0.8, z, 0, -a + Math.PI / 2, 0); addBlock(x, z, 5, 3.2, 5, LV.hidden); }
+    for (const [u, v, yaw] of [[-24, -14, 0], [-24, 14, Math.PI], [24, -14, 0], [24, 14, Math.PI], [0, -30, 0]]) { const x = F.x + u, z = F.z + v; if (!lvFree(x, z, 3) && pathDist(x, z) < 7) continue; const y = groundMin(x, z, 5, 8) - 0.3; ammoBunker(P, x, z, yaw, y); addBlock(x, z, 8.4, 4.4, 15, LV.hidden, { y }); }
+    scene.add(new THREE.Mesh(P.build(), VEH_MAT));
+    for (const [u, v, yaw] of [[-34, 0, Math.PI / 2], [34, 0, -Math.PI / 2]]) gulfBunker(F.x + u, F.z + v, yaw, 'mg');
+  }
+  // fortified compounds round the points nearest each base: square berms, corner pillboxes, MG nests and TOW / anti-tank launchers
+  for (const n of ['A', 'B', 'C']) {
+    const C = PD[n], P = new Part(), H = 34;
+    for (const [x0, z0, x1, z1] of [[-H, -H, H, -H], [H, -H, H, H], [H, H, -H, H], [-H, H, -H, -H]]) for (let t = 0; t <= 1.001; t += 1 / 9) {
+      const x = C.x + lerp(x0, x1, t), z = C.z + lerp(z0, z1, t); if (pathDist(x, z) < 9 || Math.abs(x) > EDGE - 6 || Math.abs(z) > EDGE - 6) continue;
+      const y = heightAt(x, z), alongX = z0 === z1; P.box(alongX ? 8 : 3.6, 2.4, alongX ? 3.6 : 8, 0xc8b084, x, y + 0.6, z); addBlock(x, z, alongX ? 7.6 : 3.4, 2.6, alongX ? 3.4 : 7.6, LV.hidden);
+    }
+    scene.add(new THREE.Mesh(P.build(), VEH_MAT));
+    const toBase = n === 'C' ? 'red' : 'blue', B = BASES[toBase], yaw = Math.atan2(-(B.x - C.x), -(B.z - C.z));
+    gulfBunker(C.x - 22, C.z - 22, yaw, 'mg'); gulfBunker(C.x + 22, C.z + 22, yaw, null);
+    if (typeof makeTurret === 'function') { if (lvFree(C.x + 24, C.z - 20, 1)) makeTurret(C.x + 24, C.z - 20, 'launcher', yaw); if (lvFree(C.x - 20, C.z + 24, 1)) makeTurret(C.x - 20, C.z + 24, 'mg', yaw); }
+  }
+  // bridges where the roads cross the river: a concrete deck with railings on piers
+  { const P = new Part(), done = [];
+    for (const [a, b] of PATHS) for (let t = 0; t <= 1; t += 0.005) {
+      const x = lerp(a.x, b.x, t), z = lerp(a.z, b.z, t); if (Math.abs(z - RIVER_Z(x)) > 1.5 || done.some(d => Math.hypot(d.x - x, d.z - z) < 30)) continue;
+      done.push({ x, z }); const yaw = Math.atan2(b.x - a.x, b.z - a.z), y = heightAt(x, z), c = Math.cos(yaw), s = Math.sin(yaw);
+      P.box(9, 0.6, 38, 0x9a9a94, x, y + 0.25, z, 0, yaw, 0);
+      for (const sd of [-1, 1]) { P.box(0.25, 1.0, 38, 0x7a7a74, x + c * sd * 4.4, y + 1.0, z - s * sd * 4.4, 0, yaw, 0); for (let k = -2; k <= 2; k++) P.box(1.2, 4, 1.2, 0x8a8a84, x + c * sd * 3 + s * k * 8, y - 1.8, z - s * sd * 3 + c * k * 8); }
+    }
+    scene.add(new THREE.Mesh(P.build(), VEH_MAT));
+  }
+  // at the bases: a Scud launcher on its eight-wheel truck (Iraqi) and an MLRS rocket launcher (US), Patriot / SAM batteries and mobile AA guns
+  { const Rb = BASES.red, sR = teamSide('red'), P = new Part(), x = Rb.x + 52, z = Rb.z - sR * 10, y = heightAt(x, z);
+    if (lvFree(x, z, 0) || pathDist(x, z) > 6) {
+      P.box(2.8, 1.6, 12, 0x6c6644, x, y + 1.6, z); P.box(2.8, 1.8, 2.6, 0x8c8458, x, y + 2.4, z - 5.6); for (let k = 0; k < 4; k++) for (const sd of [-1, 1]) P.cyl(0.6, 0.6, 0.5, 0x1a1a1a, x + sd * 1.45, y + 0.6, z - 4.4 + k * 2.6, 0, 0, Math.PI / 2, 1, 10);
+      P.cyl(0.45, 0.45, 11, 0xd8d8cc, x, y + 5.8, z + 1.5, 0.5, 0, 0, 1, 12); P.add(new THREE.ConeGeometry(0.45, 1.6, 12), 0xd8d8cc, x, y + 10.7, z - 1.3, 0.5 - Math.PI / 2 + Math.PI, 0, 0);   // the missile raised to fire
+      for (let k = 0; k < 3; k++) P.box(0.2, 5, 0.2, 0x4a4a34, x + (k - 1) * 0.9, y + 4, z + 2.5, 0.5); addBlock(x, z, 3, 3, 12, LV.hidden);
+    }
+    const Bb = BASES.blue, sB = teamSide('blue'), mx = Bb.x - 52, mz = Bb.z - sB * 10, my = heightAt(mx, mz);
+    if (lvFree(mx, mz, 0) || pathDist(mx, mz) > 6) {
+      P.box(3.2, 1.2, 6.6, 0xbba27a, mx, my + 1.0, mz); for (const sd of [-1, 1]) P.box(0.6, 0.7, 6.8, 0x2a2a2a, mx + sd * 1.5, my + 0.4, mz);
+      P.box(2.6, 1.6, 2.2, 0xbba27a, mx, my + 2.0, mz - 2.0); P.box(3.0, 1.4, 3.6, 0x977f5a, mx, my + 2.4, mz + 1.2, -0.45);   // cab, rocket pod box raised
+      for (let i = 0; i < 6; i++) for (let j = 0; j < 2; j++) P.cyl(0.18, 0.18, 0.1, 0x1a1a1a, mx - 1.0 + i * 0.4, my + 2.0 + j * 0.6, mz - 0.5 + j * 0.27, -0.45 + Math.PI / 2, 0, 0, 1, 8);
+      addBlock(mx, mz, 3.2, 3, 6.6, LV.hidden);
+    }
+    scene.add(new THREE.Mesh(P.build(), VEH_MAT));
+    if (typeof makeTurret === 'function') for (const t of ['blue', 'red']) { const B = BASES[t], s = teamSide(t); for (const dx of [-70, 70]) { const ax = B.x + dx, az = B.z - s * 10; if (lvFree(ax, az, 1) || pathDist(ax, az) > 5) makeTurret(ax, az, 'mg', s > 0 ? 0 : Math.PI); } }
   }
 }
 function updateGulfWar(dt) {
