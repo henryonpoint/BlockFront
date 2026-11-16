@@ -143,6 +143,7 @@ function buildGermany() {
   }
   buildBerlinLandmarks();
   buildBerlinWar();
+  buildBerlinSigns();
   // war damage across the countryside: tank traps, sandbags, wrecked cars and more rubble
   for (let i = 0; i < 70; i++) { const a = rand(0, 6.28), r = rand(60, 520), x = Math.cos(a) * r, z = Math.sin(a) * r; if (Math.abs(x) > EDGE - 20 || Math.abs(z) > EDGE - 20) continue; if (lvFree(x, z, 3) && waterDepth(x, z) === 0) (Math.random() < 0.5 ? rubble : hedgehog)(x, z); }
   for (let i = 0; i < 14; i++) { const x = rand(-TOWN_R + 10, TOWN_R - 10), z = rand(-TOWN_R + 10, TOWN_R - 10); if (townStreetDist(x, z) < 2.5 && Math.hypot(x, z) < TOWN_R - 10) { let near = false; for (const p of POINTS_DEF) if (Math.hypot(x - p.x, z - p.z) < 14) near = true; if (!near && typeof addCar === 'function') addCar(x, z, Math.random() < 0.5, 0x2a2826); } }
@@ -373,6 +374,7 @@ function applyDamState(d) { if (!Array.isArray(d)) return; DAMWALL.hp = d[0]; if
 // the bungee jump: drop off the dam into the gorge and a parachute opens for you
 function updateLevel(dt) {
   if (DAM) updateDam(dt);
+  if ((GERMANY || NORMANDY) && typeof updatePointsVisual === 'function') installWW2Flags();
   if (GERMANY) { installLeaderHooks(); installGuardHook(); updateBombers(dt); updateLeader(dt); updateBerlinWar(dt); }
   if ((GERMANY || NORMANDY) && started) updateBarrage(dt);
   if (AFGHAN && started && !AFG.told && player.alive) { AFG.told = true; showMessage('Desert Combat: Afghanistan. Blue holds the base in the south of the valley, red holds the mountain villages. Humvees, jets and helicopters are at your base', 7); }
@@ -892,4 +894,99 @@ function updateBerlinWar(dt) {
   }
   // searchlights sweep
   for (const L of BW.lights) { L.a += L.sp * dt; L.head.rotation.set(L.tilt + Math.sin(simTime * 0.3 + L.a) * 0.15, L.a, 0, 'YXZ'); }
+}
+
+// ---------- flags and wartime signs (WWII maps) ----------
+// Allied side: the 48-star US flag on the base and on every point it holds. German side: a plain field-grey unit
+// flag with a red border and a roman numeral (no party symbols). In Berlin: white sheets hung out of windows in
+// surrender, white "LSR" air-raid shelter arrows painted by doorways, enamel street-name signs, and signposts.
+const WWF = { us: null, de: null };
+function ww2FlagTex(team) {
+  const font = '"Segoe UI", Roboto, Arial, sans-serif';
+  if (team === 'blue') return WWF.us || (WWF.us = canvasTex(260, 160, (g, w, h) => {
+    for (let i = 0; i < 13; i++) { g.fillStyle = i % 2 ? '#f4f2ec' : '#b22234'; g.fillRect(0, i * h / 13, w, h / 13 + 1); }
+    const cw = w * 0.42, ch = h * 7 / 13; g.fillStyle = '#3c3b6e'; g.fillRect(0, 0, cw, ch);
+    g.fillStyle = '#f4f2ec';
+    for (let r = 0; r < 6; r++) for (let c = 0; c < 8; c++) {   // 48 stars
+      const x = cw * (c + 0.5) / 8, y = ch * (r + 0.5) / 6, R = 3.4; g.beginPath();
+      for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2 - Math.PI / 2, rr = k % 2 ? R * 0.42 : R; g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); }
+      g.fill();
+    }
+  }));
+  return WWF.de || (WWF.de = canvasTex(260, 160, (g, w, h) => {
+    g.fillStyle = '#6e1f1a'; g.fillRect(0, 0, w, h); g.fillStyle = '#5d6352'; g.fillRect(14, 14, w - 28, h - 28);
+    g.fillStyle = '#e8e4d8'; g.font = 'bold 72px ' + font; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('IV', w / 2, h / 2 + 4);
+  }));
+}
+function installWW2Flags() {
+  if (WWF.hooked) return; WWF.hooked = true;
+  for (const f of baseFlags) {   // the base flags
+    const m = f.material, team = m.color.getHex() === TEAM_COLOR.blue ? 'blue' : m.color.getHex() === TEAM_COLOR.red ? 'red' : null; if (!team) continue;
+    f.material = new THREE.MeshLambertMaterial({ map: ww2FlagTex(team), side: THREE.DoubleSide });
+  }
+  const _up = updatePointsVisual;
+  updatePointsVisual = function () {
+    _up.apply(this, arguments);
+    for (const p of points) {
+      const pt = Math.abs(p.progress) < 0.02 ? null : progTeam(p);
+      if (pt) p.flagMat.color.setHex(0xffffff);   // the flag's own colours show
+      if (p._ww2 === pt) continue; p._ww2 = pt;
+      p.flagMat.map = pt ? ww2FlagTex(pt) : null; p.flagMat.needsUpdate = true;
+    }
+  };
+  updatePointsVisual.ww2 = true;
+}
+function signTex(text, w, h, bg, fg, size) {
+  return canvasTex(w, h, (g) => {
+    g.fillStyle = bg; g.fillRect(0, 0, w, h); g.strokeStyle = fg; g.lineWidth = 4; g.strokeRect(5, 5, w - 10, h - 10);
+    g.fillStyle = fg; g.font = `600 ${size}px "Segoe UI", Roboto, Arial, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, w / 2, h / 2 + 2);
+  });
+}
+function buildBerlinSigns() {
+  const font = '"Segoe UI", Roboto, Arial, sans-serif';
+  // white sheets of surrender and LSR shelter arrows on the street faces of the houses
+  const sheet = new THREE.MeshLambertMaterial({ color: 0xece8dc, side: THREE.DoubleSide });
+  const lsr = new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, map: canvasTex(128, 64, (g, w, h) => {
+    g.clearRect(0, 0, w, h); g.fillStyle = 'rgba(240,238,228,0.92)'; g.font = `bold 34px ${font}`; g.textBaseline = 'middle'; g.fillText('LSR', 6, 24);
+    g.fillRect(8, 46, 84, 7); g.beginPath(); g.moveTo(92, 38); g.lineTo(118, 49.5); g.lineTo(92, 61); g.fill();
+  }) });
+  let sheets = 0, signs = 0;
+  for (const o of obstacles) {
+    if (sheets >= 34 && signs >= 22) break;
+    const cx = (o.minX + o.maxX) / 2, cz = (o.minZ + o.maxZ) / 2, w = o.maxX - o.minX, d = o.maxZ - o.minZ, hgt = o.maxY - o.minY;
+    if (Math.hypot(cx, cz) > TOWN_R - 5 || hgt < 6 || w < 6 || d < 6 || w > 16 || d > 16) continue;
+    for (const [nx, nz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const fx = cx + nx * (w / 2 + 0.06), fz = cz + nz * (d / 2 + 0.06);
+      if (townStreetDist(fx + nx * 3, fz + nz * 3) > 4.5) continue;   // this side faces a street
+      const yaw = Math.atan2(nx, nz), r = Math.random();
+      if (r < 0.32 && sheets < 34) {   // a sheet hung out of an upper window
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 2.4, 1, 3), sheet); const along = rand(-0.3, 0.3) * (nx ? d : w);
+        m.position.set(fx + (nz ? along : 0) + nx * 0.05, o.maxY - rand(2.6, 4), fz + (nx ? along : 0) + nz * 0.05); m.rotation.y = yaw;
+        const pos = m.geometry.attributes.position; for (let i = 0; i < pos.count; i++) pos.setZ(i, Math.sin((pos.getY(i) + 1.2) * 2.2) * 0.12); m.geometry.computeVertexNormals();
+        scene.add(m); sheets++;
+      } else if (r < 0.55 && signs < 22) {   // an air-raid shelter arrow by the door
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.8), lsr); m.position.set(fx + nx * 0.03, o.minY + 2.2, fz + nz * 0.03); m.rotation.y = yaw; scene.add(m); signs++;
+      }
+      break;
+    }
+  }
+  // street-name signs on posts at the crossings
+  const xNames = ['Wilhelmstraße', 'Friedrichstraße', 'Charlottenstraße', 'Markgrafenstraße', 'Lindenstraße', 'Oranienstraße'];
+  const zNames = ['Invalidenstraße', 'Dorotheenstraße', 'Unter den Linden', 'Leipziger Straße', 'Kochstraße', 'Gitschiner Straße'];
+  const post = new THREE.MeshLambertMaterial({ color: 0x2a2c2e });
+  G_GRID.forEach((gx, i) => G_GRID.forEach((gz, j) => {
+    if ((i + j) % 2 || Math.hypot(gx, gz) > TOWN_R - 20) return;
+    const x = gx + 5.6, z = gz + 5.6; if (!lvFree(x, z, 0.8)) return;
+    const y = heightAt(x, z); addMesh(new THREE.CylinderGeometry(0.06, 0.07, 3.2, 6), post, x, y + 1.6, z);
+    const a = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.4, 0.05), new THREE.MeshLambertMaterial({ map: signTex(xNames[i], 320, 54, '#1e2a3a', '#f0eee6', 30) })); a.position.set(x, y + 3.0, z); a.rotation.y = Math.PI / 2; scene.add(a);
+    const b = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.4, 0.05), new THREE.MeshLambertMaterial({ map: signTex(zNames[j], 320, 54, '#1e2a3a', '#f0eee6', 30) })); b.position.set(x, y + 2.5, z); scene.add(b);
+  }));
+  // signposts on the roads out of town: German ones near the city, an Allied one by the blue base
+  const wood = new THREE.MeshLambertMaterial({ color: 0x6a4e34 });
+  const board = (x, z, list, bg, fg) => {
+    const y = heightAt(x, z); addMesh(new THREE.BoxGeometry(0.16, 3.4, 0.16), wood, x, y + 1.7, z);
+    list.forEach((t, k) => { const m = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.36, 0.06), new THREE.MeshLambertMaterial({ map: signTex(t, 300, 50, bg, fg, 26) })); m.position.set(x + 0.9 * (k % 2 ? -1 : 1), y + 3.0 - k * 0.45, z); m.rotation.y = (k % 2 ? 0.6 : -0.4); scene.add(m); });
+  };
+  for (const [x, z, list] of [[TOWN_R + 12, 14, ['Spandau 12 km', 'Potsdam 26 km']], [-TOWN_R - 12, -14, ['Köpenick 15 km', 'Frankfurt (Oder) 80 km']], [14, -TOWN_R - 12, ['Oranienburg 30 km', 'Bernau 22 km']]]) if (lvFree(x, z, 1)) board(x, z, list, '#efe9d6', '#1e1e1e');
+  { const B = BASES.blue, s = teamSide('blue'), x = B.x + 16, z = B.z - s * 30; if (lvFree(x, z, 1)) board(x, z, ['BERLIN 3 MI', 'HQ  →', 'MOTOR POOL'], '#e9e6d8', '#2b3a1e'); }
 }

@@ -9,6 +9,12 @@ const VPAINT = {
   green: { a: 0x55704a, b: 0x3e5536, c: 0x6d8a60, team: 0x2fa84f, acc: 0xa0f0b4 },
   yellow: { a: 0x8a7a4a, b: 0x665a36, c: 0xa6955e, team: 0xe0b020, acc: 0xffe9a0 },
 };
+// WWII maps (Berlin, Normandy): olive drab Allied vehicles with white stars, dark-yellow German ones
+const WW2V = typeof GERMANY !== 'undefined' && (GERMANY || NORMANDY);
+const VPAINT_WW2 = {
+  blue: { a: 0x4d5429, b: 0x3d4321, c: 0x5f6735, team: 0xe6e4da, acc: 0xd8d6c8 },
+  red: { a: 0x8c8256, b: 0x6b6342, c: 0x9c9264, team: 0x8a3226, acc: 0xc8b890 },
+};
 const VC = { tire: 0x18181a, tire2: 0x26262a, hub: 0x8a8f94, steel: 0x6e747b, dark: 0x25282c, dark2: 0x3a3e44, seat: 0x3a2c22, wood: 0x8a6238, olive: 0x4f5536, canvas: 0x777a55, lamp: 0xfff4c0, tail: 0xff3b2a, amber: 0xffa726, white: 0xe9ecef, black: 0x111214, rust: 0x5a4334 };
 const vgeo = {};
 function vcached(key, make) { return vgeo[key] || (vgeo[key] = make().build()); }
@@ -73,7 +79,7 @@ function mgGeo(shield, P) {
   });
 }
 function makeVehicleModel(type, team) {
-  const P = VPAINT[team], g = new THREE.Group(), body = new THREE.Group(); g.add(body);
+  const P = (WW2V && VPAINT_WW2[team]) || VPAINT[team], g = new THREE.Group(), body = new THREE.Group(); g.add(body);
   const wheels = [], out = { g, body, wheels };
   const mesh = (geo, mat, parent = body, x = 0, y = 0, z = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; parent.add(m); return m; };
   const wheel = (x, y, z, r, w) => { wheels.push(mesh(wheelGeo(r, w), VEH_MAT, body, x, y, z)); };
@@ -177,6 +183,79 @@ function makeVehicleModel(type, team) {
     const mgPitch = new THREE.Group(); mgYaw.add(mgPitch); mesh(hmgGeo(true, P), VEH_MAT, mgPitch);
     const mz = new THREE.Object3D(); mz.position.z = -1.95; mgPitch.add(mz);
     Object.assign(out, { mgYaw, mgPitch, mgMuzzle: mz, mgBase: 2.32 });
+
+  } else if (type === 'tank' && WW2V) {   // a Sherman for the Allies, a Panzer IV for the Germans
+    const sher = team === 'blue', rw = sher ? 0.3 : 0.27;
+    main = vcached('ww2tank' + team, () => {
+      const p = new Part();
+      if (sher) {   // M4 Sherman: tall hull, sloped glacis, rounded transmission nose, bogie suspension, white stars
+        p.box(2.6, 1.15, 4.6, P.a, 0, 1.45, 0.45); p.box(2.6, 0.14, 1.42, P.a, 0, 1.51, -2.3, -0.85);   // hull, sloped glacis
+        p.cyl(0.55, 0.55, 2.5, P.b, 0, 0.82, -2.45, 0, 0, RX, 1, 12);                                     // rounded transmission housing
+        p.box(2.5, 0.14, 1.3, P.b, 0, 2.08, 2.1); for (let i = 0; i < 6; i++) p.box(2.0, 0.03, 0.1, VC.dark, 0, 2.16, 1.6 + i * 0.2);   // engine deck
+        for (const sd of [-1, 1]) {
+          p.box(0.55, 0.62, 5.6, VC.dark, 1.38 * sd, 0.55, 0.2);                                          // track
+          for (let i = 0; i < 24; i++) p.box(0.58, 0.05, 0.14, VC.dark2, 1.38 * sd, 0.88, -2.5 + i * 0.235);
+          for (let b = 0; b < 3; b++) { p.box(0.3, 0.55, 0.6, P.b, 1.25 * sd, 0.75, -1.5 + b * 1.65); p.box(0.12, 0.2, 0.2, VC.dark, 1.42 * sd, 0.98, -1.5 + b * 1.65); }   // bogie units
+          p.cyl(0.36, 0.36, 0.3, VC.dark2, 1.42 * sd, 0.7, -2.7, 0, 0, RX, 1, 10); p.cyl(0.32, 0.32, 0.3, VC.dark2, 1.42 * sd, 0.62, 2.95, 0, 0, RX, 1, 10);   // sprocket, idler
+          p.add(starGeo(0.42), VC.white, 1.31 * sd, 1.5, 0.6, 0, 0, -sd * RX); p.add(new THREE.RingGeometry(0.46, 0.52, 20).rotateX(-RX), VC.white, 1.31 * sd, 1.5, 0.6, 0, 0, -sd * RX);   // star in a ring
+          p.box(0.6, 0.2, 0.5, VC.olive, 1.0 * sd, 2.1, 0.9); p.cyl(0.08, 0.08, 1.2, VC.wood, 0.7 * sd, 2.1, -0.4, 0, 0, RX);   // stowage
+        }
+        p.add(starGeo(0.36), VC.white, 0, 1.6, -2.37, -0.85, 0, 0);
+        p.box(0.5, 0.2, 0.3, P.b, -0.6, 1.95, -1.4); p.box(0.5, 0.2, 0.3, P.b, 0.6, 1.95, -1.4);           // driver hoods
+        for (const sd of [-0.9, 0.9]) p.cyl(0.13, 0.13, 0.1, VC.dark, sd, 1.75, -2.75, RX);                 // headlamps
+        p.cyl(0.05, 0.05, 0.6, VC.dark, 0.55, 1.95, -1.9, 0.4);                                           // bow machine gun
+      } else {     // Panzer IV: boxy hull, flat front plate, eight small road wheels, armour skirts along the sides
+        p.box(2.4, 1.0, 5.5, P.a, 0, 1.35, 0.3); p.box(2.4, 0.95, 0.3, P.a, 0, 1.3, -2.45, -0.15); p.box(2.4, 0.6, 0.8, P.b, 0, 0.75, -2.55, 0.9);   // hull, front plate, lower nose
+        p.box(2.9, 0.08, 5.2, P.a, 0, 1.86, 0.3); p.box(2.2, 0.1, 1.6, P.b, 0, 1.94, 2.1);                 // fender deck, engine deck
+        p.box(0.6, 0.25, 0.4, P.b, -0.55, 1.95, -1.9); p.box(0.4, 0.14, 0.06, VC.black, -0.55, 1.95, -2.11);   // driver visor
+        for (const sd of [-1, 1]) {
+          p.box(0.5, 0.6, 5.5, VC.dark, 1.2 * sd, 0.55, 0.3); for (let i = 0; i < 24; i++) p.box(0.52, 0.05, 0.14, VC.dark2, 1.2 * sd, 0.86, -2.4 + i * 0.235);
+          p.cyl(0.34, 0.34, 0.3, VC.dark2, 1.28 * sd, 0.68, -2.6, 0, 0, RX, 1, 10); p.cyl(0.3, 0.3, 0.3, VC.dark2, 1.28 * sd, 0.6, 3.05, 0, 0, RX, 1, 10);
+          for (let i = 0; i < 5; i++) p.box(0.04, 0.82, 1.05, i % 2 ? P.a : P.c, 1.48 * sd, 1.32, -1.9 + i * 1.06, 0, 0, 0.04 * sd);   // skirt plates
+          for (const z of [-2.3, -0.2, 1.9]) p.cyl(0.025, 0.025, 0.3, VC.dark, 1.45 * sd, 1.8, z);           // skirt hangers
+          p.box(0.5, 0.3, 0.2, P.team, 1.51 * sd, 1.45, 0.4, 0, 0, 0.04 * sd);                              // tactical number plate
+        }
+        for (let i = 0; i < 6; i++) p.box(0.34, 0.07, 0.22, VC.dark2, -0.85 + i * 0.34, 1.62, -2.42, -0.15);   // spare track on the front
+        p.cyl(0.2, 0.2, 1.4, VC.dark, 0.8, 1.6, 2.95, 0, 0, RX); p.cyl(0.08, 0.08, 0.5, VC.rust, -0.8, 1.6, 3.1, 0, 0, RX);   // muffler
+        for (const sd of [-0.9, 0.9]) p.cyl(0.12, 0.12, 0.12, VC.dark, sd, 1.98, -2.35, RX);
+      }
+      return p;
+    });
+    for (const sd of [-1, 1]) for (let i = 0; i < (sher ? 6 : 8); i++) {
+      const w = mesh(vcached('ww2wheel' + team, () => { const p = new Part(); p.cyl(rw, rw, 0.2, VC.dark, 0, 0, 0, 0, 0, RX, 1, 12); p.cyl(rw * 0.75, rw * 0.75, 0.24, P.b, 0, 0, 0, 0, 0, RX, 1, 10); return p; }), VEH_MAT, body,
+        (sher ? 1.42 : 1.28) * sd, sher ? 0.42 : 0.4, sher ? -1.75 + Math.floor(i / 2) * 1.65 + (i % 2) * 0.5 : -2.05 + i * 0.6);
+      wheels.push(w);
+    }
+    const turret = new THREE.Group(); turret.position.set(0, sher ? 2.0 : 1.9, sher ? -0.1 : 0.0); body.add(turret);
+    mesh(vcached('ww2turret' + team, () => {
+      const p = new Part();
+      if (sher) {
+        p.cyl(1.0, 1.15, 0.85, P.a, 0, 0.42, 0.1, 0, 0, 0, 1, 14); p.dome(1.0, P.a, 0, 0.82, 0.1, 1, 0.42, 1); p.box(2.1, 0.7, 1.1, P.a, 0, 0.4, 0.9);   // rounded cast turret, bustle
+        p.box(1.0, 0.6, 0.4, P.b, 0, 0.42, -1.05);                                                         // gun mantlet
+        p.cyl(0.4, 0.42, 0.3, P.b, 0.45, 1.0, 0.45, 0, 0, 0, 1, 10); p.cyl(0.3, 0.3, 0.05, VC.dark, 0.45, 1.18, 0.45, 0, 0, 0, 1, 10);   // commander's hatch
+        p.cyl(0.012, 0.012, 2.2, VC.dark, -0.7, 1.6, 1.0);                                                  // radio aerial
+      } else {
+        p.box(1.9, 0.8, 2.1, P.a, 0, 0.4, 0.1); p.box(1.5, 0.12, 1.8, P.a, 0, 0.86, 0.1); p.box(1.2, 0.6, 0.4, P.b, 0, 0.42, -1.05);   // boxy turret, roof, mantlet
+        p.cyl(0.36, 0.38, 0.4, P.b, 0, 1.06, 0.8, 0, 0, 0, 1, 10); for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; p.box(0.1, 0.08, 0.05, VC.black, Math.sin(a) * 0.37, 1.1, 0.8 + Math.cos(a) * 0.37, 0, a, 0); }   // commander's cupola
+        for (const sd of [-1, 1]) { p.box(0.04, 0.7, 2.4, P.c, 1.12 * sd, 0.42, 0.25); p.box(0.3, 0.2, 0.04, P.team, 1.15 * sd, 0.5, 0.2, 0, sd * RX, 0); }   // turret skirts with the tactical number
+        p.box(2.0, 0.5, 0.6, P.b, 0, 0.4, 1.4);                                                             // stowage bin at the back
+      }
+      return p;
+    }), VEH_MAT, turret);
+    const barrel = new THREE.Group(); barrel.position.set(0, 0.42, -1.25); turret.add(barrel);
+    mesh(vcached('ww2barrel' + team, () => {
+      const p = new Part();
+      if (sher) { p.cyl(0.11, 0.12, 2.7, VC.dark2, 0, 0, -1.4, RX, 0, 0, 1, 12); p.cyl(0.13, 0.13, 0.12, VC.dark, 0, 0, -2.7, RX, 0, 0, 1, 12); }   // short 75 mm gun
+      else { p.cyl(0.09, 0.11, 3.9, VC.dark2, 0, 0, -2.0, RX, 0, 0, 1, 12); p.cyl(0.15, 0.15, 0.4, VC.dark, 0, 0, -4.0, RX, 0, 0, 1, 12); p.box(0.38, 0.14, 0.12, VC.dark, 0, 0, -3.95); p.box(0.38, 0.14, 0.12, VC.dark, 0, 0, -4.15); }   // long 75 mm gun, double muzzle brake
+      p.cyl(0.03, 0.03, 0.5, VC.dark, 0.3, 0.05, -0.3, RX);                                                // coaxial machine gun
+      return p;
+    }), VEH_MAT, barrel);
+    const cmz = new THREE.Object3D(); cmz.position.z = sher ? -2.85 : -4.3; barrel.add(cmz);
+    const mgYaw = new THREE.Group(); mgYaw.position.set(sher ? 0.45 : 0, 1.25, sher ? 0.45 : 0.8); turret.add(mgYaw);
+    const mgPitch = new THREE.Group(); mgYaw.add(mgPitch); mesh(hmgGeo(false, P), VEH_MAT, mgPitch);
+    const mz = new THREE.Object3D(); mz.position.z = -1.95; mgPitch.add(mz);
+    for (const sd of [-0.9, 0.9]) glow.cyl(0.08, 0.08, 0.03, VC.lamp, sd, sher ? 1.75 : 1.98, sher ? -2.81 : -2.42, RX);
+    Object.assign(out, { turret, barrel, cannonMuzzle: cmz, mgYaw, mgPitch, mgMuzzle: mz });
 
   } else if (type === 'tank') {
     main = vcached('tank' + team, () => {
@@ -345,6 +424,12 @@ function makeVehicleModel(type, team) {
     const canopy = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 4.3, 12, 1, true, Math.PI - 1.0, 2.0), VM2.canvas); canopy.rotation.x = RX; canopy.position.set(0, 2.2, 0.9); canopy.castShadow = true; body.add(canopy);
     for (const [x, z] of [[-1.1, -3.0], [1.1, -3.0], [-1.1, 1.1], [1.1, 1.1], [-1.1, 2.3], [1.1, 2.3]]) wheel(x, 0.5, z, 0.5, 0.42);
   }
+  if (WW2V && team === 'blue' && (type === 'jeep' || type === 'truck')) mesh(vcached('ww2star' + type, () => {   // the Allied white star
+    const p = new Part();
+    if (type === 'jeep') p.add(starGeo(0.42), 0xf2f0e6, 0, 1.445, -1.36);
+    else for (const sd of [-1, 1]) p.add(starGeo(0.3), 0x4d5429, 1.205 * sd, 1.5, -2.25, 0, 0, -sd * RX);
+    return p;
+  }), VEH_MAT);
   mesh(main, VEH_MAT);
   if (glass.pos.length) { const gm = new THREE.Mesh(glass.build(), VM2.glass); body.add(gm); }
   if (glow.pos.length) { const lm = new THREE.Mesh(glow.build(), VEH_GLOW); body.add(lm); }
