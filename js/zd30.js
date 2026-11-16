@@ -87,9 +87,10 @@ const ZD_GRID = [
 
 // ---------- the compound plan (metres; north is -z) ----------
 const ZC = { x0: -38, x1: 38, z0: -28, z1: 28, wallH: 5.5, innerH: 3.6, HX0: 2, HZ0: -12, FH: 4, SLAB: 0.3, gy: 0, fb: 0, lz: { x: 0, z: -80 } };
+const ZW = { done: false };
 const ZD = {
   built: false, breaches: [], posts: [], postI: 0, target: null, down: false, downBy: '', downT: 0, heli: null, heliBoom: false,
-  pick: null, clock: 20 * 60, nvg: true, hud: null, prompt: null, phase: '', blown: 0, guardsLeft: 0, laser: null,
+  pick: null, clock: 20 * 60, nvg: (() => { try { return localStorage.getItem('bf_nvg') !== '0'; } catch (e) { return true; } })(), hud: null, prompt: null, phase: '', blown: 0, guardsLeft: 0, laser: null,
 };
 const ZM = {
   wall: new THREE.MeshLambertMaterial({ color: 0xc7bca6 }), wallIn: new THREE.MeshLambertMaterial({ color: 0xd6cdbd }),
@@ -99,6 +100,10 @@ const ZM = {
   step: new THREE.MeshLambertMaterial({ color: 0xa49880 }), lamp: new THREE.MeshBasicMaterial({ color: 0xffd890 }),
   glow: new THREE.MeshBasicMaterial({ color: 0xffc070 }), green: new THREE.MeshLambertMaterial({ color: 0x3e5a2c }),
 };
+if (typeof TEX !== 'undefined' && TEX.concrete && typeof texRepeat === 'function') {   // rough concrete and plaster
+  ZM.wall.map = texRepeat(TEX.concrete, 8, 1); ZM.wallIn.map = texRepeat(TEX.concrete, 3, 1); ZM.house.map = texRepeat(TEX.concrete, 5, 2); ZM.floor.map = texRepeat(TEX.concrete, 4, 4);
+  for (const m of [ZM.wall, ZM.wallIn, ZM.house, ZM.floor]) m.needsUpdate = true;
+}
 const zcx = c => ZC.HX0 + c + 0.5, zcz = r => ZC.HZ0 + r + 0.5;   // house grid cell to world
 const zfy = k => ZC.fb + k * ZC.FH;                               // floor k surface height
 
@@ -301,7 +306,8 @@ function zApplyLight() {
 }
 function setNVG(on) {
   ZD.nvg = !!on; zApplyLight();
-  showMessage(ZD.nvg ? 'Night vision ON (L)' : 'Night vision OFF (L)', 1.2);
+  try { localStorage.setItem('bf_nvg', ZD.nvg ? '1' : '0'); } catch (e) { }
+  showMessage(ZD.nvg ? 'Night vision ON (press L to turn it off)' : 'Night vision OFF: using your weapon light (press L to turn it back on)', 2);
   if (ZD.nvgBtn) ZD.nvgBtn.classList.toggle('on', ZD.nvg);
   if (typeof SFX !== 'undefined' && SFX.click) try { SFX.click(); } catch (e) { }
 }
@@ -486,7 +492,7 @@ function zBreachUpdate(dt) {
 function zInHouse(c) { return c.pos.x > ZC.HX0 && c.pos.x < ZC.HX0 + 26 && c.pos.z > ZC.HZ0 && c.pos.z < ZC.HZ0 + 22; }
 function zUpdate(dt) {
   if (!started) return;
-  zBreachUpdate(dt); zExfilUpdate(dt);
+  zBreachUpdate(dt); zExfilUpdate(dt); zLightsUpdate();
   if (ZD.target && !ZD.down) {   // he watches the door
     const g = ZD.target.g; g.rotation.y = Math.atan2(player.pos.x - ZD.target.at.x, player.pos.z - ZD.target.at.z) * 0.6 + Math.PI * 0.75;
     if (!ZD.seen && player.alive && player.pos.distanceTo(ZD.target.at) < 8 && Math.abs(player.pos.y - ZD.target.at.y) < 1.5) { ZD.seen = true; showMessage('Third floor. There he is: take the shot!', 3); }
@@ -507,7 +513,7 @@ function zUpdate(dt) {
   const left = chars.filter(c => c.alive && c.team === 'red' && c.pos.x > ZC.x0 - 1 && c.pos.x < ZC.x1 + 1 && c.pos.z > ZC.z0 - 1 && c.pos.z < ZC.z1 + 1).length;   // inside the walls (works online too)
   if (!ZD.hud) { const el = document.createElement('div'); el.id = 'zdHud'; el.className = 'hud'; el.style.cssText = 'position:fixed;left:50%;top:44px;transform:translateX(-50%);color:#e8ffe8;text-align:center;font:600 14px system-ui,sans-serif;text-shadow:0 1px 3px #000;pointer-events:none;max-width:80vw;z-index:4'; document.body.appendChild(el); ZD.hud = el; }
   const mm = Math.floor(ZD.clock / 60), ss = Math.floor(ZD.clock % 60);
-  const html = `<div style="font-size:12px;opacity:.85">OPERATION NEPTUNE SPEAR &nbsp;·&nbsp; Pakistani response in ${mm}:${ss < 10 ? '0' : ''}${ss} &nbsp;·&nbsp; Enemies inside the walls: ${left}</div><div>${obj}</div>`;
+  const html = `<div style="font-size:12px;opacity:.85">OPERATION NEPTUNE SPEAR &nbsp;·&nbsp; Night vision ${ZD.nvg ? 'ON' : 'OFF'} (L) &nbsp;·&nbsp; Pakistani response in ${mm}:${ss < 10 ? '0' : ''}${ss} &nbsp;·&nbsp; Enemies inside the walls: ${left}</div><div>${obj}</div>`;
   if (html !== ZD.hudHtml) { ZD.hud.innerHTML = html; ZD.hudHtml = html; }
 }
 
@@ -649,13 +655,144 @@ function installCoopHooks() {
 function buildZD30() {
   if (!ZD30 || ZD.built) return; ZD.built = true;
   ZC.gy = heightAt(0, 0); ZC.fb = ZC.gy + 0.3;
-  zBuildCompound(); zBuildCrash(); zBuildTarget(); zBuildTown(); zBuildSky();
+  zBuildCompound(); zBuildCrash(); zBuildTarget(); zBuildTown(); zBuildSky(); zDecorHouse(); zBuildLights(); zArmTeam();
   ZD.posts = zPosts();
   zApplyLight();
   if (IS_TOUCH) {   // a night vision button for phones and tablets
-    const b = document.createElement('div'); b.textContent = 'NVG'; b.className = 'tbtn on';
+    const b = document.createElement('div'); b.textContent = 'NVG'; b.className = 'tbtn' + (ZD.nvg ? ' on' : '');
     b.style.cssText = 'position:fixed;right:14px;top:38%;width:54px;height:54px;border-radius:50%;background:rgba(40,90,40,.55);color:#cfffcf;font:700 14px system-ui;display:flex;align-items:center;justify-content:center;z-index:20;user-select:none';
     b.addEventListener('touchstart', e => { e.preventDefault(); setNVG(!ZD.nvg); }, { passive: false });
     document.body.appendChild(b); ZD.nvgBtn = b;
   }
+}
+
+// ---------- the team's weapons on the raid: a suppressed assault rifle, a suppressed pistol and a knife ----------
+// (in slots 2, 1 and 3; everything else in the shop still works). Accurate, quiet, small flashes.
+function zGunMats() {
+  return {
+    blk: new THREE.MeshPhongMaterial({ color: 0x1d1e21, shininess: 40, specular: 0x3a3c40 }), fde: new THREE.MeshPhongMaterial({ color: 0x8c7a58, shininess: 14, specular: 0x2a2620 }),
+    sup: new THREE.MeshPhongMaterial({ color: 0x2a2c2f, shininess: 22, specular: 0x2c2e32 }), steel: new THREE.MeshPhongMaterial({ color: 0x55595f, shininess: 70, specular: 0x8a9098 }),
+    blade: new THREE.MeshPhongMaterial({ color: 0x8e949a, shininess: 110, specular: 0xffffff }), grip: new THREE.MeshLambertMaterial({ color: 0x23211e }),
+  };
+}
+function zRifleModel(M) {
+  const g = new THREE.Group();
+  vbox(g, 0.058, 0.068, 0.3, M.blk, 0, 0.035, -0.08); vbox(g, 0.052, 0.058, 0.2, M.fde, 0, -0.025, -0.03);    // upper and lower receiver
+  vbox(g, 0.02, 0.02, 0.07, M.steel, 0.031, 0.04, -0.07);                                                     // ejection port
+  vbox(g, 0.064, 0.066, 0.32, M.fde, 0, 0.032, -0.39);                                                       // free-float rail
+  for (let i = 0; i < 6; i++) for (const s of [-1, 1]) vbox(g, 0.004, 0.018, 0.03, M.blk, s * 0.032, 0.03, -0.27 - i * 0.045);
+  vrail(g, 0.072, 0.07, -0.55);
+  vcyl(g, 0.012, 0.012, 0.06, M.steel, 0, 0.033, -0.58); vcyl(g, 0.027, 0.027, 0.24, M.sup, 0, 0.033, -0.72);   // barrel and the long suppressor
+  for (let i = 0; i < 3; i++) vcyl(g, 0.0285, 0.0285, 0.008, M.blk, 0, 0.033, -0.62 - i * 0.07);
+  vbox(g, 0.044, 0.13, 0.055, M.grip, 0, -0.1, 0.085, -0.3);                                                  // grip
+  vbox(g, 0.038, 0.16, 0.068, M.blk, 0, -0.125, -0.1, 0.12);                                                  // magazine
+  vcyl(g, 0.019, 0.019, 0.2, M.blk, 0, 0.025, 0.17); vbox(g, 0.05, 0.1, 0.16, M.fde, 0, 0.0, 0.31); vbox(g, 0.052, 0.12, 0.022, M.grip, 0, -0.005, 0.395);   // stock
+  vbox(g, 0.032, 0.09, 0.034, M.grip, 0, -0.05, -0.43);                                                       // foregrip
+  vbox(g, 0.042, 0.034, 0.075, M.fde, 0.045, 0.04, -0.45); vcyl(g, 0.008, 0.008, 0.01, VM.glow, 0.055, 0.045, -0.49);   // the IR laser box
+  vbox(g, 0.06, 0.012, 0.1, M.blk, 0, 0.083, -0.1); vreddot(g, 0.118, -0.11, 0.046);                          // holographic sight
+  vbox(g, 0.008, 0.026, 0.01, M.blk, 0, 0.09, -0.52);
+  vhand(g, 0, -0.12, 0.1, -0.3); vhand(g, -0.02, -0.095, -0.43, 0, -0.45);
+  return { g, ...vmuzzle(g, 0, 0.033, -0.85, 0.035, 0xffd59a), pos: [0.17, -0.17, -0.4], sight: 0.118 };
+}
+function zPistolModel(M) {
+  const g = new THREE.Group();
+  vbox(g, 0.048, 0.054, 0.24, M.blk, 0, 0.04, -0.07); for (let i = 0; i < 5; i++) vbox(g, 0.051, 0.04, 0.007, M.steel, 0, 0.04, 0.01 + i * 0.014);   // slide
+  vbox(g, 0.044, 0.034, 0.19, M.blk, 0, -0.002, -0.06);
+  vcyl(g, 0.011, 0.011, 0.04, M.steel, 0, 0.04, -0.2); vcyl(g, 0.022, 0.022, 0.17, M.sup, 0, 0.04, -0.3);       // threaded barrel and suppressor
+  vbox(g, 0.045, 0.15, 0.066, M.grip, 0, -0.085, 0.035, -0.22);
+  vbox(g, 0.008, 0.012, 0.07, M.blk, 0, -0.048, -0.04);
+  vbox(g, 0.008, 0.022, 0.012, M.blk, 0, 0.078, -0.17); for (const s of [-1, 1]) vbox(g, 0.008, 0.022, 0.012, M.blk, s * 0.014, 0.078, 0.035);   // raised sights to see over the can
+  vbox(g, 0.004, 0.006, 0.004, VM.glow, 0, 0.088, -0.17);
+  vhand(g, 0, -0.1, 0.05, -0.25);
+  return { g, ...vmuzzle(g, 0, 0.04, -0.39, 0.03, 0xffd59a), pos: [0.2, -0.17, -0.42], sight: 0.086 };
+}
+function zKnifeModel(M) {
+  const g = new THREE.Group(), pivot = new THREE.Group(); g.add(pivot);
+  vcy(pivot, 0.018, 0.13, M.grip, 0, 0, 0); vbox(pivot, 0.07, 0.012, 0.03, M.blk, 0, 0.07, 0);               // handle and guard
+  vbox(pivot, 0.006, 0.19, 0.032, M.blade, 0, 0.17, 0); vbox(pivot, 0.006, 0.04, 0.018, M.blade, 0, 0.28, 0.006, 0.5);   // blade and point
+  vbox(pivot, 0.007, 0.15, 0.005, M.steel, 0, 0.16, -0.014);
+  pivot.rotation.set(-0.5, 0, -0.35); vhand(pivot, 0, -0.03, 0.0, -Math.PI / 2);
+  const glow = new THREE.Mesh(new THREE.BoxGeometry(0.001, 0.001, 0.001), new THREE.MeshBasicMaterial({ visible: false, transparent: true }));
+  pivot.add(glow);
+  return { g, ...vmuzzle(g, 0, 0, -0.3, 0.01), pivot, glow, pos: [0.22, -0.26, -0.4], sight: 0.2, swingT: 0 };
+}
+function zArmTeam() {
+  if (ZW.done || typeof WEAPONS === 'undefined') return; ZW.done = true;
+  const M = zGunMats(), set = (id, props, model) => {
+    const w = WEAPONS.find(q => q.id === id); if (!w) return;
+    const vis = w.model.g.visible; w.model.g.visible = false; vmHolder.remove(w.model.g);
+    Object.assign(w, props); w.model = model; model.g.visible = vis; vmHolder.add(model.g);
+  };
+  set('rifle', { name: 'Suppressed Rifle', spread: 0.005, rate: 0.085, dmg: 34, recoil: 0.018, sfx: 'supp', tracer: 0x9affb0 }, zRifleModel(M));
+  set('pistol', { name: 'Suppressed Pistol', spread: 0.004, rate: 0.16, dmg: 42, mag: 15, recoil: 0.035, sfx: 'supp' }, zPistolModel(M));
+  set('smg', { name: 'Knife', build: 'knife', type: 'melee', knife: true, rate: 0.42, dmg: 220, force: 6, range: 2.4, recoil: 0, sfx: 'click', mag: 1, reserve: Infinity, reloadT: 0.1, price: 0, auto: false }, zKnifeModel(M));
+  player.owned.smg = true; if (typeof refillAmmo === 'function') refillAmmo();
+  const se = document.getElementById('slots');   // slot labels
+  if (se) WEAPONS.forEach((w, i) => { const d = se.children[i]; if (d && i < 3) d.innerHTML = `<b>${i + 1}</b>${w.name.replace('Suppressed ', '')}`; });
+  // quiet shots: a soft cough and the click of the action instead of a bang
+  SFX.supp = (v = 1) => {
+    if (typeof nz === 'function' && typeof tn === 'function') { nz('bandpass', 1500, 0.05, 0.32 * v, 1.3); nz('lowpass', 420, 0.08, 0.3 * v); tn('square', 2600, 1800, 0.015, 0.03 * v, 0.02); }
+    else noiseHit(1400, 0.06, 0.25 * v);
+  };
+  SFX.knife = (v = 1) => { if (typeof nz === 'function') nz('highpass', 2200, 0.12, 0.12 * v, 0.8); };
+  // the knife: one quick, short-range strike where you aim
+  const ss = saberSwing;
+  saberSwing = function (w) {
+    if (!w.knife) return ss.apply(this, arguments);
+    w.model.swingT = 1; w.model.swingDir = -(w.model.swingDir || 1); SFX.knife();
+    for (const ang of [0, 0.14, -0.14]) {
+      const d = aimDir(0); d.applyAxisAngle(new THREE.Vector3(0, 1, 0), ang);
+      const hit = rayHit(camera.position, d, w.range, player.team);
+      if (hit && (hit.char || hit.zdTarget)) { if (applyHit(hit, d, w, player)) { showHitmarker(false); SFX.hit(); } return; }
+    }
+  };
+  // the team's own rifles are suppressed too (the computer soldiers on blue)
+  const ns = npcShoot;
+  npcShoot = function (n) { ZD.quietShot = n.team === 'blue'; try { return ns.apply(this, arguments); } finally { ZD.quietShot = false; } };
+  const pa = playAt;
+  playAt = function (name, pos, vol) { if (ZD.quietShot && name === 'rifle') name = 'supp'; return pa.call(this, name, pos, vol); };
+}
+
+// ---------- the goggles' IR light and the weapon light ----------
+// Night vision on: an infrared illuminator lights what is close (things fade with distance) and your rifle's
+// IR laser shows as a thin beam. Night vision off: a white light on your gun lights where you aim.
+function zBuildLights() {
+  ZD.ir = new THREE.PointLight(0xffffff, 0, 38, 1.6); scene.add(ZD.ir);
+  ZD.torch = new THREE.SpotLight(0xfff2dc, 0, 55, 0.42, 0.55, 1.4); scene.add(ZD.torch, ZD.torch.target);
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
+  ZD.beam = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0xd8ffd8, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+  ZD.beam.frustumCulled = false; ZD.beam.visible = false; scene.add(ZD.beam);
+  ZD.dot = new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 4), new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false })); ZD.dot.visible = false; scene.add(ZD.dot);
+}
+const _zf = new THREE.Vector3(), _zr = new THREE.Vector3();
+function zLightsUpdate() {
+  if (!ZD.ir) return;
+  const on = started && player.alive && !player.vehicle && !player.gv;
+  ZD.ir.intensity = on && ZD.nvg ? 1.5 : 0; ZD.ir.position.copy(camera.position);
+  camera.getWorldDirection(_zf); _zr.set(-_zf.z, 0, _zf.x).normalize();
+  ZD.torch.intensity = on && !ZD.nvg ? 2.4 : 0;
+  ZD.torch.position.copy(camera.position).addScaledVector(_zr, 0.18).add(new THREE.Vector3(0, -0.12, 0)); ZD.torch.target.position.copy(camera.position).addScaledVector(_zf, 10);
+  const laser = on && ZD.nvg && curW() && curW().id === 'rifle' && !zoom;
+  ZD.beam.visible = ZD.dot.visible = !!laser;
+  if (laser) {
+    if (!ZD.beamT || (ZD.beamT -= 1) <= 0) { ZD.beamT = 3; const h = rayHit(camera.position, _zf.clone(), 120, player.team); ZD.beamLen = h ? h.dist : 120; }
+    const a = camera.position.clone().addScaledVector(_zr, 0.09).add(new THREE.Vector3(0, -0.07, 0)).addScaledVector(_zf, 0.6), b = camera.position.clone().addScaledVector(_zf, ZD.beamLen - 0.05);
+    const p = ZD.beam.geometry.attributes.position; p.setXYZ(0, a.x, a.y, a.z); p.setXYZ(1, b.x, b.y, b.z); p.needsUpdate = true;
+    ZD.dot.position.copy(b);
+  }
+}
+// rugs, low beds and cushions in the rooms (decoration only: nothing to trip on)
+function zDecorHouse() {
+  const P = new Part(), cols = [0x7a2e2a, 0x4a3a6a, 0x2f5a52, 0x8a6a34, 0x5a2a3e];
+  for (const k of [0, 1, 2]) {
+    const g = ZD_GRID[k], F = zfy(k) - ZC.fb;
+    for (let r = 2; r < 20; r += 3) for (let c = 2; c < 24; c += 3) {
+      let open = true; for (let dr = -1; dr <= 1 && open; dr++) for (let dc = -1; dc <= 1 && open; dc++) if ((g[r + dr] || '')[c + dc] !== ' ') open = false;
+      if (!open || Math.random() < 0.35) continue;
+      P.box(rand(1.8, 2.6), 0.02, rand(1.4, 2.0), pick(cols), c + 0.5, F + 0.012, r + 0.5);
+      if (Math.random() < 0.4) { P.box(0.6, 0.12, 0.6, 0xb8a888, c + 0.5 + rand(-0.6, 0.6), F + 0.07, r + 0.5 + rand(-0.6, 0.6)); }
+    }
+    for (let r = 1; r < 21; r += 4) for (let c = 1; c < 25; c += 5) if (g[r] && g[r][c] === ' ') P.box(0.25, 0.06, 0.25, 0xfff0c0, c + 0.5, F + 3.62, r + 0.5);   // ceiling lamps (off: the power was out)
+  }
+  const m = new THREE.Mesh(P.build(), VEH_MAT); m.position.set(ZC.HX0, ZC.fb, ZC.HZ0); scene.add(m);
 }

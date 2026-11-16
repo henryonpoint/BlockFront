@@ -12,6 +12,10 @@ if (typeof AFGHAN !== 'undefined' && AFGHAN) {   // Desert Combat: US troops in 
   Object.assign(TEAM_LOOK.blue, { uni: 0xb8a27a, uni2: 0x9a855e, armor: 0xa88e62, armorD: 0x7e6a48, accent: 0x7db4ff });
   Object.assign(TEAM_LOOK.red, { uni: 0x5c6240, uni2: 0x474c31, armor: 0x50563a, armorD: 0x3c412a, accent: 0xff8a7a });
 }
+if (typeof ZD30 !== 'undefined' && ZD30) {   // Zero Dark 30: the team in dark green-grey with coyote plate carriers; the guards in local clothes and dark waistcoats
+  Object.assign(TEAM_LOOK.blue, { uni: 0x4c5642, uni2: 0x3b4334, armor: 0x6c6250, armorD: 0x4c4538, accent: 0x7db4ff });
+  Object.assign(TEAM_LOOK.red, { uni: 0x8a8270, uni2: 0x6c6556, armor: 0x48443a, armorD: 0x36332c, accent: 0xff8a7a });
+}
 // WWII maps: US Army olive drab with M1 helmets and khaki webbing; German army field grey with steel helmets,
 // black leather belts and jackboots. A small coloured armband still shows the team at a glance.
 const WW2S = typeof GERMANY !== 'undefined' && (GERMANY || NORMANDY);
