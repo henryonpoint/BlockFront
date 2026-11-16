@@ -40,6 +40,17 @@ function starGeo(r) {
   for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2 - Math.PI / 2, rr = i % 2 ? r * 0.42 : r; i ? s.lineTo(Math.cos(a) * rr, Math.sin(a) * rr) : s.moveTo(Math.cos(a) * rr, Math.sin(a) * rr); }
   const g = new THREE.ShapeGeometry(s); g.rotateX(-Math.PI / 2); return g;
 }
+// the German Balkenkreuz: a black straight-armed cross edged in white (lies flat, facing +Y; rotate it onto a surface)
+function plusGeo(size, arm, lift) {
+  const h = size / 2, a = arm / 2, s = new THREE.Shape();
+  const pts = [[-a, -h], [a, -h], [a, -a], [h, -a], [h, a], [a, a], [a, h], [-a, h], [-a, a], [-h, a], [-h, -a], [-a, -a]];
+  pts.forEach(([x, y], i) => i ? s.lineTo(x, y) : s.moveTo(x, y));
+  const g = new THREE.ShapeGeometry(s); g.rotateX(-Math.PI / 2); g.translate(0, lift, 0); return g;
+}
+function balken(p, size, x, y, z, rx = 0, ry = 0, rz = 0) {
+  p.add(plusGeo(size, size * 0.46, 0), 0xf0eee6, x, y, z, rx, ry, rz);
+  p.add(plusGeo(size * 0.86, size * 0.22, 0.012), 0x141414, x, y, z, rx, ry, rz);
+}
 // a heavy .50 cal machine gun pointing down -Z, used on every vehicle gun mount
 function hmgGeo(shield, P) {
   return vcached('hmg' + shield + P.a, () => {
@@ -214,10 +225,12 @@ function makeVehicleModel(type, team) {
           for (let i = 0; i < 5; i++) p.box(0.04, 0.82, 1.05, i % 2 ? P.a : P.c, 1.48 * sd, 1.32, -1.9 + i * 1.06, 0, 0, 0.04 * sd);   // skirt plates
           for (const z of [-2.3, -0.2, 1.9]) p.cyl(0.025, 0.025, 0.3, VC.dark, 1.45 * sd, 1.8, z);           // skirt hangers
           p.box(0.5, 0.3, 0.2, P.team, 1.51 * sd, 1.45, 0.4, 0, 0, 0.04 * sd);                              // tactical number plate
+          balken(p, 0.75, 1.535 * sd, 1.35, -1.25, 0, 0, -sd * RX);                                     // cross on the skirts
         }
         for (let i = 0; i < 6; i++) p.box(0.34, 0.07, 0.22, VC.dark2, -0.85 + i * 0.34, 1.62, -2.42, -0.15);   // spare track on the front
         p.cyl(0.2, 0.2, 1.4, VC.dark, 0.8, 1.6, 2.95, 0, 0, RX); p.cyl(0.08, 0.08, 0.5, VC.rust, -0.8, 1.6, 3.1, 0, 0, RX);   // muffler
         for (const sd of [-0.9, 0.9]) p.cyl(0.12, 0.12, 0.12, VC.dark, sd, 1.98, -2.35, RX);
+        balken(p, 0.6, 0.3, 1.35, 3.07, RX, 0, 0);                                                       // cross on the back
       }
       return p;
     });
@@ -239,6 +252,7 @@ function makeVehicleModel(type, team) {
         p.cyl(0.36, 0.38, 0.4, P.b, 0, 1.06, 0.8, 0, 0, 0, 1, 10); for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; p.box(0.1, 0.08, 0.05, VC.black, Math.sin(a) * 0.37, 1.1, 0.8 + Math.cos(a) * 0.37, 0, a, 0); }   // commander's cupola
         for (const sd of [-1, 1]) { p.box(0.04, 0.7, 2.4, P.c, 1.12 * sd, 0.42, 0.25); p.box(0.3, 0.2, 0.04, P.team, 1.15 * sd, 0.5, 0.2, 0, sd * RX, 0); }   // turret skirts with the tactical number
         p.box(2.0, 0.5, 0.6, P.b, 0, 0.4, 1.4);                                                             // stowage bin at the back
+        for (const sd of [-1, 1]) balken(p, 0.5, 1.15 * sd, 0.45, 0.95, 0, 0, -sd * RX);
       }
       return p;
     }), VEH_MAT, turret);
@@ -424,6 +438,12 @@ function makeVehicleModel(type, team) {
     const canopy = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 4.3, 12, 1, true, Math.PI - 1.0, 2.0), VM2.canvas); canopy.rotation.x = RX; canopy.position.set(0, 2.2, 0.9); canopy.castShadow = true; body.add(canopy);
     for (const [x, z] of [[-1.1, -3.0], [1.1, -3.0], [-1.1, 1.1], [1.1, 1.1], [-1.1, 2.3], [1.1, 2.3]]) wheel(x, 0.5, z, 0.5, 0.42);
   }
+  if (WW2V && team === 'red' && (type === 'jeep' || type === 'truck')) mesh(vcached('ww2cross' + type, () => {   // the German cross
+    const p = new Part();
+    if (type === 'jeep') { balken(p, 0.5, 0, 1.445, -1.36); for (const sd of [-1, 1]) balken(p, 0.42, 0.98 * sd, 1.0, 0.9, 0, 0, -sd * RX); }
+    else { for (const sd of [-1, 1]) { balken(p, 0.5, 1.21 * sd, 1.5, -2.25, 0, 0, -sd * RX); balken(p, 0.5, 1.22 * sd, 1.5, 1.0, 0, 0, -sd * RX); } balken(p, 0.55, 0, 1.5, 3.13, RX, 0, 0); }
+    return p;
+  }), VEH_MAT);
   if (WW2V && team === 'blue' && (type === 'jeep' || type === 'truck')) mesh(vcached('ww2star' + type, () => {   // the Allied white star
     const p = new Part();
     if (type === 'jeep') p.add(starGeo(0.42), 0xf2f0e6, 0, 1.445, -1.36);
@@ -441,7 +461,8 @@ function makeVehicleModel(type, team) {
 // ---------- fighter plane (nose is -Z) ----------
 function makePlaneModel(team) {
   const P = VPAINT[team], g = new THREE.Group();
-  const C = { body: team === 'blue' ? 0x3f6fc8 : 0xc94a3a, belly: team === 'blue' ? 0xb9cdee : 0xf0c4bb, dark: team === 'blue' ? 0x2a4f96 : 0x8f2f25 };
+  const C = WW2V ? (team === 'blue' ? { body: 0x56603a, belly: 0xa8aca0, dark: 0x3f4628 } : { body: 0x6c7276, belly: 0x9cb2c4, dark: 0x4e5458 })
+    : { body: team === 'blue' ? 0x3f6fc8 : 0xc94a3a, belly: team === 'blue' ? 0xb9cdee : 0xf0c4bb, dark: team === 'blue' ? 0x2a4f96 : 0x8f2f25 };
   const m = new THREE.Mesh(vcached('plane' + team, () => {
     const p = new Part();
     p.cyl(0.85, 0.84, 4.2, C.body, 0, 0, -1.4, RX, 0, 0, 1, 16); p.cyl(0.84, 0.24, 4.6, C.body, 0, 0.12, 2.9, -RX, 0, 0, 1, 16);        // fuselage, tail boom
@@ -477,6 +498,12 @@ function makePlaneModel(team) {
     // canopy frame
     for (const z of [-1.55, -0.6, 0.35]) p.add(new THREE.TorusGeometry(0.6, 0.035, 5, 14, Math.PI), C.dark, 0, 0.58, z, 0, 0, 0);
     p.box(0.05, 0.05, 1.9, C.dark, 0, 1.17, -0.6);
+    if (WW2V) for (const s of [-1, 1]) {   // national markings: German crosses and a yellow nose, or the Allied star
+      if (team === 'red') { balken(p, 1.15, 3.6 * s, -0.07, -1.3, 0, 0, 0.05 * s); balken(p, 0.95, 0.86 * s, 0.1, 1.5, 0, 0, s * (-RX + 0.1)); }
+      else { p.cyl(0.55, 0.55, 0.04, 0x1e2a50, 3.6 * s, -0.09, -1.3, 0, 0, 0.05 * s, 1, 16); p.add(starGeo(0.5), VC.white, 3.6 * s, -0.065, -1.3, 0, 0, 0.05 * s);
+        p.add(starGeo(0.4), VC.white, 0.79 * s, 0.1, 1.5, 0, 0, s * (-RX + 0.1)); }
+    }
+    if (WW2V && team === 'red') p.cyl(0.885, 0.865, 1.02, 0xe0b020, 0, 0, -3.9, RX, 0, 0, 1, 16);   // yellow cowling
     return p;
   }), VEH_MAT);
   m.castShadow = true; m.receiveShadow = true; g.add(m);

@@ -8,6 +8,13 @@ const TEAM_LOOK = {
   green: { uni: 0x3f5a3a, uni2: 0x2d4229, armor: 0x2f9a4a, armorD: 0x1f6e33, accent: 0x8ff0a8 },
   yellow: { uni: 0x6b5a32, uni2: 0x4e4124, armor: 0xd4a52a, armorD: 0x9a771c, accent: 0xffe58a },
 };
+// WWII maps: US Army olive drab with M1 helmets and khaki webbing; German army field grey with steel helmets,
+// black leather belts and jackboots. A small coloured armband still shows the team at a glance.
+const WW2S = typeof GERMANY !== 'undefined' && (GERMANY || NORMANDY);
+const TEAM_LOOK_WW2 = {
+  blue: { uni: 0x6e6846, uni2: 0x5c5638, armor: 0x4d5531, armorD: 0x3c4326, accent: 0x5b8ad8, web: 0x9a8a5c, boot: 0x5a3c26 },
+  red: { uni: 0x69705f, uni2: 0x5a6052, armor: 0x4c524c, armorD: 0x3a3f3a, accent: 0xc8463c, web: 0x1c1b19, boot: 0x141312 },
+};
 const GEARC = { olive: 0x4f5536, tan: 0x9a8560, dark: 0x1d1c1a, steel: 0x6a7078, gun: 0x25272b, gun2: 0x3a3d43, wood: 0x7a4a24, lens: 0x58c8ff, red: 0xff4a3a };
 
 // ---- tiny geometry merger ----
@@ -166,6 +173,7 @@ const GUN_HOLD = {   // where the hands grip and where the muzzle is, in gun spa
 const ARM_L1 = 0.38, ARM_L2 = 0.46, SHOULDER_X = 0.4, SHOULDER_Y = 1.74;
 
 function makeCharacter(team, role) {
+  if (WW2S && TEAM_LOOK_WW2[team]) return makeCharacterWW2(team, role);
   const T = TEAM_LOOK[team], skin = pick(SKINS), v = Math.floor(Math.random() * 3), key = team + role;
   const mesh = (geo, parent, shadow) => { const m = new THREE.Mesh(geo, SOLDIER_MAT); m.castShadow = !!shadow; parent.add(m); return m; };
   const root = new THREE.Group(), body = new THREE.Group(); root.add(body);
@@ -221,3 +229,134 @@ function poseGun(m, pitch, ready, sway) {
 }
 // straight arms and legs, for poses that set the shoulder angles themselves (driving, turrets, ragdolls)
 function limbsStraight(m) { m.foreL.quaternion.identity(); m.foreR.quaternion.identity(); m.shinL.rotation.x = 0; m.shinR.rotation.x = 0; }
+
+
+// ---------- WWII soldiers ----------
+function geoTorsoWW2(T, team, role, v) {
+  const p = new Part(), us = team === 'blue', W = T.web;
+  p.box(0.5, 0.2, 0.3, T.uni2, 0, 1.02, 0);                                   // hips
+  p.cyl(0.3, 0.27, 0.32, T.uni, 0, 1.27, 0, 0, 0, 0, 0.62);                    // waist
+  p.cyl(0.36, 0.3, 0.42, T.uni, 0, 1.6, 0, 0, 0, 0, 0.6);                      // tunic
+  p.cyl(0.13, 0.12, 0.1, us ? T.uni : 0x3e4a3a, 0, 1.84, 0);                   // collar (German: dark green)
+  for (let i = 0; i < 4; i++) p.ball(0.018, us ? 0x3a3424 : 0x8a8a80, 0, 1.75 - i * 0.12, 0.22);   // buttons
+  for (const sd of [-1, 1]) { p.box(0.14, 0.1, 0.04, T.uni2, 0.15 * sd, 1.62, 0.2); p.box(0.14, 0.12, 0.04, T.uni2, 0.16 * sd, 1.28, 0.19); }   // pockets
+  p.box(0.54, 0.07, 0.33, W, 0, 1.12, 0); p.box(0.07, 0.07, 0.035, us ? 0x8a8a80 : 0x6a6a64, 0, 1.12, 0.17);   // belt, buckle (plain)
+  if (us) {   // suspenders, cartridge belt pockets, canteen, first-aid pouch, a light pack
+    for (const sd of [-1, 1]) { p.box(0.06, 0.62, 0.04, W, 0.14 * sd, 1.48, 0.2); p.box(0.06, 0.62, 0.04, W, 0.14 * sd, 1.48, -0.2); }
+    for (const x of [-0.2, -0.1, 0.1, 0.2]) p.box(0.09, 0.1, 0.06, W, x, 1.12, 0.2);
+    p.cyl(0.07, 0.07, 0.18, 0x5a5a40, 0.28, 1.08, -0.12); p.box(0.1, 0.1, 0.06, W, -0.28, 1.1, 0.06);
+    if (role !== 'sniper') { p.box(0.36, 0.32, 0.14, W, 0, 1.5, -0.3); p.box(0.3, 0.06, 0.1, 0x7a6a44, 0, 1.68, -0.32); p.cyl(0.03, 0.03, 0.44, 0x6a5a3a, 0, 1.3, -0.34, 0, 0, Math.PI / 2); }   // pack, entrenching tool handle
+  } else {    // Y-straps, black ammo pouches, bread bag, mess tin and the fluted gas-mask canister
+    for (const sd of [-1, 1]) { p.box(0.05, 0.6, 0.035, W, 0.13 * sd, 1.48, 0.2, 0, 0, -0.12 * sd); p.box(0.1, 0.12, 0.08, W, 0.15 * sd, 1.17, 0.2); p.box(0.08, 0.1, 0.08, W, 0.25 * sd, 1.17, 0.17); }
+    p.box(0.05, 0.6, 0.035, W, 0, 1.48, -0.2);
+    p.box(0.2, 0.2, 0.08, 0x6a6a52, 0.25, 1.06, -0.15); p.cyl(0.07, 0.07, 0.16, 0x4a4a3a, 0.3, 1.0, -0.2);   // bread bag, canteen
+    p.cyl(0.08, 0.08, 0.32, 0x5a6052, -0.1, 1.24, -0.27, 0.15, 0, 0, 1, 10); for (let i = 0; i < 4; i++) p.cyl(0.083, 0.083, 0.02, 0x4a5044, -0.1, 1.14 + i * 0.07, -0.26, 0.15, 0, 0, 1, 10);   // gas-mask canister
+    p.box(0.16, 0.12, 0.06, 0x5a5a50, 0.12, 1.5, -0.24);                       // mess tin
+  }
+  if (role === 'rocket') for (const sd of [-1, 1]) p.cyl(0.05, 0.05, 0.5, 0x4a5030, 0.13 * sd, 1.55, -0.42, 0.1);   // spare rockets
+  return p;
+}
+function geoHeadWW2(T, team, role, v, skin) {
+  const p = new Part(), S = parseInt(skin.slice(1), 16), us = team === 'blue';
+  p.cyl(0.085, 0.095, 0.1, S, 0, 0.03, 0);
+  p.add(new THREE.SphereGeometry(0.21, 12, 9), S, 0, 0.25, 0, 0, 0, 0, 0.95, 1.1, 1.02);
+  p.box(0.05, 0.055, 0.06, S, 0, 0.225, 0.21);
+  for (const sd of [-1, 1]) { p.box(0.06, 0.034, 0.02, 0xf4f4f4, 0.078 * sd, 0.285, 0.197); p.box(0.03, 0.034, 0.022, 0x1b1410, 0.072 * sd, 0.285, 0.201); p.box(0.075, 0.018, 0.024, 0x2a1d14, 0.078 * sd, 0.322, 0.19); }
+  p.box(0.09, 0.016, 0.02, 0x6b3a2a, 0, 0.155, 0.2);
+  if (!us && role === 'sniper') {   // the German soft field cap
+    p.box(0.4, 0.13, 0.36, T.uni, 0, 0.43, -0.01); p.box(0.36, 0.04, 0.34, T.uni2, 0, 0.5, -0.01); p.box(0.26, 0.05, 0.06, T.uni2, 0, 0.4, 0.2);
+  } else if (us) {   // the M1: a round pot with a narrow brim all round, chin strap hanging loose
+    p.dome(0.27, T.armor, 0, 0.31, 0, 1, 0.95, 1.05); p.cyl(0.3, 0.31, 0.03, T.armorD, 0, 0.31, 0, 0, 0, 0, 1, 16);
+    if (v === 1) for (let i = 0; i < 6; i++) p.box(0.02, 0.02, 0.5, 0x4a4a30, -0.15 + i * 0.06, 0.48, 0, 0, 0, 0.3 * (i % 2 ? 1 : -1));   // helmet netting
+    p.box(0.02, 0.2, 0.02, 0x7a6a44, 0.24, 0.2, 0.05, 0, 0, 0.3); p.box(0.02, 0.2, 0.02, 0x7a6a44, -0.24, 0.2, 0.05, 0, 0, -0.3);
+    if (role === 'rocket' || v === 2) { p.box(0.08, 0.03, 0.04, 0xf2f2f2, 0, 0.42, 0.24); p.box(0.03, 0.08, 0.04, 0xf2f2f2, 0, 0.42, 0.24); }   // a medic-style white mark on some
+  } else {   // the German steel helmet: deep dome with the flared skirt over the ears and neck
+    p.dome(0.265, T.armor, 0, 0.32, -0.01, 1, 0.95, 1.08);
+    p.cyl(0.27, 0.33, 0.13, T.armor, 0, 0.27, -0.03, 0, 0, 0, 1.05, 16);       // the flared skirt
+    p.box(0.3, 0.03, 0.08, T.armorD, 0, 0.33, 0.25, -0.2);                     // short front brim
+    p.box(0.02, 0.18, 0.02, 0x1c1b19, 0.22, 0.2, 0.06, 0, 0, 0.25); p.box(0.02, 0.18, 0.02, 0x1c1b19, -0.22, 0.2, 0.06, 0, 0, -0.25);
+  }
+  return p;
+}
+function geoThighWW2(T, side) {
+  const p = new Part();
+  p.cyl(0.18, 0.145, 0.5, T.uni2, 0, -0.23, 0); p.box(0.15, 0.16, 0.06, T.uni2, 0.12 * side, -0.16, 0.06);
+  return p;
+}
+function geoShinWW2(T, team) {
+  const p = new Part(), us = team === 'blue';
+  if (us) { p.cyl(0.14, 0.12, 0.2, T.uni2, 0, -0.08, 0); p.cyl(0.14, 0.135, 0.24, 0x9a8a5c, 0, -0.3, 0); for (let i = 0; i < 4; i++) p.box(0.02, 0.02, 0.03, 0x6a5a3a, 0.13, -0.22 - i * 0.05, 0.03); }   // canvas leggings
+  else p.cyl(0.15, 0.14, 0.44, T.boot, 0, -0.24, 0);                          // tall black jackboots
+  p.box(0.24, 0.13, 0.4, T.boot, 0, -0.44, 0.07); p.box(0.25, 0.04, 0.42, 0x0f0e0d, 0, -0.485, 0.07);
+  return p;
+}
+function geoUpperArmWW2(T) {
+  const p = new Part();
+  p.cyl(0.125, 0.105, 0.38, T.uni, 0, -0.19, 0); p.cyl(0.128, 0.128, 0.07, T.accent, 0, -0.12, 0);   // sleeve, team armband
+  return p;
+}
+function geoForearmWW2(T, skin) {
+  const p = new Part();
+  p.cyl(0.1, 0.085, 0.36, T.uni, 0, -0.18, 0); p.cyl(0.088, 0.088, 0.05, T.uni2, 0, -0.35, 0);    // sleeve and cuff
+  p.box(0.11, 0.13, 0.12, parseInt(skin.slice(1), 16), 0, -0.44, 0);                              // bare hand
+  return p;
+}
+// the period weapons, pointing along +Z like the modern ones (the same hand and muzzle points)
+function geoGunWW2(team, role) {
+  const p = new Part(), G = GEARC, R = Math.PI / 2, us = team === 'blue', wood = 0x7a4a24, wood2 = 0x5e3a1c;
+  if (role === 'rocket') {
+    if (us) {   // bazooka: a long olive tube with a flared front and a shoulder stock
+      p.cyl(0.065, 0.065, 1.5, 0x4d5530, 0, 0.1, 0.4, R); p.cyl(0.085, 0.065, 0.14, 0x4d5530, 0, 0.1, -0.36, R); p.cyl(0.09, 0.07, 0.12, 0x3a4024, 0, 0.1, 1.12, R);
+      p.box(0.06, 0.12, 0.2, wood, 0, -0.01, 0.08); p.box(0.04, 0.13, 0.05, G.dark, 0, -0.04, 0.3, 0.2); p.box(0.03, 0.06, 0.04, G.dark, 0, 0.19, 0.6);
+    } else {    // Panzerschreck: a thicker tube with a blast shield and a little window
+      p.cyl(0.08, 0.08, 1.45, 0x4c524c, 0, 0.1, 0.4, R); p.cyl(0.09, 0.09, 0.08, 0x3a3f3a, 0, 0.1, 1.12, R);
+      p.box(0.34, 0.34, 0.02, 0x4c524c, 0.12, 0.12, 0.62); p.box(0.07, 0.05, 0.02, 0x22283a, 0.06, 0.18, 0.61);   // shield with window
+      p.box(0.04, 0.13, 0.05, G.dark, 0, -0.03, 0.3, 0.2); p.box(0.04, 0.12, 0.05, G.dark, 0, -0.03, 0.55);
+    }
+  } else if (role === 'sniper') {   // Springfield or Kar98k: a long bolt-action with a wooden stock and a scope
+    p.box(0.055, 0.1, 0.42, wood, 0, -0.01, 0.12); p.box(0.05, 0.05, 0.45, wood, 0, 0.0, 0.62); p.box(0.05, 0.12, 0.08, wood2, 0, -0.04, -0.06);   // stock and fore-end
+    p.cyl(0.014, 0.014, 0.9, G.gun2, 0, 0.03, 0.95, R); p.box(0.04, 0.05, 0.22, G.gun, 0, 0.04, 0.34);   // barrel, receiver
+    p.cyl(0.01, 0.01, 0.08, G.steel, 0.06, 0.04, 0.3, 0, 0, R); p.ball(0.018, G.steel, 0.1, 0.04, 0.3);   // bolt handle
+    p.cyl(0.026, 0.026, 0.3, G.gun, 0, 0.11, 0.36, R); p.cyl(0.034, 0.03, 0.06, G.gun, 0, 0.11, 0.53, R); p.cyl(0.03, 0.03, 0.01, G.lens, 0, 0.11, 0.565, R);
+    for (const z of [0.3, 0.44]) p.box(0.02, 0.05, 0.02, G.gun, 0, 0.075, z);
+  } else if (us) {   // M1 Garand: long wooden stock, upper handguard, steel barrel and the rear sight
+    p.box(0.055, 0.1, 0.3, wood, 0, -0.03, 0.06); p.box(0.05, 0.12, 0.08, wood2, 0, -0.05, -0.08);   // butt
+    p.box(0.05, 0.06, 0.48, wood, 0, 0.0, 0.52); p.box(0.04, 0.03, 0.3, wood2, 0, 0.04, 0.58);         // fore-end, upper handguard
+    p.box(0.045, 0.06, 0.18, G.gun, 0, 0.03, 0.26); p.cyl(0.013, 0.013, 0.36, G.gun2, 0, 0.03, 0.9, R); p.box(0.02, 0.03, 0.03, G.gun, 0, 0.065, 0.2);   // receiver, barrel, sight
+    p.box(0.04, 0.03, 0.04, G.gun, 0, 0.0, 1.0); p.box(0.04, 0.08, 0.05, wood2, 0, -0.07, 0.22, 0.3);   // gas cylinder, grip
+  } else {           // StG 44: steel receiver, curved magazine, wooden butt, pistol grip
+    p.box(0.05, 0.08, 0.36, G.gun, 0, 0.0, 0.36); p.box(0.05, 0.06, 0.14, G.gun2, 0, 0.0, 0.62);    // receiver, handguard
+    p.cyl(0.012, 0.012, 0.22, G.gun2, 0, 0.01, 0.8, R); p.cyl(0.018, 0.018, 0.05, G.gun, 0, 0.01, 0.92, R);
+    p.box(0.05, 0.1, 0.22, wood, 0, -0.03, 0.06); p.box(0.04, 0.11, 0.05, G.gun, 0, -0.09, 0.24, 0.3);   // wooden butt, grip
+    for (let i = 0; i < 4; i++) p.box(0.034, 0.06, 0.05, G.gun2, 0, -0.08 - i * 0.05, 0.42 + i * 0.022, -0.35 - i * 0.05);   // curved magazine
+    p.box(0.012, 0.03, 0.012, G.dark, 0, 0.055, 0.75); p.box(0.02, 0.025, 0.03, G.dark, 0, 0.05, 0.3);
+  }
+  return p;
+}
+function makeCharacterWW2(team, role) {
+  const T = TEAM_LOOK_WW2[team], skin = pick(SKINS), v = Math.floor(Math.random() * 3), key = 'ww2' + team + role;
+  const mesh = (geo, parent, shadow) => { const m = new THREE.Mesh(geo, SOLDIER_MAT); m.castShadow = !!shadow; parent.add(m); return m; };
+  const root = new THREE.Group(), body = new THREE.Group(); root.add(body);
+  mesh(cached('torso' + key, () => geoTorsoWW2(T, team, role, v)), body, true);
+  const legL = new THREE.Group(), legR = new THREE.Group(), shinL = new THREE.Group(), shinR = new THREE.Group();
+  legL.position.set(-0.17, 0.97, 0); legR.position.set(0.17, 0.97, 0); body.add(legL, legR);
+  mesh(cached('ww2thighL' + team, () => geoThighWW2(T, -1)), legL, true); mesh(cached('ww2thighR' + team, () => geoThighWW2(T, 1)), legR, true);
+  shinL.position.y = shinR.position.y = -0.47; legL.add(shinL); legR.add(shinR);
+  mesh(cached('ww2shin' + team, () => geoShinWW2(T, team)), shinL, true); mesh(cached('ww2shin' + team, () => geoShinWW2(T, team)), shinR, true);
+  const armL = new THREE.Group(), armR = new THREE.Group(), foreL = new THREE.Group(), foreR = new THREE.Group();
+  armL.position.set(-SHOULDER_X, SHOULDER_Y, 0); armR.position.set(SHOULDER_X, SHOULDER_Y, 0); body.add(armL, armR);
+  mesh(cached('ww2uarm' + team, () => geoUpperArmWW2(T)), armL); mesh(cached('ww2uarm' + team, () => geoUpperArmWW2(T)), armR);
+  foreL.position.y = foreR.position.y = -ARM_L1; armL.add(foreL); armR.add(foreR);
+  mesh(cached('ww2fore' + team + skin, () => geoForearmWW2(T, skin)), foreL); mesh(cached('ww2fore' + team + skin, () => geoForearmWW2(T, skin)), foreR);
+  const head = new THREE.Group(); head.position.y = 1.83; body.add(head);
+  const headMesh = mesh(cached('head' + key + v + skin, () => geoHeadWW2(T, team, role, v, skin)), head, true);
+  headMesh.userData.head = true;
+  const aim = new THREE.Group(); body.add(aim);
+  const gun = new THREE.Group(); aim.add(gun);
+  mesh(cached('ww2gun' + team + role, () => geoGunWW2(team, role)), gun, true).scale.set(1.35, 1.3, 1.08);
+  const H = GUN_HOLD[role] || GUN_HOLD.rifle;
+  const muzzle = new THREE.Object3D(); muzzle.position.set(...H.muzzle); gun.add(muzzle);
+  const m = { root, body, legL, legR, shinL, shinR, armL, armR, foreL, foreR, head, headMesh, gun, aim, muzzle, hold: H, role };
+  poseGun(m, 0, 1, 0);
+  return m;
+}

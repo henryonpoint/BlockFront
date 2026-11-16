@@ -375,6 +375,7 @@ function applyDamState(d) { if (!Array.isArray(d)) return; DAMWALL.hp = d[0]; if
 function updateLevel(dt) {
   if (DAM) updateDam(dt);
   if ((GERMANY || NORMANDY) && typeof updatePointsVisual === 'function') installWW2Flags();
+  if ((GERMANY || NORMANDY) && typeof applyWW2Weapons === 'function') applyWW2Weapons(player.team);
   if (GERMANY) { installLeaderHooks(); installGuardHook(); updateBombers(dt); updateLeader(dt); updateBerlinWar(dt); }
   if ((GERMANY || NORMANDY) && started) updateBarrage(dt);
   if (AFGHAN && started && !AFG.told && player.alive) { AFG.told = true; showMessage('Desert Combat: Afghanistan. Blue holds the base in the south of the valley, red holds the mountain villages. Humvees, jets and helicopters are at your base', 7); }
@@ -897,8 +898,8 @@ function updateBerlinWar(dt) {
 }
 
 // ---------- flags and wartime signs (WWII maps) ----------
-// Allied side: the 48-star US flag on the base and on every point it holds. German side: a plain field-grey unit
-// flag with a red border and a roman numeral (no party symbols). In Berlin: white sheets hung out of windows in
+// Allied side: the 48-star US flag on the base and on every point it holds. German side: a field-grey flag with
+// a red border and the iron cross (the army's own symbol; no party symbols). In Berlin: white sheets hung out of windows in
 // surrender, white "LSR" air-raid shelter arrows painted by doorways, enamel street-name signs, and signposts.
 const WWF = { us: null, de: null };
 function ww2FlagTex(team) {
@@ -915,7 +916,10 @@ function ww2FlagTex(team) {
   }));
   return WWF.de || (WWF.de = canvasTex(260, 160, (g, w, h) => {
     g.fillStyle = '#6e1f1a'; g.fillRect(0, 0, w, h); g.fillStyle = '#5d6352'; g.fillRect(14, 14, w - 28, h - 28);
-    g.fillStyle = '#e8e4d8'; g.font = 'bold 72px ' + font; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('IV', w / 2, h / 2 + 4);
+    const cx = w / 2, cy = h / 2, R = 52, n = 13, k = 30;   // the iron cross: four arms that flare out towards the ends
+    const cross = (R, n, k) => { g.beginPath(); for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2, c = Math.cos(a), s2 = Math.sin(a), pt = (u, v) => [cx + u * c - v * s2, cy + u * s2 + v * c];
+      const p1 = pt(n, -n), p2 = pt(R, -k), p3 = pt(R, k), p4 = pt(n, n); i ? g.lineTo(...p1) : g.moveTo(...p1); g.lineTo(...p2); g.lineTo(...p3); g.lineTo(...p4); } g.closePath(); g.fill(); };
+    g.fillStyle = '#f0eee6'; cross(R + 6, n + 5, k + 6); g.fillStyle = '#141414'; cross(R, n, k);
   }));
 }
 function installWW2Flags() {
