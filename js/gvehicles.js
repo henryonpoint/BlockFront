@@ -209,7 +209,7 @@ function leaveSeat(c, switching) {
   const v = c.gv; if (!v) return;
   if (v.seats[c.seat] === c) v.seats[c.seat] = null;
   c.gv = null; c.seat = -1; c.exposed = false;
-  { const m = c.isPlayer ? player.body3p : c.model; if (m && m.head) m.head.rotation.set(0, 0, 0); }
+  { const m = c.isPlayer ? player.body3p : c.model; if (m && m.head) m.head.rotation.set(0, 0, 0); if (m && m.body) { m.body.position.y = 0; m.body.rotation.x = 0; } if (m && m.legL) { m.legL.rotation.order = m.legR.rotation.order = 'XYZ'; m.legL.rotation.set(0, 0, 0); m.legR.rotation.set(0, 0, 0); } }
   c.noVehT = simTime + 25; c.vehTarget = null;
   if (switching) return;
   const right = new THREE.Vector3(Math.cos(v.yaw), 0, -Math.sin(v.yaw));
@@ -619,7 +619,22 @@ function npcBoard(n) {
   enterSeat(n, v, seat);
   if (seat === 0) v.aiGoal = n.goalPoint;
 }
-let SURF_SIGN = 1, SURF_LOOK = -1.0;   // the lean direction and the head turn towards the board's nose
+let SURF_SIGN = 1, SURF_LOOK = -1.0;
+// place a foot exactly on the deck: two-bone leg, hip at (hx, 0.97) in the body frame, which is lowered by h and pitched forward by t;
+// the foot sits at (fx, 0, fz) in the rider's root frame, i.e. on the board's top surface
+const SURF_L1 = 0.47, SURF_L2 = 0.5;
+function surfLegIK(leg, shin, hx, fx, h, t, fz) {
+  const c = Math.cos(t), s = Math.sin(t), ty = h, tz = fz;          // target relative to the body origin, then into the pitched body frame
+  const by = ty * c + tz * s, bz = -ty * s + tz * c;
+  let dx = fx - hx, dy = by - 0.97, dz = bz, D = Math.hypot(dx, dy, dz);
+  const maxD = SURF_L1 + SURF_L2 - 0.002; if (D > maxD) { dx *= maxD / D; dy *= maxD / D; dz *= maxD / D; D = maxD; }
+  const ux = dx / D, uy = dy / D, uz = dz / D;
+  const a = Math.acos(clamp((SURF_L1 * SURF_L1 + D * D - SURF_L2 * SURF_L2) / (2 * SURF_L1 * D), -1, 1));
+  const b = Math.acos(clamp((SURF_L2 * SURF_L2 + D * D - SURF_L1 * SURF_L1) / (2 * SURF_L2 * D), -1, 1));
+  leg.rotation.order = 'ZXY';
+  leg.rotation.set(Math.asin(clamp(-uz, -1, 1)) - a, 0, Math.atan2(ux, -uy));   // swing the leg to point at the foot, then bend the knee forward
+  shin.rotation.x = a + b;
+}   // the lean direction and the head turn towards the board's nose
 // put everyone sitting in vehicles in the right place and pose
 function updateOccupants() {
   for (const c of chars) {
@@ -631,17 +646,17 @@ function updateOccupants() {
     const m = c.isPlayer ? player.body3p : c.model; if (!m) continue;
     m.root.visible = c.alive && S.pose !== 'hide' && !(c.isPlayer && S.role === 'gun') && !(c.isPlayer && v.T.heli && S.role === 'drive' && typeof heliView !== 'undefined' && heliView === 'cockpit');
     m.root.position.copy(c.pos);
-    limbsStraight(m); m.body.rotation.x = 0; m.head.rotation.set(0, 0, 0);
+    limbsStraight(m); m.body.rotation.x = 0; m.body.position.y = 0; m.head.rotation.set(0, 0, 0); if (S.pose !== 'surf') m.legL.rotation.order = m.legR.rotation.order = 'XYZ';
     if (S.role === 'gun') { const gy = S.gun ? v.mg2Yaw : v.mgYaw, gp = S.gun ? v.mg2Pitch : v.mgPitch; m.root.rotation.set(0, gy + Math.PI, 0); m.armR.rotation.set(-Math.PI / 2 - gp, 0, 0); m.armL.rotation.set(-Math.PI / 2 - gp, 0.3, 0); m.legL.rotation.x = 0; m.legR.rotation.x = 0; m.gun.visible = false; }
-    else if (S.pose === 'surf') {   // sideways on the board in a low surfer's crouch, leaning in towards the inside of the turn
+    else if (S.pose === 'surf') {   // sideways on the board like a snowboarder: feet planted on the deck, knees bent, the whole body tilting into the turn
       const lean = v.lean || 0, k = Math.abs(lean);
-      m.root.rotation.set(SURF_SIGN * lean, v.yaw + Math.PI * 1.5, 0, 'YXZ');
-      m.root.position.y -= 0.3 + k * 0.08;                                   // knees bent: the hips drop
-      m.legL.rotation.set(-0.95 - lean * 0.3, 0, 0.42); m.legR.rotation.set(-0.95 + lean * 0.3, 0, -0.42);   // wide stance along the board
-      m.shinL.rotation.x = 1.45 + lean * 0.3; m.shinR.rotation.x = 1.45 - lean * 0.3;
-      m.body.rotation.x = Math.max(0.12, 0.42 - lean * 0.45);                  // chest low over the board (less when already leaning over the toes)
-      m.armL.rotation.set(-0.35, 0, -1.25 - lean * 0.5); m.armR.rotation.set(-0.35, 0, 1.25 - lean * 0.5);   // arms out for balance, swinging with the lean
-      m.head.rotation.set(-0.3, SURF_LOOK, 0);                                 // eyes up and looking where the board goes
+      m.root.rotation.set(lean, v.yaw + Math.PI * 1.5, 0, 'YXZ');   // tilt about the board's long axis, pivoting on the feet, together with the board
+      const h = 0.2 + k * 0.22, t = 0.28 + k * 0.15;                   // hips drop and the chest folds forward more as the carve gets deeper
+      m.body.position.y = -h; m.body.rotation.x = t;
+      surfLegIK(m.legL, m.shinL, -0.17, -0.44, h, t, lean > 0 ? 0.04 : -0.02);
+      surfLegIK(m.legR, m.shinR, 0.17, 0.44, h, t, lean > 0 ? 0.04 : -0.02);
+      m.armL.rotation.set(-0.5 - lean * 0.4, 0, -1.15 + lean * 0.35); m.armR.rotation.set(-0.5 - lean * 0.4, 0, 1.15 + lean * 0.35);   // arms out for balance
+      m.head.rotation.set(-0.15 - t * 0.6, SURF_LOOK, 0);                // eyes up, looking down the board towards the nose
       m.gun.visible = false;
     } else if (S.pose === 'bike') {
       m.root.rotation.set(v.pitch, v.yaw + Math.PI, -v.roll, 'YXZ');
