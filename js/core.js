@@ -263,8 +263,23 @@ function fbm(x, z) {
 // the snow map has its own layout: A and E are rail yards, B and D Soviet housing blocks, C the Kremlin,
 // F a monastery high in the mountains and G a factory
 // Wake Island: a U-shaped atoll. Red holds the island, blue comes in from an aircraft carrier to the south
-const WAKE_U = [[-330, -260], [-305, 210], [-230, 255], [230, 255], [305, 210], [330, -260]].map(([x, z]) => ({ x, z }));
-function wakeDist(x, z) { let m = Infinity; for (let i = 0; i < WAKE_U.length - 1; i++) m = Math.min(m, distToSeg(x, z, WAKE_U[i].x, WAKE_U[i].z, WAKE_U[i + 1].x, WAKE_U[i + 1].z)); return Math.min(m, Math.hypot(x, z + 20) + 2); }
+// a curving horseshoe whose arms bow out and curl in at the tips (like the real atoll), not a squared-off U
+const WAKE_U = [[-298, -282], [-336, -200], [-322, -110], [-314, 0], [-302, 95], [-272, 190], [-222, 243], [-150, 258], [-50, 264], [50, 264], [150, 258], [226, 240], [282, 196], [306, 105], [320, 0], [324, -120], [306, -210], [266, -268]].map(([x, z]) => ({ x, z }));
+const WAKE_SPINE = (() => {   // a smooth curve through those points
+  const P = WAKE_U, out = [];
+  for (let i = 0; i < P.length - 1; i++) {
+    const p0 = P[Math.max(0, i - 1)], p1 = P[i], p2 = P[i + 1], p3 = P[Math.min(P.length - 1, i + 2)];
+    for (let k = 0; k < 8; k++) { const t = k / 8, t2 = t * t, t3 = t2 * t, f = (a, b, c, d) => 0.5 * (2 * b + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t2 + (-a + 3 * b - 3 * c + d) * t3); out.push({ x: f(p0.x, p1.x, p2.x, p3.x), z: f(p0.z, p1.z, p2.z, p3.z) }); }
+  }
+  out.push(P[P.length - 1]); return out;
+})();
+function wakeDist(x, z) {
+  let m = Infinity; const S = WAKE_SPINE;
+  for (let i = 0; i < S.length - 1; i++) m = Math.min(m, distToSeg(x, z, S[i].x, S[i].z, S[i + 1].x, S[i + 1].z));
+  const a = S[0], b = S[S.length - 1], tip = Math.min(Math.hypot(x - a.x, z - a.z), Math.hypot(x - b.x, z - b.z));
+  if (tip < 90) m += (1 - tip / 90) * 22;   // the arms thin out towards their tips
+  return Math.min(m, Math.hypot(x, z + 20) + 2);
+}
 const CARRIER = { x: 0, z: 470, hl: 105, hw: 17, deck: 13 };
 // the smaller islands round Wake, each one different
 const WAKE_ISLES = [
@@ -289,6 +304,19 @@ function wakeIsles(x, z) {
     h = Math.max(h, g);
   }
   return h;
+}
+// Normandy: two zig-zag trench lines dug across the beach, with gaps to run through. They are part of the ground itself
+const N_TRENCH = [{ z: 286, amp: 5, per: 34, phase: 0 }, { z: 257, amp: 4, per: 28, phase: 11 }];
+function normTrenchLine(x, T) { const t = ((x + 900 + T.phase) / T.per) % 1; return T.z + T.amp * (Math.abs(t * 4 - 2) - 1); }
+function normTrench(x, z) {
+  if (typeof NORMANDY === 'undefined' || !NORMANDY || z < 246 || z > 296 || Math.abs(x) > HALF - 60) return 0;
+  let dep = 0;
+  for (const T of N_TRENCH) {
+    if (Math.abs(z - T.z) > T.amp + 4) continue;
+    if (((x + 900 + T.phase * 3) % 70) < 9) continue;                      // a gap every 70 m
+    const d = Math.abs(z - normTrenchLine(x, T)); dep = Math.max(dep, 1.6 * smooth(2.8, 1.1, d));
+  }
+  return dep;
 }
 const POINTS_DEF = ZD30 ? [   // Zero Dark 30: hidden points that only guide the soldiers round the compound and the streets
   { n: 'A', x: 0, z: -78 }, { n: 'B', x: -25, z: -14 }, { n: 'C', x: 12, z: 0 },
@@ -396,7 +424,7 @@ function rawHeight(x, z) {
     if (x >= C.x + C.hl && x < C.x + C.hl + 46 && Math.abs(z - (C.z + 9)) < 4.5) return lerp(C.deck, 0.5, (x - C.x - C.hl) / 46);
     if (x >= C.x + C.hl + 46 && x < C.x + C.hl + 70 && Math.abs(z - (C.z + 8)) < 13) return 0.45;
     // the atoll: jungle in the middle, sandy beaches, shallow water, then the deep ocean
-    const d = wakeDist(x, z) * 0.62, bump = vnoise(x * 0.03 + 4, z * 0.03 - 7) * 3.2 + vnoise(x * 0.09, z * 0.09) * 0.8;   // a wide atoll: the land runs about 33 m either side of its spine
+    const d = (wakeDist(x, z) + (vnoise(x * 0.035 + 7, z * 0.035 - 3) - 0.5) * 16 + (vnoise(x * 0.012 - 5, z * 0.012 + 9) - 0.5) * 26) * 0.62 * lerp(0.82, 1.22, vnoise(x * 0.0065 + 11, z * 0.0065 + 3)), bump = vnoise(x * 0.03 + 4, z * 0.03 - 7) * 3.2 + vnoise(x * 0.09, z * 0.09) * 0.8;   // a wide atoll: the land runs about 33 m either side of its spine
     const sea = -14 + vnoise(x * 0.01, z * 0.01) * 4;
     let g;
     if (d < 20) g = 3.2 + bump * smooth(14, 4, d) * smooth(6, 30, pathDist(x, z));
@@ -435,7 +463,7 @@ function rawHeight(x, z) {
     let g;
     if (z < 150) g = land;
     else if (z < 236) { const t = smooth(150, 236, z); g = lerp(land, 2.4, Math.pow(t, 0.7)); g = lerp(g, lerp(land, 2.4, smooth(130, 250, z)), gully); }
-    else if (z < 336) g = lerp(2.4, 0.15, (z - 236) / 100) + (vnoise(x * 0.05, z * 0.05) - 0.5) * 0.3;
+    else if (z < 336) g = lerp(2.4, 0.15, (z - 236) / 100) + (vnoise(x * 0.05, z * 0.05) - 0.5) * 0.3 - normTrench(x, z);
     else g = lerp(0.15, -9 + vnoise(x * 0.01, z * 0.01) * 2, smooth(336, 400, z));
     if (d > MTN && z < 300) g += Math.pow((d - MTN) / 45, 2) * 40;
     return g;

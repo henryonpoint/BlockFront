@@ -18,11 +18,12 @@ if (typeof ZD30 !== 'undefined' && ZD30) {   // Zero Dark 30: the team in dark g
 }
 // WWII maps: US Army olive drab with M1 helmets and khaki webbing; German army field grey with steel helmets,
 // black leather belts and jackboots. A small coloured armband still shows the team at a glance.
-const WW2S = typeof GERMANY !== 'undefined' && (GERMANY || NORMANDY);
+const WW2S = typeof GERMANY !== 'undefined' && (GERMANY || NORMANDY || WAKE);
 const TEAM_LOOK_WW2 = {
   blue: { uni: 0x80724e, uni2: 0x6a5e40, armor: 0x535d34, armorD: 0x404828, accent: 0x5b8ad8, web: 0xae9e6c, boot: 0x5a3c26 },   // US: brown olive drab, olive helmets, khaki webbing
   red: { uni: 0x56606a, uni2: 0x48515a, armor: 0x3b4146, armorD: 0x2b2f33, accent: 0xc8463c, web: 0x1c1b19, boot: 0x141312 },   // German: blue-grey field grey, dark grey helmets, black leather
 };
+if (typeof WAKE !== 'undefined' && WAKE) Object.assign(TEAM_LOOK_WW2.red, { uni: 0x8f8552, uni2: 0x7a7044, armor: 0x6f6a45, armorD: 0x57532f, web: 0x5a3c26, boot: 0x3a2a1c });   // Wake Island 1941: khaki instead of field grey
 const GEARC = { olive: 0x4f5536, tan: 0x9a8560, dark: 0x1d1c1a, steel: 0x6a7078, gun: 0x25272b, gun2: 0x3a3d43, wood: 0x7a4a24, lens: 0x58c8ff, red: 0xff4a3a };
 
 // ---- tiny geometry merger ----
@@ -367,4 +368,39 @@ function makeCharacterWW2(team, role) {
   const m = { root, body, legL, legR, shinL, shinR, armL, armR, foreL, foreR, head, headMesh, gun, aim, muzzle, hold: H, role };
   poseGun(m, 0, 1, 0);
   return m;
+}
+
+// ---------- far-away soldiers ----------
+// Past about 75 m a soldier is a few pixels tall, yet his full model costs 11 separate draws. Out there his detailed
+// body is hidden and he is drawn as one copy of a simple figure, all of a team's far soldiers together in a single draw.
+// Only the drawing changes: he is still hit, aimed at and moved exactly as before.
+const FAR = { d2: 75 * 75, meshes: {}, tmpM: new THREE.Matrix4(), tmpQ: new THREE.Quaternion(), tmpS: new THREE.Vector3(1, 1, 1), on: true };
+function farSoldierGeo(team) {
+  const T = (WW2S && TEAM_LOOK_WW2[team]) || TEAM_LOOK[team] || TEAM_LOOK.blue, p = new Part();
+  for (const s of [-1, 1]) { p.box(0.3, 0.92, 0.32, T.uni2, 0.17 * s, 0.5, 0); p.box(0.32, 0.12, 0.4, T.boot || 0x1d1c1a, 0.17 * s, 0.05, 0.04); }   // legs and boots
+  p.box(0.66, 0.78, 0.4, T.uni, 0, 1.36, 0); p.box(0.7, 0.5, 0.44, T.armor, 0, 1.42, 0);                       // body and vest
+  for (const s of [-1, 1]) p.box(0.2, 0.7, 0.22, T.uni, 0.42 * s, 1.36, 0.1, -0.5, 0, 0);                     // arms forward, holding the rifle
+  p.box(0.1, 0.12, 0.95, 0x25272b, 0.12, 1.32, 0.42);                                                           // the rifle
+  p.box(0.32, 0.34, 0.32, 0xc89a78, 0, 1.92, 0); p.dome(0.24, T.armor, 0, 2.02, 0, 1, 0.8, 1);                 // head and helmet
+  return p.build();
+}
+function farMesh(team) {
+  let m = FAR.meshes[team];
+  if (!m) { m = FAR.meshes[team] = new THREE.InstancedMesh(farSoldierGeo(team), SOLDIER_MAT, Math.max(64, chars.length + 8)); m.frustumCulled = false; m.count = 0; m.userData.settleSkip = true; m.userData.kept = true; scene.add(m); }
+  return m;
+}
+function updateFarSoldiers() {
+  if (!FAR.on || typeof chars === 'undefined') return;
+  const cam = camera.position, used = {};
+  for (const c of chars) {
+    if (c.isPlayer || !c.model || !c.model.root) continue;
+    const m = c.model, far = c.alive && !c.gv && !c.vehicle && m.root.visible && c.pos.distanceToSquared(cam) > FAR.d2;
+    if (m.body.visible === far) m.body.visible = !far;   // the detailed body only up close
+    if (!far) continue;
+    const im = farMesh(c.team), i = used[c.team] || 0; if (i >= im.instanceMatrix.count) continue;
+    used[c.team] = i + 1;
+    FAR.tmpQ.setFromEuler(m.root.rotation); FAR.tmpS.set(1, c.crouch ? 0.72 : 1, 1);
+    im.setMatrixAt(i, FAR.tmpM.compose(m.root.position, FAR.tmpQ, FAR.tmpS));
+  }
+  for (const t in FAR.meshes) { const im = FAR.meshes[t]; im.count = used[t] || 0; if (im.count) im.instanceMatrix.needsUpdate = true; }
 }

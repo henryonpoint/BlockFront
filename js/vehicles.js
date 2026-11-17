@@ -181,8 +181,10 @@ function destroyPlane(pl, attacker) {
   if (pl.pilot) { const p = pl.pilot; pl.pilot = null; p.vehicle = null; if (p.alive) kill(p, attacker && attacker !== p ? attacker : null, new THREE.Vector3(0, 1, 0), 10); }
   if (pl.gunner) { const g = pl.gunner; pl.gunner = null; g.planeGun = null; if (g.alive) kill(g, attacker && attacker !== g ? attacker : null, new THREE.Vector3(0, 1, 0), 10); }
 }
+// the ground under a plane: the land, or the flight deck of a ship it is sitting on
+function planeGroundH(x, z) { const h = heightAt(x, z); if (typeof shipUnder !== 'function' || typeof SHIPS2 === 'undefined' || !SHIPS2.length) return h; const s = shipUnder(x, z, 1e4); return s ? Math.max(h, s.f) : h; }
 function planeGroundCheck(pl) {
-  const gh = heightAt(pl.pos.x, pl.pos.z);
+  const gh = planeGroundH(pl.pos.x, pl.pos.z);
   const fwd = planeFwd(pl), right = new THREE.Vector3(1, 0, 0).applyQuaternion(pl.quat);
   if (pl.pos.y - 1.6 < gh) {
     const gentle = pl.speed < 40 && fwd.y > -0.22 && fwd.y < 0.4 && Math.abs(right.y) < 0.35;
@@ -211,7 +213,7 @@ function planeLeadTarget(pl, maxAng = 0.26, range = 520) {
 function planeGuns(pl, shooter, accurate) {
   pl.gunT = 0.07;
   const fwd = planeFwd(pl), right = new THREE.Vector3(1, 0, 0).applyQuaternion(pl.quat);
-  const lock = shooter === player ? planeLeadTarget(pl) : null;   // bullets bend towards the enemy in front of you
+  const lock = shooter === player && (pl.kind === 'f18' || pl.kind === 'f22' || pl.kind === 'harrier') ? planeLeadTarget(pl) : null;   // modern jets' guns help you aim; vintage guns go where you point them
   for (const s of [-1, 1]) {
     const o = pl.pos.clone().addScaledVector(right, s * 2.4).addScaledVector(fwd, 2);
     const aim = lock ? lock.lead.clone().sub(o).normalize() : fwd.clone();
@@ -287,7 +289,7 @@ function cockpitModel() {
 function buildCockpit(st) {
   const g = new THREE.Group(); g.userData.cockpit = true; g.userData.style = st;
   const T = new Part(), P = new Part(), G = new Part();   // tub, full cockpit, glowing screens and lamps
-  const glassMat = new THREE.MeshPhongMaterial({ color: st === 'f22' ? 0xd8c078 : 0x9fd8ff, transparent: true, opacity: st === 'f22' ? 0.1 : 0.16, shininess: 120, depthWrite: false });
+  const glassMat = new THREE.MeshPhongMaterial({ color: st === 'f22' ? 0xd8c078 : 0x9fd8ff, transparent: true, opacity: st === 'f22' ? 0.1 : st === 'prop' || st === 'biplane' || st === 'triplane' ? 0.05 : 0.16, shininess: 120, depthWrite: false });
   const glass = [];   // [w, h, x, y, z, rx]
   const dial = (Q, x, y, z, r, face = 0xf2f2ee, rim = 0x111111) => { Q.cyl(r, r, 0.02, face, x, y, z, Math.PI / 2, 0, 0, 1, 14); Q.cyl(r * 1.15, r * 1.15, 0.015, rim, x, y, z - 0.006, Math.PI / 2, 0, 0, 1, 14); Q.box(r * 0.14, r * 0.8, 0.01, 0xd8262a, x, y + r * 0.3, z + 0.012); };
   const screen = (x, y, z, w, h, col) => { P.box(w + 0.04, h + 0.04, 0.03, 0x111316, x, y, z - 0.02); G.box(w, h, 0.01, 0x0a1a12, x, y, z); for (let i = 0; i < 4; i++) G.box(w * (0.4 + (i % 3) * 0.15), 0.012, 0.012, col, x - w * 0.15, y + h * 0.3 - i * h * 0.18, z + 0.008); G.box(w * 0.2, h * 0.2, 0.012, col, x + w * 0.25, y - h * 0.15, z + 0.008); };
@@ -301,7 +303,7 @@ function buildCockpit(st) {
     T.box(0.55, 0.08, 0.5, 0x8a6a40, 0, 0.62, 0.35); T.box(0.55, 0.55, 0.08, 0x8a6a40, 0, 0.9, 0.62);                     // wicker seat
     T.box(0.04, 0.45, 0.04, 0x2a2a2a, 0, 0.78, -0.4); T.box(0.2, 0.04, 0.05, 0x2a2a2a, 0, 1.0, -0.4);                      // stick with a spade grip
     T.box(0.7, 0.05, 0.08, wood, 0, 0.56, -1.3);                                                                     // rudder bar
-    T.cyl(0.62, 0.68, 2.6, linen, 0, 0.55, -2.3, -Math.PI / 2, 0, 0, 1, 14); T.cyl(0.7, 0.7, 0.5, 0x7a7c80, 0, 0.55, -3.7, Math.PI / 2, 0, 0, 1, 16);   // fuselage and engine cowl ahead
+    T.cyl(0.5, 0.58, 2.6, linen, 0, 0.42, -2.3, -Math.PI / 2, 0, 0, 1, 14); T.cyl(0.58, 0.58, 0.5, 0x7a7c80, 0, 0.42, -3.7, Math.PI / 2, 0, 0, 1, 16);   // fuselage and engine cowl ahead
     for (const x of [-0.18, 0.18]) { T.cyl(0.06, 0.06, 1.3, 0x1a1a1a, x, 1.17, -1.6, Math.PI / 2, 0, 0, 1, 8); T.box(0.12, 0.12, 0.35, 0x2a2a2a, x, 1.15, -0.95); }   // twin guns
     T.add(new THREE.TorusGeometry(0.11, 0.008, 4, 16), 0x1a1a1a, 0, 1.36, -1.15); T.box(0.01, 0.12, 0.01, 0x1a1a1a, 0, 1.3, -1.15); T.box(0.02, 0.05, 0.02, 0x1a1a1a, 0, 1.3, -2.2);   // ring and bead sight
     T.box(7.4, 0.08, 1.3, wing, 0, st === 'triplane' ? 2.05 : 2.25, -0.95);                                           // top wing overhead
@@ -314,15 +316,13 @@ function buildCockpit(st) {
     T.box(1.2, 0.05, 2.4, 0x3a3e38, 0, 0.5, -0.35); for (const s of [-1, 1]) { T.box(0.05, 0.6, 2.4, zinc, s * 0.62, 0.8, -0.35); T.box(0.2, 0.06, 1.0, zinc, s * 0.5, 0.92, 0.1); T.box(0.05, 0.14, 0.05, 0xd8c040, s * 0.48, 1.0, -0.2); }
     T.box(1.22, 0.5, 0.06, zinc, 0, 0.78, -1.5); T.box(0.6, 0.1, 0.55, 0x4a3a2a, 0, 0.6, 0.35); T.box(0.7, 0.85, 0.08, 0x2a2e2a, 0, 1.05, 0.66);   // seat with an armour plate
     T.box(0.04, 0.42, 0.04, blk, 0, 0.76, -0.45); T.box(0.1, 0.14, 0.08, blk, 0, 1.0, -0.45); T.box(0.03, 0.03, 0.06, 0xc02020, 0.04, 1.06, -0.47);   // stick with a red gun button
-    T.cyl(0.38, 0.66, 3.2, paint, 0, 0.52, -3.0, -Math.PI / 2, 0, 0, 1, 16); for (const s of [-1, 1]) for (let i = 0; i < 4; i++) T.box(0.1, 0.06, 0.14, 0x2a2622, s * 0.5, 0.75, -2.0 - i * 0.3);   // long nose, exhaust stubs
-    P.box(1.1, 0.34, 0.05, blk, 0, 0.92, -0.86); P.box(1.14, 0.05, 0.3, 0x2a2a2a, 0, 1.1, -0.98);                       // black panel, glare shield
-    for (const [x, y] of [[-0.42, 1.0], [-0.26, 1.0], [-0.1, 1.0], [0.1, 1.0], [0.26, 1.0], [0.42, 1.0], [-0.34, 0.86], [-0.17, 0.86], [0.17, 0.86], [0.34, 0.86], [0, 0.85]]) dial(P, x, y, -0.83, 0.05);
-    P.box(0.06, 0.12, 0.08, blk, 0, 1.17, -1.0); glass.push([0.16, 0.13, 0, 1.3, -1.0, -0.4]);                          // reflector gunsight
-    for (const s of [-1, 1]) { P.box(0.04, 0.55, 0.04, frame, s * 0.42, 1.35, -1.12, -0.5, 0, s * 0.35); P.box(0.04, 0.04, 1.8, frame, s * 0.6, 1.12, -0.2); }
-    P.box(0.04, 0.5, 0.04, frame, 0, 1.36, -1.18, -0.55, 0, 0);                                                         // centre windscreen post
-    for (const z of [-0.65, -0.05, 0.5]) P.add(new THREE.TorusGeometry(0.6, 0.02, 5, 20, Math.PI), frame, 0, 1.12, z);   // canopy bars over your head
-    P.box(0.04, 0.04, 1.4, frame, 0, 1.72, -0.1);
-    glass.push([0.82, 0.5, 0, 1.33, -1.15, -0.55]);
+    T.cyl(0.3, 0.5, 3.2, paint, 0, 0.36, -3.0, -Math.PI / 2, 0, 0, 1, 16); for (const s of [-1, 1]) for (let i = 0; i < 4; i++) T.box(0.08, 0.05, 0.12, 0x2a2622, s * 0.4, 0.5, -2.0 - i * 0.3);   // the nose, kept low so you can see over it
+    P.box(1.1, 0.26, 0.05, blk, 0, 0.84, -0.86); P.box(1.14, 0.04, 0.24, 0x2a2a2a, 0, 0.98, -0.96);                    // a low black panel and glare shield
+    for (const [x, y] of [[-0.4, 0.89], [-0.2, 0.89], [0, 0.89], [0.2, 0.89], [0.4, 0.89], [-0.3, 0.78], [0.3, 0.78]]) dial(P, x, y, -0.83, 0.045);
+    P.box(0.05, 0.08, 0.07, blk, 0, 1.03, -0.98); glass.push([0.12, 0.1, 0, 1.12, -0.98, -0.4]);                          // small reflector gunsight
+    for (const s of [-1, 1]) { P.box(0.018, 0.5, 0.018, frame, s * 0.5, 1.22, -1.12, -0.5, 0, s * 0.35); P.box(0.02, 0.02, 1.8, frame, s * 0.6, 1.0, -0.2); }   // thin windscreen side posts, no centre post
+    P.add(new THREE.TorusGeometry(0.6, 0.012, 5, 20, Math.PI), frame, 0, 1.0, 0.55);                                   // one canopy bow, behind your head
+    glass.push([0.9, 0.45, 0, 1.2, -1.15, -0.55]);
   } else if (jet) {
     // a modern jet: dark grey, glass screens, a head-up display, a bubble canopy with almost no frame
     const F22 = st === 'f22', grey = 0x2a2e33, cons = 0x1e2125, frame = 0x1c1e22;
@@ -444,7 +444,7 @@ function updatePlayerPlane(pl, dt) {
     pl.beepT = (pl.beepT || 0) - dt;
     if (t && pl.beepT <= 0 && typeof tn === 'function' && typeof actx !== 'undefined' && actx) { pl.beepT = pl.locked ? 0.12 : 0.3; tn('square', pl.locked ? 1650 : 1100, pl.locked ? 1650 : 1100, pl.locked ? 0.1 : 0.07, pl.locked ? 0.16 : 0.11); /* loud enough to hear over the engine */ }
   }
-  if (!jetAB && DOGFIGHT && pl.pilot === player && typeof planeLeadTarget === 'function') {   // older planes: a clear double beep when the guns lock onto someone
+  if (false && !jetAB && DOGFIGHT && pl.pilot === player && typeof planeLeadTarget === 'function') {   /* no gun lock on vintage planes */   // older planes: a clear double beep when the guns lock onto someone
     const g = planeLeadTarget(pl), had = pl.gunLock; pl.gunLock = g ? g.t : null;
     if (g && g.t !== had && typeof tn === 'function' && actx) { tn('square', 1300, 1300, 0.07, 0.15); tn('square', 1700, 1700, 0.07, 0.15, 0.09); }
   }
@@ -458,7 +458,7 @@ function updatePlayerPlane(pl, dt) {
     pl.groundYaw += (-pl.inR + pl.inY) * 0.9 * dt * clamp(pl.speed / 10, 0.3, 1);
     pl.quat.setFromEuler(new THREE.Euler(0, pl.groundYaw, 0, 'YXZ'));
     pl.pos.addScaledVector(planeFwd(pl), pl.speed * dt);
-    pl.pos.y = heightAt(pl.pos.x, pl.pos.z) + 1.6;
+    pl.pos.y = planeGroundH(pl.pos.x, pl.pos.z) + 1.6;
     if (pl.speed > 24 && (pitchIn > 0 || (planeView === 'cockpit' && pl.aimPitch > 0.12))) { pl.onGround = false; pl.aimPitch = Math.max(pl.aimPitch || 0, 0.25); pl.quat.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(0.12, 0, 0))); pl.pos.y += 0.5; }
     for (const o of nearbyColliders(pl.pos.x, pl.pos.z)) if (o.kind === 'box' && pl.pos.x > o.minX - 1 && pl.pos.x < o.maxX + 1 && pl.pos.z > o.minZ - 1 && pl.pos.z < o.maxZ + 1 && pl.pos.y - 1.5 < o.maxY) { if (pl.speed > 15) { destroyPlane(pl, null); return; } pl.speed = 0; }
   } else if (planeView === 'cockpit' || DOGFIGHT) {   // dogfights use the easy mouse flying in every view
@@ -544,7 +544,7 @@ function updateAIPlane(pl, dt) {
     pl.speed += 16 * dt;
     pl.quat.setFromEuler(new THREE.Euler(0, pl.groundYaw, 0, 'YXZ'));
     pl.pos.addScaledVector(planeFwd(pl), pl.speed * dt);
-    pl.pos.y = heightAt(pl.pos.x, pl.pos.z) + 1.6;
+    pl.pos.y = planeGroundH(pl.pos.x, pl.pos.z) + 1.6;
     if (pl.speed > 28) { pl.onGround = false; pl.aiYaw = pl.groundYaw; pl.aiPitch = 0.3; pl.climbT = 5; }
     planeTick(pl, dt); return;
   }

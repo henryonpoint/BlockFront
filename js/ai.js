@@ -89,7 +89,7 @@ function enemiesNear(p, team, extra = 10) {
 function findSpawn(team, pref) {
   let spot = BASES[team];
   // Normandy: blue lands from the sea, wading ashore anywhere along the beach (unless sent to a point it holds)
-  if (NORMANDY && team === 'blue' && !(pref && pref !== 'auto' && pref !== 'base' && points.some(q => q.name === pref && q.owner === team)) && (pref === 'base' || Math.random() < 0.65 || !points.some(p => p.owner === 'blue'))) return { x: rand(-380, 380), z: rand(334, 346) };
+  if (NORMANDY && team === 'blue' && !(pref && pref !== 'auto' && pref !== 'base' && points.some(q => q.name === pref && q.owner === team)) && (pref === 'base' || findSpawn.forPlayer || Math.random() < 0.65 || !points.some(p => p.owner === 'blue'))) return { x: rand(-380, 380), z: rand(334, 346) };
   if (WAKE && team === 'blue' && Math.random() < 0.5) spot = { x: CARRIER.x + CARRIER.hl + 58, z: CARRIER.z + 8 };   // half the carrier crew starts down on the dock by the boats
   if (pref && pref !== 'auto') {
     const p = points.find(q => q.name === pref && q.owner === team && enemiesNear(q, team, 15) === 0);

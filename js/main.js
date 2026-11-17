@@ -251,6 +251,7 @@ function step(dt) {
 }
 function render(dt) {
   updateEffects(dt);
+  if (typeof updateFarSoldiers === 'function') updateFarSoldiers();
   if (typeof updateExtras === 'function') updateExtras(dt);
   if (SNOW || DESERT) updateSnowfall(dt);
   updateFx(dt);

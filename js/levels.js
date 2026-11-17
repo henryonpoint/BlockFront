@@ -228,6 +228,7 @@ function buildNormandy() {
     if (!lvFree(x, z, 2) || Math.random() < 0.15) continue;
     addBlock(x, z, 2.2, 1.8 + vnoise(x * 0.3, z * 0.3) * 0.8, 9, LV.hedge);
   }
+  normandyCover();
   buildLandingCraft(); installNormandyDefense();
   // airfields: big arched hangars and a control tower beside each runway
   for (const t of ['red']) {   // only the defenders have airfields; blue's planes come from the carrier
@@ -422,6 +423,68 @@ function lcvpState(i, t) {   // where boat i is at clock time t: z position, ram
   if (ph < 24.5) return { z: beachZ, ramp: 1 - (ph - 23) / 1.5, stage: 'close' };
   return { z: lerp(beachZ, farZ, (ph - 24.5) / 15.5), ramp: 0, stage: 'out' };
 }
+// cover on the sand, row after row from the waterline to the sea wall, so you can work your way up a bit at a time:
+// curved sandbag walls, a shingle bank, burnt-out tanks and wrecked landing boats, concrete blocks and steel gates
+function nSandbags(x, z, w, yaw) {
+  const P = new Part(), n = Math.round(w / 0.9);
+  for (let row = 0; row < 3; row++) for (let i = 0; i < n - (row === 2 ? 1 : 0); i++) {
+    const t = (i + (row === 1 ? 0.5 : row === 2 ? 0.5 : 0)) / (n - 1) - 0.5, a = t * 1.1;
+    P.box(0.95, 0.36, 0.55, pick([0xa89a72, 0x9a8c66, 0xb0a27a]), Math.sin(a) * w * 0.9, 0.2 + row * 0.34, (1 - Math.cos(a)) * w * 0.45, 0, a, 0);
+  }
+  const m = new THREE.Mesh(P.build(), VEH_MAT), gy = heightAt(x, z); m.position.set(x, gy - 0.05, z); m.rotation.y = yaw; m.castShadow = true; m.userData.static = true; scene.add(m);
+  addBlock(x, z, Math.abs(Math.cos(yaw)) * w + Math.abs(Math.sin(yaw)) * 0.7, 1.15, Math.abs(Math.sin(yaw)) * w + Math.abs(Math.cos(yaw)) * 0.7, LV.hidden, { y: gy - 0.1 });
+}
+function nWreck(x, z, kind) {
+  const P = new Part(), burnt = 0x2a2724, rust = 0x5a3a26, yaw = rand(0, 6.28), gy = heightAt(x, z);
+  if (kind === 'tank') {   // a knocked-out tank, its turret twisted round
+    P.box(3, 1.2, 5.4, burnt, 0, 0.8, 0, 0.06, 0, 0.05); for (const s of [-1, 1]) P.box(0.7, 1.0, 5.8, 0x1e1c1a, s * 1.7, 0.55, 0);
+    P.cyl(1.2, 1.3, 0.9, burnt, 0.2, 1.8, -0.3, 0, 0.9, 0.12, 1, 10); P.cyl(0.13, 0.15, 3, burnt, 0.6, 1.9, -1.9, Math.PI / 2 - 0.25, 0.9, 0, 1, 8);
+  } else {                 // a wrecked landing boat, broached and half sunk in the sand
+    P.box(3.4, 0.4, 9, rust, 0, 0.2, 0); for (const s of [-1, 1]) P.box(0.18, 1.7, 9, 0x4a5442, s * 1.62, 1.05, 0); P.box(3.4, 1.7, 0.18, 0x4a5442, 0, 1.05, 4.4); P.box(3.3, 0.2, 1.9, rust, 0, 0.2, -5.4, 0.12, 0, 0);
+  }
+  const m = new THREE.Mesh(P.build(), VEH_MAT); m.position.set(x, gy - 0.35, z); m.rotation.set(0, yaw, kind === 'tank' ? 0 : 0.12); m.castShadow = true; m.userData.static = true; scene.add(m);
+  const L = kind === 'tank' ? 5.4 : 9, W = kind === 'tank' ? 3.4 : 3.4;
+  addBlock(x, z, Math.abs(Math.cos(yaw)) * W + Math.abs(Math.sin(yaw)) * L, kind === 'tank' ? 1.9 : 1.6, Math.abs(Math.sin(yaw)) * W + Math.abs(Math.cos(yaw)) * L, LV.hidden, { y: gy - 0.2 });
+}
+function nGate(x, z) {   // a Belgian gate: a tall steel frame, rusting, with mines lashed to it
+  const P = new Part(), c = 0x4a4038, gy = heightAt(x, z);
+  P.box(3.4, 0.16, 0.16, c, 0, 2.6, 0); P.box(3.4, 0.16, 0.16, c, 0, 0.2, 0); for (const s of [-1.6, 0, 1.6]) P.box(0.16, 2.6, 0.16, c, s, 1.4, 0);
+  P.box(0.14, 3.6, 0.14, c, -0.8, 1.4, 0, 0, 0, 0.75); P.box(0.14, 3.6, 0.14, c, 0.8, 1.4, 0, 0, 0, -0.75); for (const s of [-1, 1]) P.box(0.14, 0.14, 2.4, c, s * 1.6, 0.2, 1.1, 0.5, 0, 0);
+  P.cyl(0.18, 0.18, 0.3, 0x3a3e2a, 0, 2.85, 0, 0, 0, 0, 1, 8);
+  const m = new THREE.Mesh(P.build(), VEH_MAT); m.position.set(x, gy - 0.1, z); m.castShadow = true; m.userData.static = true; scene.add(m);
+  addBlock(x, z, 3.4, 2.4, 0.5, LV.hidden, { y: gy - 0.1 });
+}
+function normandyCover() {
+  const rows = [334, 320, 306, 292, 278, 262, 250];
+  rows.forEach((z0, r) => {
+    for (let x = -EDGE + 18 + (r % 2) * 11; x < EDGE - 18; x += rand(18, 26)) {
+      const z = z0 + rand(-3, 3); if (!lvFree(x, z, 3) || waterDepth(x, z) > 0.7 || normTrench(x, z) > 0.1 || normTrench(x, z + 4) > 0.1 || normTrench(x, z - 4) > 0.1) continue;
+      const roll = Math.random();
+      if (z0 >= 320 && roll < 0.35) nGate(x, z);
+      else if (roll < 0.62) nSandbags(x, z, rand(3.2, 5), Math.PI + rand(-0.3, 0.3));   // the open side faces the sea, so you crouch behind it facing the bluffs
+      else if (roll < 0.72) nWreck(x, z, Math.random() < 0.5 ? 'tank' : 'boat');
+      else if (roll < 0.9) { const gy = heightAt(x, z); addBlock(x, z, rand(1.6, 2.4), rand(1.1, 1.6), rand(1.2, 1.8), LV.concrete, { y: gy - 0.2 }); }   // a broken concrete block
+    }
+  });
+  // the trenches: a sandbag parapet along the inland lip (the side the bunkers shoot from) and timber boards down the walls
+  for (const T of N_TRENCH) {
+    const P = new Part();
+    for (let x = -HALF + 62; x < HALF - 62; x += 4) {
+      if (normTrench(x, normTrenchLine(x, T)) < 0.8 || pathDist(x, T.z) < 10) continue;
+      const z = normTrenchLine(x, T), z2 = normTrenchLine(x + 4, T), yaw = Math.atan2(z2 - z, 4), gy = heightAt(x, z - 3);
+      for (let row = 0; row < 2; row++) P.box(4.2, 0.34, 0.6, pick([0xa89a72, 0x9a8c66]), x + 2, gy + 0.15 + row * 0.32, (z + z2) / 2 - 3.1, 0, -yaw, 0);
+      P.box(4.1, 1.2, 0.08, 0x6a5238, x + 2, heightAt(x, z) - 0.3, (z + z2) / 2 - 1.6, 0.35, -yaw, 0);   // boards holding up the inland wall
+      if ((x | 0) % 8 === 0) addBlock(x + 2, (z + z2) / 2 - 3.1, 8.2, 0.62, 0.7, LV.hidden, { y: gy - 0.05 });
+    }
+    const m = new THREE.Mesh(P.build(), VEH_MAT); m.castShadow = true; m.receiveShadow = true; m.userData.static = true; scene.add(m);
+  }
+  // a shingle bank of round stones part-way up the beach: a long low ridge with gaps where the roads come down
+  const sh = new THREE.MeshLambertMaterial({ color: 0x8a867a });
+  for (let x = -EDGE; x < EDGE; x += 7) {
+    if (pathDist(x + 3.5, 268) < 10 || Math.random() < 0.18) continue;
+    const gy = heightAt(x + 3.5, 268); addBlock(x + 3.5, 268 + rand(-1, 1), 7.2, 0.85, 2.6, sh, { y: gy - 0.25 });   // low enough to step over, high enough to lie behind
+  }
+}
 function buildLandingCraft() { installLandingHooks(); for (const x of LCVP.lanes) { const g = lcvpModel(); g.position.set(x, WATER_Y - 0.3, 560); LCVP.boats.push({ g, x, st: null }); } }
 function updateLandingCraft() {
   const t = LCVP.now();
@@ -436,9 +499,23 @@ function updateLandingCraft() {
 // the next boat that is still coming in, and a standing spot inside it
 function lcvpBoardingSpot() {
   const t = LCVP.now(); let best = -1, bt = Infinity;
-  LCVP.boats.forEach((b, i) => { const s = lcvpState(i, t); if (s.stage !== 'in' || s.z < 380) return; const left = (s.z - 352) / ((560 - 352) / 16); if (left < bt) { bt = left; best = i; } });
+  const load = LCVP.boats.map(() => 0); for (const n of npcs) if (n.inBoat && n.alive) load[n.inBoat.boat]++;   // about a dozen to a boat, then the next one
+  LCVP.boats.forEach((b, i) => { const s = lcvpState(i, t); if (s.stage !== 'in' || s.z < 380 || load[i] >= 12) return; const left = (s.z - 352) / ((560 - 352) / 16); if (left < bt) { bt = left; best = i; } });
   if (best < 0) return null;
   return { boat: best, dx: rand(-1.1, 1.1), dz: rand(-3, 3.2) };
+}
+// fill the player's boat with a squad: soldiers waiting to come back in are sent in this boat, and anyone still wading
+// near the waterline is not touched
+function fillBoat(bi) {
+  const spots = []; for (const dz of [-2.8, -1.6, -0.4, 0.8, 1.9]) for (const dx of [-1.05, 0, 1.05]) spots.push([dx + rand(-0.12, 0.12), dz]);
+  let k = 0;
+  for (const n of npcs) {
+    if (k >= 11) break;
+    if (n.inBoat && n.inBoat.boat === bi) { k++; continue; }
+    if (n.team !== 'blue' || n.inactive || n.gv || n.vehicle || (n.alive && !(n.pos.z > 335 && !n.inBoat))) continue;
+    if (!n.alive) spawnChar(n);
+    const [dx, dz] = spots[k++]; n.inBoat = { boat: bi, dx, dz };
+  }
 }
 function rideBoat(c) {   // keep a rider standing in its boat; let go once the ramp is down
   const b = LCVP.boats[c.inBoat.boat]; if (!b || !b.st) { c.inBoat = null; return false; }
@@ -459,9 +536,17 @@ updateNPC = function (n, dt) {
 };
 const _spawnL = spawnChar;
 spawnChar = function (c, pref) {
-  const r = _spawnL.apply(this, arguments);
+  findSpawn.forPlayer = !!c.isPlayer;
+  let r; try { r = _spawnL.apply(this, arguments); } finally { findSpawn.forPlayer = false; }
   if (NORMANDY && c.team === 'blue' && c.pos.z > 330 && (!net.active || net.isHost || c.isPlayer)) {   // landed by the sea: board the next boat instead
-    const s = lcvpBoardingSpot(); if (s) { c.inBoat = s; if (c.isPlayer) showMessage('In the landing boat... hold on! The ramp drops at the beach', 3); }
+    const s = lcvpBoardingSpot(); if (s) {
+      c.inBoat = s;
+      if (c.isPlayer) {
+        s.dx = 0; s.dz = 2.6;   // at the back of the boat, looking over the others towards the ramp
+        showMessage('In the landing boat... hold on! The ramp drops at the beach', 3);
+        if (!net.active || net.isHost) fillBoat(s.boat);
+      }
+    }
   }
   return r;
 };

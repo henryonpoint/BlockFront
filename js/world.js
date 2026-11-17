@@ -812,7 +812,7 @@ function buildClouds() {
   }
   // flocks of birds
   const bm = new THREE.MeshLambertMaterial({ color: 0x2b2b2b, side: THREE.DoubleSide });
-  for (let f = 0; f < 12; f++) {
+  for (let f = 0; f < (LITE ? 3 : 5); f++) {
     const flock = new THREE.Group(); const cx = rand(-HALF * 0.7, HALF * 0.7), cz = rand(-HALF * 0.7, HALF * 0.7), alt = rand(45, 75), r = rand(40, 90), sp = rand(0.12, 0.25) * (Math.random() < 0.5 ? -1 : 1);
     const wings = [];
     for (let i = 0; i < 6; i++) {

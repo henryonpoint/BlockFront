@@ -367,6 +367,7 @@ function hijackVehicle(v, by) {
 // the cockpit's head-up display: horizon and pitch ladder, heading tape, speed and height boxes, throttle and boost
 let _fhud = null;
 function drawFlightHud(pl) {
+  if (pl && !(pl.kind === 'f18' || pl.kind === 'f22' || pl.kind === 'harrier' || pl.kind === 'stealth')) pl = null;   // vintage planes have no head-up display: just the gunsight and the dials
   if (!pl) { if (_fhud) _fhud.style.display = 'none'; return; }
   if (!_fhud) { _fhud = document.createElement('canvas'); _fhud.className = 'hud'; _fhud.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:4'; document.body.appendChild(_fhud); }
   const dpr = Math.min(2, devicePixelRatio || 1), W = innerWidth, H = innerHeight;
@@ -430,7 +431,7 @@ let _noseEl = null;
 // red diamonds around enemy aircraft while you fly, with how far away they are, so they are easy to find
 const _airTags = [];
 function updateAirTargets() {
-  const me = player.vehicle, flying = me && (DOGFIGHT || me.kind === 'f18' || me.kind === 'f22');   // modern jets' radar, and every dogfight
+  const me = player.vehicle, flying = me && (me.kind === 'f18' || me.kind === 'f22' || me.kind === 'harrier');   // modern jets' radar only: vintage planes find their targets by eye
   let n = 0;
   if (flying) {
     camera.updateMatrixWorld();
@@ -993,9 +994,17 @@ function deployPlayer() {
   const wantPlane = player.spawnPref === 'plane';
   spawnChar(player, wantPlane ? 'base' : player.spawnPref); refillAmmo();
   if (wantPlane) {
-    const pl = readyPlanes()[0];
-    if (pl) { $('death').style.display = 'none'; uiOpen = null; player.wantDeploy = false; boardPlane(pl); playing = true; lockPointer(); return; }
-    showMessage('No plane is ready right now, so you deployed at base', 3);
+    player.inBoat = null;
+    if (typeof SH !== 'undefined' && !SH.built && typeof buildShips === 'function') buildShips();   // the ships may not be built yet on the very first frame
+    const cv = typeof SHIPS2 !== 'undefined' && SHIPS2.find(q => q.team === player.team && q.kind === 'carrier');
+    if (cv) { const p = shipWorld(cv, -55, 9); player.pos.set(p.x, cv.mainY + WATER_Y + 0.05, p.z); player.velY = 0; player.yaw = cv.yaw; }   // pilots start on their carrier's flight deck
+    let pl = readyPlanes().find(p => p.onGround) || readyPlanes()[0];
+    if (pl && cv) {   // carrier pilots get a plane sitting on the flight deck, pointing down it, and take off themselves
+      resetPlane(pl, 1e9); const dp = shipWorld(cv, -45, 0);
+      pl.pos.set(dp.x, cv.mainY + WATER_Y + 1.6, dp.z); pl.groundYaw = pl.aiYaw = cv.yaw; pl.quat.setFromEuler(new THREE.Euler(0, cv.yaw, 0, 'YXZ'));
+    }
+    if (pl) { $('death').style.display = 'none'; uiOpen = null; player.wantDeploy = false; boardPlane(pl); if (cv) { pl.waitT = 8; showMessage('On the carrier deck: hold Shift for full throttle, then pull up (S) at the bow', 4); } playing = true; lockPointer(); return; }
+    showMessage(NORMANDY && player.team === 'blue' ? 'No plane is ready yet: you are on the carrier deck. One will be along soon' : 'No plane is ready right now, so you deployed at base', 3);
   }
   $('death').style.display = 'none'; uiOpen = null; player.wantDeploy = false;
   player.pitch = 0; player.velY = 0; player.push.set(0, 0, 0); player.protUntil = simTime + 3; player.lastHurt = -99;

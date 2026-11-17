@@ -189,7 +189,7 @@ function buildWakeVehicles() {
   // blue: landing boats at the dock, helicopters on deck
   const dockX = C.x + C.hl + 58;
   for (const [x, z, yaw] of [[dockX - 6, C.z + 26, 0], [dockX + 6, C.z + 26, 0], [dockX + 18, C.z + 26, 0], [dockX + 22, C.z + 4, Math.PI / 2], [dockX + 22, C.z + 16, Math.PI / 2], [dockX - 6, C.z - 10, Math.PI]]) if (waterDepth(x, z) > 1.2) makeGV('boat', 'blue', x, z, yaw, WATER_Y);
-  for (const x of [C.x - 82, C.x + 72]) { const v = makeGV('heli', 'blue', x, C.z + C.hw - 6, Math.PI / 2); }
+   // (1941: no helicopters. The carrier's planes and the landing boats do the work)
   // red: jeeps, trucks and tanks at the base and along the island, boats in the lagoon, one helicopter
   const tryPark = (type, x, z, yaw) => { for (let k = 0; k < 20; k++) { const px = x + rand(-10, 10), pz = z + rand(-10, 10); if (vehicleSpotFree(px, pz, 3.5)) { makeGV(type, 'red', px, pz, yaw); return true; } } return false; };
   const B = BASES.red;
@@ -197,7 +197,6 @@ function buildWakeVehicles() {
   for (const p of [PD.B, PD.C, PD.D, PD.E]) { tryPark('jeep', p.x + 20 * Math.sign(-p.x || 1), p.z - 18, 0); }
   tryPark('tank', PD.D.x + 30, PD.D.z - 15, 0);
   for (const [x, z] of [[-60, -30], [60, -20]]) if (waterDepth(x, z) > 1.2) makeGV('boat', 'red', x, z, Math.PI / 2, WATER_Y);
-  for (let k = 0; k < 40; k++) { const x = B.x + rand(20, 60), z = B.z + rand(30, 90); if (vehicleSpotFree(x, z, 6.5)) { makeGV('heli', 'red', x, z, Math.PI); helipadMesh(x, heightAt(x, z), z); break; } }
 }
 
 // ---------- every frame ----------
@@ -248,7 +247,7 @@ function wkIsles() {
 }
 function buildWakeExtras() {
   wkCarrier();
-  wkWarship(-175, 432, 70, false); wkWarship(205, 515, 110, true); wkWarship(-60, 545, 64, false); wkWarship(330, 420, 60, false);
+   // (the escort ships are real ships now: destroyers and a submarine you can take command of, built with the battleship)
   wkIsland();
   wkIsles();
 }

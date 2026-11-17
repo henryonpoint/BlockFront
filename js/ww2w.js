@@ -141,7 +141,7 @@ const WW2_MAP = {
 };
 function applyWW2Weapons(team) {
   const gulf = typeof AFGHAN !== 'undefined' && AFGHAN, MAP = gulf ? GULF_MAP : WW2_MAP;
-  if (!(gulf || (typeof GERMANY !== 'undefined' && (GERMANY || NORMANDY))) || (team !== 'blue' && team !== 'red') || WW2W.team === team) return;
+  if (!(gulf || (typeof GERMANY !== 'undefined' && (GERMANY || NORMANDY || WAKE))) || (team !== 'blue' && team !== 'red') || WW2W.team === team) return;
   WW2W.team = team;
   for (const w of WEAPONS) {
     const m = MAP[w.id]; if (!m) continue;
