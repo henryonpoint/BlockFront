@@ -49,6 +49,7 @@ const TOWER_H = 9, TOWER_W = 3.4, TOWER_HP = 240, TOWER_REBUILD = 120;
       box(-h - 0.2, h + 0.2, -h - 0.25, -h - 0.05, TOWER_H + 0.2, TOWER_H + 1.25); box(-h - 0.2, h + 0.2, h + 0.05, h + 0.25, TOWER_H + 0.2, TOWER_H + 1.25);
       box(-h - 0.25, -h - 0.05, -h - 0.2, h + 0.2, TOWER_H + 0.2, TOWER_H + 1.25); box(h + 0.05, h + 0.25, -h + 0.8, h + 0.2, TOWER_H + 0.2, TOWER_H + 1.25);
       for (const [a, b] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { const c = addCircle(spot.x + a * (h - 0.15), spot.z + b * (h - 0.15), 0.22, base + TOWER_H - 0.2); cols.push({ c, top: c.top, base: c.base }); }
+      mergeGroup(g, [floor, ...rails]);   // legs, braces, posts and ladder rungs: 40 little boxes become three
       for (const m of [floor, ...rails]) solidMeshes.push(m);
       TOWERS.push({ i: TOWERS.length, x: spot.x, z: spot.z, base, top: top + 0.2, g, cols, solid: [floor, ...rails], hp: TOWER_HP, up: true, fallT: 0, downT: 0, fallDir: 0, by: null, ladder: { x: spot.x + h + 0.9, z: spot.z } });
     }

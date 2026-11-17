@@ -372,7 +372,7 @@ function house(x, z, w, d, h, opts = {}) {
     else if (r < 0.7) { dp.add(new THREE.SphereGeometry(0.6, 10, 6, 0, Math.PI * 2, 0, Math.PI * 0.4), 0xe8e8e8, -w * 0.25, 1.1, d * 0.2, -1.0, 0, 0); dp.cyl(0.05, 0.05, 0.8, 0x777777, -w * 0.25, 0.6, d * 0.2); }
     else { dp.box(1.6, 0.9, 1.6, wc, -w * 0.2, 0.75, 0); dp.box(0.9, 0.1, 0.9, 0x6b4a33, -w * 0.2, 1.25, 0); }   // roof access hut
     for (let i = 0; i < 3; i++) dp.box(0.12, 0.12, 0.12, 0x6b4a33, -w / 2 + 0.6 + i * (w - 1.2) / 2, -0.9, d / 2 + 0.06);   // roof beam ends
-    const dm = new THREE.Mesh(dp.build(), HOUSE_TRIM); dm.position.set(x, top, z); dm.castShadow = true; scene.add(dm);
+    const dm = new THREE.Mesh(dp.build(), HOUSE_TRIM); dm.position.set(x, top, z); dm.castShadow = true; dm.userData.static = true; scene.add(dm);
   } else if (opts.flat) {
     addMesh(new THREE.BoxGeometry(w + 0.3, 0.5, d + 0.3), MATS.concrete, x, top + 0.25, z);
   } else {
@@ -395,7 +395,7 @@ function house(x, z, w, d, h, opts = {}) {
     tp.box(w + 0.24, 0.7, d + 0.24, baseC, 0, base + 0.35, 0);                                         // stone plinth
     for (const [cx, cz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) tp.box(0.22, h, 0.22, trimC, cx * (w / 2 + 0.02), base + 0.4 + h / 2, cz * (d / 2 + 0.02));   // corner trims
     tp.box(w + 0.3, 0.22, d + 0.3, trimC, 0, top - 0.11, 0);                                            // eaves band
-    const tm = new THREE.Mesh(tp.build(), HOUSE_TRIM); tm.position.set(x, 0, z); tm.castShadow = true; tm.receiveShadow = true; scene.add(tm);
+    const tm = new THREE.Mesh(tp.build(), HOUSE_TRIM); tm.position.set(x, 0, z); tm.castShadow = true; tm.receiveShadow = true; tm.userData.static = true; scene.add(tm);
   }
   const face = opts.face !== undefined ? opts.face : (z > 0 ? -1 : 1);
   const dz = z + face * (d / 2 + 0.06), dx = x + (opts.doorX || 0);
@@ -403,7 +403,7 @@ function house(x, z, w, d, h, opts = {}) {
     const ap = new Part(), cols = [0xc8302c, 0x2f6fb0, 0x3f8a4a, 0xd9ae4a], c = cols[Math.floor(Math.random() * cols.length)];
     for (let i = 0; i < 5; i++) ap.box(0.62, 0.06, 1.5, i % 2 ? 0xf4ede0 : c, -1.24 + i * 0.62, 0, 0.75 * face, 0.32 * face, 0, 0);
     for (const s of [-1, 1]) ap.cyl(0.04, 0.04, 2.3, 0x6b4a33, s * 1.5, -1.15, 1.45 * face);
-    const am = new THREE.Mesh(ap.build(), HOUSE_TRIM); am.position.set(dx, base + 0.4 + 2.8, dz); scene.add(am);
+    const am = new THREE.Mesh(ap.build(), HOUSE_TRIM); am.position.set(dx, base + 0.4 + 2.8, dz); am.userData.static = true; scene.add(am);
   }
   addMesh(new THREE.BoxGeometry(1.3, 2.3, 0.14), MATS.door, dx, base + 0.4 + 1.15, dz, false);
   addMesh(new THREE.SphereGeometry(0.06, 6, 4), MATS.steel, dx + 0.45, base + 0.4 + 1.1, dz + face * 0.09, false);
@@ -939,6 +939,11 @@ function mergeGeos(geos) {
   }
   const m = new THREE.BufferGeometry();
   m.setAttribute('position', new THREE.BufferAttribute(pos, 3)); m.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); m.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  if (geos.some(g => g.attributes.color)) {   // painted parts (vertex colours) keep their paint; plain ones count as white
+    const col = new Float32Array(n * 3).fill(1); let k = 0;
+    for (const g of geos) { const c = g.attributes.color; if (c && c.itemSize === 3) col.set(c.array, k * 3); k += g.attributes.position.count; }
+    m.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  }
   m.computeBoundingSphere(); m.computeBoundingBox();
   return m;
 }
@@ -947,17 +952,40 @@ function prepGeo(mesh, inverse) {
   const mat = inverse ? inverse.clone().multiply(mesh.matrixWorld) : mesh.matrixWorld;
   g.applyMatrix4(mat); return g;
 }
+// combine the fixed parts inside one object (a tower's legs and braces, a gun's body) so it draws in a few calls instead of dozens;
+// anything listed in keep (parts the game still needs one by one) is left alone
+function mergeGroup(g, keep = []) {
+  g.updateMatrixWorld(true);
+  const inv = new THREE.Matrix4().copy(g.matrixWorld).invert(), by = new Map();
+  for (const m of g.children) { if (!m.isMesh || m.children.length || keep.includes(m) || Array.isArray(m.material)) continue; let a = by.get(m.material); if (!a) by.set(m.material, a = []); a.push(m); }
+  for (const [mat, list] of by) {
+    if (list.length < 2) continue;
+    const mm = new THREE.Mesh(mergeGeos(list.map(m => prepGeo(m, inv))), mat);
+    mm.castShadow = list.some(m => m.castShadow); mm.receiveShadow = list.some(m => m.receiveShadow); g.add(mm);
+    for (const m of list) { g.remove(m); m.geometry.dispose(); }
+  }
+}
+// plain, unlit-effect-free materials are compared by what they look like; anything unusual (see-through, glowing, a different type) only by identity
+const _matIds = new Map();
+function matKey(a) {
+  if ((a.type !== 'MeshLambertMaterial' && a.type !== 'MeshPhongMaterial') || !a.visible || !a.colorWrite || a.transparent || a.opacity !== 1 || a.alphaTest || a.wireframe || a.emissiveMap || a.normalMap || a.alphaMap || a.envMap || a.userData.keep ||
+    (a.emissive && a.emissive.getHex() !== 0) || a.blending !== THREE.NormalBlending || !a.depthWrite || !a.depthTest || a.polygonOffset) { let id = _matIds.get(a); if (!id) _matIds.set(a, id = 'u' + _matIds.size); return id; }
+  const t = a.map;
+  return [a.type, a.color.getHex(), t ? t.uuid : '', a.side, a.vertexColors ? 1 : 0, a.flatShading ? 1 : 0, a.fog ? 1 : 0, a.shininess || 0, a.specular ? a.specular.getHex() : 0].join('|');
+}
 // combine static meshes that share a material into one draw call
 function mergeStatic() {
   scene.updateMatrixWorld(true);
   const groups = new Map();
   for (const m of [...scene.children]) {
     if (!m.isMesh || !m.userData.static || Array.isArray(m.material)) continue;
-    let a = groups.get(m.material); if (!a) groups.set(m.material, a = []); a.push(m);
+    const key = matKey(m.material);   // materials that look exactly alike count as one, so one-off copies (a new material per bush, per block) still combine
+    let a = groups.get(key); if (!a) groups.set(key, a = []); a.push(m);
   }
   const solidSet = new Set(solidMeshes);
-  for (const [mat, list] of groups) {
+  for (const list of groups.values()) {
     if (list.length < 2) continue;
+    const mat = list[0].material;
     const mm = new THREE.Mesh(mergeGeos(list.map(m => prepGeo(m))), mat);
     mm.castShadow = list.some(m => m.castShadow); mm.receiveShadow = true;
     scene.add(mm);

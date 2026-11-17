@@ -36,7 +36,7 @@ function wkCarrier() {
   addMesh(new THREE.BoxGeometry(8, 9, 4.6), grey, ix + 6, D + 16, iz).rotation.z = -0.12;       // funnel
   addMesh(new THREE.BoxGeometry(8.2, 1.2, 4.8), wkMat(0x2a2e33), ix + 6.6, D + 20.6, iz);
   addMesh(new THREE.CylinderGeometry(0.25, 0.35, 16, 6), grey, ix - 6, D + 20, iz);
-  const radar = addMesh(new THREE.BoxGeometry(5, 1.6, 0.3), dark, ix - 6, D + 27, iz); WAKE_SMOKE.push({ radar });
+  const radar = addMesh(new THREE.BoxGeometry(5, 1.6, 0.3), dark, ix - 6, D + 27, iz); radar.userData.static = false; WAKE_SMOKE.push({ radar });   // it turns, so it must stay its own object
   const isl = new THREE.Mesh(new THREE.PlaneGeometry(5, 2.2), wkText('CV-12', 5, 2.2, '#5f666e', '#f2f2f2')); isl.position.set(ix - 6, D + 9.5, iz + 2.8); scene.add(isl);
   WAKE_SMOKE.push({ x: ix + 6.8, y: D + 21, z: iz, t: 0, dark: true });
   // flag

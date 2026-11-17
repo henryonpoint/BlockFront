@@ -75,7 +75,7 @@ function lvFree(x, z, r) {   // away from roads, points and bases
 function rubble(x, z, s = 1) {
   const p = new Part(), gy = heightAt(x, z);
   for (let i = 0; i < 9; i++) p.box(rand(0.6, 1.8) * s, rand(0.3, 0.9) * s, rand(0.6, 1.6) * s, pick([0x8a847a, 0x7a746c, 0x9c8f7c, 0x6b4a32]), rand(-1.6, 1.6) * s, rand(0.1, 0.9) * s, rand(-1.6, 1.6) * s, rand(-0.5, 0.5), rand(0, 3), rand(-0.5, 0.5));
-  const m = new THREE.Mesh(p.build(), VEH_MAT); m.position.set(x, gy, z); m.castShadow = true; m.receiveShadow = true; scene.add(m);
+  const m = new THREE.Mesh(p.build(), VEH_MAT); m.position.set(x, gy, z); m.castShadow = true; m.receiveShadow = true; m.userData.static = true; scene.add(m);
   addBlock(x, z, 2.6 * s, 0.9 * s, 2.6 * s, LV.hidden);
 }
 // a ruined house: broken outer walls of different heights, no roof, rubble inside
@@ -96,7 +96,7 @@ function ruinedHouse(x, z, w, d) {
 let _hedgeGeo = null;
 function hedgehog(x, z) {
   if (!_hedgeGeo) { const p = new Part(); for (const [rx, ry, rz] of [[0, 0, 0.78], [0, Math.PI / 2, 0.78], [Math.PI / 2, 0, 0]]) p.box(2.6, 0.22, 0.22, 0x3a3634, 0, 0.75, 0, rx, ry, rz); _hedgeGeo = p.build(); }
-  const m = new THREE.Mesh(_hedgeGeo, VEH_MAT); m.position.set(x, heightAt(x, z), z); m.rotation.y = rand(0, 3); m.castShadow = true; scene.add(m);
+  const m = new THREE.Mesh(_hedgeGeo, VEH_MAT); m.position.set(x, heightAt(x, z), z); m.rotation.y = rand(0, 3); m.castShadow = true; m.userData.static = true; scene.add(m);
   addBlock(x, z, 1.4, 1.3, 1.4, LV.hidden);
 }
 // a concrete bunker with a dark firing slit, facing the beach (south)

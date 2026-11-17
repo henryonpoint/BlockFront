@@ -23,6 +23,7 @@ function makeTurret(x, z, type, yaw) {
   }
   pitchG.add(muzzle);
   g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+  mergeGroup(pitchG);
   solidMeshes.push(sb); addCircle(x, z, 1.4, y + 0.8);
   const t = { type, g, yawG, pitchG, muzzle, x, z, y, yaw, pitch: 0, user: null, fireT: 0, idleT: 0 };
   turrets.push(t);

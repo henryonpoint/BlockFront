@@ -123,18 +123,18 @@ function makeRelayClaude(scope = 'main') {
   links.forEach(l => l.subscribe(base + '/bye/+'));
   setTimeout(() => readyRes(links.some(l => l.isUp())), 9000);
 
-  function tick() {
+  function flush(name, r, now) {
+    if (r.sentS === r.mineS && now - r.sentT < KEEP) return;
+    r.seq++;
+    const msg = '{"s":' + r.seq + ',"p":' + r.mineS + '}', topic = base + '/room/' + safe(name) + '/' + me;
+    let sent = false;
+    for (const l of links) if (l.isUp() && l.bufferedAmount() < MAX_BUF) sent = l.publish(topic, msg) || sent;   // a slow server skips a beat instead of piling up
+    if (sent) { r.sentS = r.mineS; r.sentT = now; }
+  }
+  function tick() {   // the safety net: keep-alives, and anything that could not go out at once
     if (!alive) return;
     const now = Date.now();
-    for (const [name, r] of rooms) {
-      rebuild(r);
-      if (r.sentS === r.mineS && now - r.sentT < KEEP) continue;
-      r.seq++;
-      const msg = '{"s":' + r.seq + ',"p":' + r.mineS + '}', topic = base + '/room/' + safe(name) + '/' + me;
-      let sent = false;
-      for (const l of links) if (l.isUp() && l.bufferedAmount() < MAX_BUF) sent = l.publish(topic, msg) || sent;   // a slow server skips a beat instead of piling up
-      if (sent) { r.sentS = r.mineS; r.sentT = now; }
-    }
+    for (const [name, r] of rooms) { rebuild(r); flush(name, r, now); }
   }
   const iv = setInterval(tick, 100);
   function bye() { for (const name of rooms.keys()) for (const l of links) l.publish(base + '/room/' + safe(name) + '/' + me, ''); for (const l of links) l.publish(base + '/bye/' + me, '1'); }
@@ -148,7 +148,12 @@ function makeRelayClaude(scope = 'main') {
       rebuild(r);
       return {
         name,
-        presence(patch) { r.mine = Object.assign({}, r.mine, patch); r.mineS = JSON.stringify(r.mine); rebuild(r); return Promise.resolve(); },
+        presence(patch) {
+          r.mine = Object.assign({}, r.mine, patch); r.mineS = JSON.stringify(r.mine); r.dirty = true;
+          // send it now instead of waiting for the next 100 ms beat: that wait was pure added delay on every update
+          const now = Date.now(); if (alive && now - r.sentT >= 60) flush(name, r, now);
+          return Promise.resolve();
+        },
         peers() { if (r.dirty) { r.dirty = false; rebuild(r); } return r.snap; },
         leave() { return Promise.resolve(); },
       };
