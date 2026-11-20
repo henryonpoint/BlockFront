@@ -7,7 +7,7 @@
 const TOWERS = [];
 const TOWER_H = 9, TOWER_W = 3.4, TOWER_HP = 240, TOWER_REBUILD = 120;
 (function buildTowers() {
-  if (WAKE || ZD30) return;
+  if (WAKE || PACIFIC || ZD30) return;
   seeded(9137, () => {
     const wood = new THREE.MeshLambertMaterial({ color: 0x8a6238 }), dark = new THREE.MeshLambertMaterial({ color: 0x5e4128 }), roofM = new THREE.MeshLambertMaterial({ color: 0x4a5a3a });
     for (const P of POINTS_DEF) {   // every point, whatever the battle setup, so every player builds the same towers

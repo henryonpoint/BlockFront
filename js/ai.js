@@ -252,7 +252,7 @@ function steerAngle(n, ang) {
 
 // on the mountain map, walking straight at a far point runs into cliffs, so soldiers follow the roads through the passes
 function footGoal(n) {
-  if (!SNOW || !n.goalPoint || !n.goal) return n.goal;
+  if (!(SNOW || PACIFIC) || !n.goalPoint || !n.goal) return n.goal;   // on these maps soldiers follow the roads (or the reefs) between points
   const gp = n.goalPoint;
   if (Math.hypot(gp.x - n.pos.x, gp.z - n.pos.z) < 70) { n.froute = null; return n.goal; }
   if (n.frouteFor !== gp || !n.froute) { n.froute = routeBetween(n.pos, gp); n.frouteFor = gp; n.fri = 0; }

@@ -4,7 +4,7 @@
 // ---------- which map and game mode this page builds ----------
 // The world is built once when the page loads, so changing the map or mode reloads the page.
 // A join that needs a different map stores what it needs in sessionStorage first ('bf_force').
-const MAPS = { green: 'Green valley', snow: 'Snow mountain', desert: 'Desert', houston: 'Houston city', wake: 'Wake Island', normandy: 'Normandy beach', europe: 'Berlin 1945', dam: 'The Dam', afghan: 'Desert Combat', dogfight: 'Dogfight: old planes', jetfight: 'Dogfight: jets', wwifight: 'Dogfight: WW1 triplanes', zd30: 'Zero Dark 30' };
+const MAPS = { green: 'Green valley', snow: 'Snow mountain', desert: 'Desert', houston: 'Houston city', wake: 'Wake Island', pacific: 'Pacific War', normandy: 'Normandy beach', europe: 'Berlin 1945', dam: 'The Dam', afghan: 'Desert Combat', dogfight: 'Dogfight: old planes', jetfight: 'Dogfight: jets', wwifight: 'Dogfight: WW1 triplanes', zd30: 'Zero Dark 30' };
 const MODES = { conquest: 'Conquest', tdm: 'Team battle', koth: 'King of the hill', four: '4 teams', coop: 'Co-op' };
 const WORLD = (() => {
   let w = { map: 'green', mode: 'conquest' };
@@ -21,12 +21,12 @@ const WORLD = (() => {
 })();
 const AFGHAN = WORLD.map === 'afghan';   // Desert Combat: the Gulf War, Iraq 1991 (flat desert, a river with palm groves, a town, oil fields)
 const RIVER_Z = x => Math.sin(x * 0.006 + 1) * 80 + 60;   // the Desert Combat map's river line
-const SNOW = WORLD.map === 'snow', DESERT = WORLD.map === 'desert' || AFGHAN, HOUSTON = WORLD.map === 'houston', WAKE = WORLD.map === 'wake';
+const SNOW = WORLD.map === 'snow', DESERT = WORLD.map === 'desert' || AFGHAN, HOUSTON = WORLD.map === 'houston', WAKE = WORLD.map === 'wake', PACIFIC = WORLD.map === 'pacific';
 const NORMANDY = WORLD.map === 'normandy', GERMANY = WORLD.map === 'europe', DAM = WORLD.map === 'dam';
 const DOGFIGHT = WORLD.map === 'dogfight' || WORLD.map === 'jetfight' || WORLD.map === 'wwifight', JETFIGHT = WORLD.map === 'jetfight', WWIFIGHT = WORLD.map === 'wwifight';
 const ZD30 = WORLD.map === 'zd30';   // Zero Dark 30: the night raid on the Abbottabad compound, 2 May 2011
 const COOP = WORLD.mode === 'coop';   // co-op: every player on blue, against waves of computer enemies, to take down the target
-const NO_TUNNELS = WAKE || DAM || ZD30;   // tunnels sit at a fixed depth: they would break into the dam's gorge
+const NO_TUNNELS = WAKE || PACIFIC || DAM || ZD30;   // tunnels sit at a fixed depth: they would break into the dam's gorge
 // ===================== core.js : setup, sky, sound, terrain math =====================
 const HALF = DOGFIGHT ? 1800 : 560, GRID = DOGFIGHT ? 400 : 336,   // dogfights get a huge map (3.6 km across) for long canyon runs
   CELL = (HALF * 2) / GRID, W1 = GRID + 1;
@@ -70,7 +70,7 @@ renderer.autoClear = false;
 document.body.prepend(renderer.domElement);
 
 const scene = new THREE.Scene();
-const FOG_COLOR = new THREE.Color(ZD30 ? 0x0a0f18 : SNOW ? 0xdde4ec : DESERT ? 0xe8d6b0 : HOUSTON ? 0xd7e0e4 : WAKE ? 0xcfe6f0 : GERMANY ? 0x9e9a92 : NORMANDY ? 0xc5d2dc : DAM ? 0xc6d3dc : 0xcfe3f2);
+const FOG_COLOR = new THREE.Color(ZD30 ? 0x0a0f18 : SNOW ? 0xdde4ec : DESERT ? 0xe8d6b0 : HOUSTON ? 0xd7e0e4 : WAKE || PACIFIC ? 0xcfe6f0 : GERMANY ? 0x9e9a92 : NORMANDY ? 0xc5d2dc : DAM ? 0xc6d3dc : 0xcfe3f2);
 // the snow map is thick with falling snow, so the distance blurs out much sooner
 if (SNOW) {
   // snowstorm haze: thickens quickly with distance (near and far are kept for the few custom shaders)
@@ -78,7 +78,7 @@ if (SNOW) {
 } else if (ZD30) scene.fog = new THREE.Fog(FOG_COLOR, 20, LITE ? 220 : 300);   // a moonless night
 else if (AFGHAN) scene.fog = new THREE.Fog(FOG_COLOR, LITE ? 100 : 150, LITE ? 500 : 720);   // hot hazy desert air
 else if (DESERT) scene.fog = new THREE.Fog(FOG_COLOR, LITE ? 60 : 90, LITE ? 340 : 470);   // a light dusty haze
-else if (WAKE) scene.fog = new THREE.Fog(FOG_COLOR, LITE ? 90 : 140, LITE ? 480 : 720);   // clear tropical air over the ocean
+else if (WAKE || PACIFIC) scene.fog = new THREE.Fog(FOG_COLOR, LITE ? 90 : 140, LITE ? 480 : 720);   // clear tropical air over the ocean
 else if (HOUSTON) scene.fog = new THREE.Fog(FOG_COLOR, LITE ? 80 : 130, LITE ? 420 : 640);   // warm, humid city haze
 else if (GERMANY) scene.fog = new THREE.Fog(FOG_COLOR, LITE ? 50 : 75, LITE ? 320 : 450);   // smoke and ash over the burning city
 else if (NORMANDY) scene.fog = new THREE.Fog(FOG_COLOR, LITE ? 80 : 120, LITE ? 420 : 620);   // sea mist over the beach
@@ -266,6 +266,51 @@ function fbm(x, z) {
 // F a monastery high in the mountains and G a factory
 // Wake Island: a U-shaped atoll. Red holds the island, blue comes in from an aircraft carrier to the south
 // a curving horseshoe whose arms bow out and curl in at the tips (like the real atoll), not a squared-off U
+// ---------- Pacific War: a chain of tiny islands joined by shallow coral reefs, in deep open ocean ----------
+// each team holds a larger home island with an airstrip; the seven control points sit on the little islands between
+const PAC_ISLES = [
+  { x: 0, z: 430, rx: 132, rz: 50, home: 'blue' }, { x: 0, z: -430, rx: 132, rz: 50, home: 'red' },
+  { x: -270, z: 170, rx: 34, rz: 28 }, { x: 270, z: 170, rx: 30, rz: 34 }, { x: 0, z: 0, rx: 42, rz: 36 },
+  { x: -270, z: -170, rx: 30, rz: 34 }, { x: 270, z: -170, rx: 34, rz: 28 }, { x: 0, z: 235, rx: 30, rz: 26 }, { x: 0, z: -235, rx: 30, rz: 26 },
+  // little islets with nothing on them but a few palms
+  { x: -420, z: 40, rx: 14, rz: 11 }, { x: 430, z: -20, rx: 12, rz: 14 }, { x: -130, z: 90, rx: 9, rz: 8 }, { x: 150, z: -80, rx: 10, rz: 9 },
+  { x: -450, z: -300, rx: 13, rz: 10 }, { x: 460, z: 290, rx: 11, rz: 12 }, { x: 120, z: 330, rx: 8, rz: 9 }, { x: -140, z: -330, rx: 9, rz: 8 },
+];
+// the reefs you can wade along between islands (index pairs into PAC_ISLES), knee deep
+const PAC_REEFS = [[0, 7], [7, 2], [7, 3], [7, 4], [2, 4], [3, 4], [2, 5], [3, 6], [4, 5], [4, 6], [4, 8], [5, 8], [6, 8], [8, 1]];
+// each reef bows out to one side and wanders, as a sampled curve
+const PAC_REEF_LINES = PAC_REEFS.map(([a, b], k) => {
+  const A = PAC_ISLES[a], B = PAC_ISLES[b], L = Math.hypot(B.x - A.x, B.z - A.z), nx = -(B.z - A.z) / L, nz = (B.x - A.x) / L, bow = (k % 2 ? 1 : -1) * L * 0.12, pts = [];
+  for (let i = 0; i <= 14; i++) { const t = i / 14, off = Math.sin(t * Math.PI) * bow + Math.sin(t * Math.PI * 3 + k) * L * 0.025; pts.push({ x: A.x + (B.x - A.x) * t + nx * off, z: A.z + (B.z - A.z) * t + nz * off }); }
+  return pts;
+});
+function pacIsleD(I, x, z) {   // 0 at the centre, 1 at the shoreline (with a wavy coast)
+  const dx = (x - I.x) / I.rx, dz = (z - I.z) / I.rz, a = Math.atan2(dz, dx);
+  return Math.hypot(dx, dz) / (1 + 0.12 * Math.sin(a * 3 + I.x * 0.01) + 0.07 * Math.sin(a * 7 + I.z * 0.02));
+}
+function pacificHeight(x, z) {
+  let g = -24 + vnoise(x * 0.008, z * 0.008) * 5;                              // open ocean
+  for (const P of PAC_REEF_LINES) {                                            // the reefs: a flat, shallow sandy ridge, knee deep
+    let d = Infinity; for (let i = 0; i < P.length - 1; i++) d = Math.min(d, distToSeg(x, z, P[i].x, P[i].z, P[i + 1].x, P[i + 1].z));
+    d += (vnoise(x * 0.04, z * 0.04) - 0.5) * 5;
+    if (d < 40) g = Math.max(g, d < 8 ? -0.55 + (vnoise(x * 0.1, z * 0.1) - 0.5) * 0.1 : lerp(-0.55, -24, smooth(8, 40, d)));
+  }
+  for (const I of PAC_ISLES) {
+    const R = Math.min(I.rx, I.rz), t = pacIsleD(I, x, z);
+    if (t > 1 + 45 / R) continue;
+    const e = (t - 1) * R;                                                     // metres past the shoreline
+    let h;
+    if (e < 0) h = 0.6 + Math.min(1, -e / 10) * (I.home ? 1.6 : 1.4 + vnoise(x * 0.05, z * 0.05) * 2.2);   // sand, rising to low dunes inland
+    else h = e < 6 ? lerp(0.6, -0.8, e / 6) : lerp(-0.8, -24, smooth(6, 45, e));
+    g = Math.max(g, h);
+  }
+  // flat ground for the airstrips and the bases
+  for (const t of ['blue', 'red']) {
+    const R = RUNWAYS[t]; if (Math.abs(x - R.x) < R.len / 2 + 8 && Math.abs(z - R.z) < R.wid / 2 + 6) g = Math.max(g, 1.9);
+    const B = BASES[t]; if (Math.hypot(x - B.x, z - B.z) < 30) g = lerp(g, 1.9, smooth(30, 18, Math.hypot(x - B.x, z - B.z)));
+  }
+  return g;
+}
 const WAKE_U = [[-298, -282], [-336, -200], [-322, -110], [-314, 0], [-302, 95], [-272, 190], [-222, 243], [-150, 258], [-50, 264], [50, 264], [150, 258], [226, 240], [282, 196], [306, 105], [320, 0], [324, -120], [306, -210], [266, -268]].map(([x, z]) => ({ x, z }));
 const WAKE_SPINE = (() => {   // a smooth curve through those points
   const P = WAKE_U, out = [];
@@ -329,6 +374,9 @@ const POINTS_DEF = ZD30 ? [   // Zero Dark 30: hidden points that only guide the
 ] : DAM ? [
   { n: 'A', x: -205, z: -60 }, { n: 'B', x: 205, z: -60 }, { n: 'C', x: 0, z: -60 },
   { n: 'D', x: 0, z: 70 }, { n: 'E', x: -215, z: -250 }, { n: 'F', x: 215, z: -250 }, { n: 'G', x: 0, z: 270 },
+] : PACIFIC ? [
+  { n: 'A', x: -270, z: 170 }, { n: 'B', x: 270, z: 170 }, { n: 'C', x: 0, z: 0 },
+  { n: 'D', x: -270, z: -170 }, { n: 'E', x: 270, z: -170 }, { n: 'F', x: 0, z: 235 }, { n: 'G', x: 0, z: -235 },
 ] : WAKE ? [
   { n: 'A', x: -318, z: -120 }, { n: 'B', x: -308, z: 90 }, { n: 'C', x: -170, z: 252 },
   { n: 'D', x: 170, z: 252 }, { n: 'E', x: 308, z: 90 }, { n: 'F', x: 318, z: -150 }, { n: 'G', x: 0, z: -20 },
@@ -350,15 +398,15 @@ const POINTS_DEF = ZD30 ? [   // Zero Dark 30: hidden points that only guide the
 ];
 const PD = Object.fromEntries(POINTS_DEF.map(p => [p.n, p]));
 // where each map's town stands (null: no town)
-const TOWN_AT = ZD30 || DOGFIGHT || GERMANY || SNOW || HOUSTON || WAKE || DAM || NORMANDY ? null : AFGHAN ? { x: -170, z: 175 } : DESERT ? { x: PD.G.x, z: PD.G.z } : { x: 0, z: 0 };
-const BASES = ZD30 ? { blue: { x: 0, z: -80 }, red: { x: 0, z: 300 } } : NORMANDY ? { blue: { x: 0, z: 318 }, red: { x: 0, z: -450 } } : DAM ? { blue: { x: 0, z: 455 }, red: { x: 0, z: -455 } } : WAKE ? { blue: { x: 50, z: 470 }, red: { x: -322, z: -262 } } : SNOW ? { blue: { x: -250, z: 460 }, red: { x: 250, z: -460 } } : { blue: { x: 0, z: 450 }, red: { x: 0, z: -450 } };
+const TOWN_AT = ZD30 || DOGFIGHT || GERMANY || SNOW || HOUSTON || WAKE || PACIFIC || DAM || NORMANDY ? null : AFGHAN ? { x: -170, z: 175 } : DESERT ? { x: PD.G.x, z: PD.G.z } : { x: 0, z: 0 };
+const BASES = ZD30 ? { blue: { x: 0, z: -80 }, red: { x: 0, z: 300 } } : NORMANDY ? { blue: { x: 0, z: 318 }, red: { x: 0, z: -450 } } : DAM ? { blue: { x: 0, z: 455 }, red: { x: 0, z: -455 } } : WAKE ? { blue: { x: 50, z: 470 }, red: { x: -322, z: -262 } } : PACIFIC ? { blue: { x: -20, z: 408 }, red: { x: 20, z: -408 } } : SNOW ? { blue: { x: -250, z: 460 }, red: { x: 250, z: -460 } } : { blue: { x: 0, z: 450 }, red: { x: 0, z: -450 } };
 if (FOUR) { BASES.green = { x: -440, z: -420 }; BASES.yellow = { x: 440, z: 420 }; }
 // which way a team's base faces: +1 looks north (towards -z), -1 looks south
 const teamSide = t => Math.sign(BASES[t].z) || 1;
 const RUNWAYS = NORMANDY ? { blue: { x: 410, z: 475, len: 160, wid: 18, dir: -1, carrier: true },   // Normandy: blue has no strip on the beach, its planes fly from the carrier
-  red: { x: -170, z: -470, len: 160, wid: 18, dir: 1 } } : DAM ? { blue: { x: 175, z: 470, len: 160, wid: 18, dir: -1 }, red: { x: -175, z: -470, len: 160, wid: 18, dir: 1 } } : WAKE ? { blue: { x: -15, z: 470, len: 170, wid: 16, dir: -1 }, red: { x: 0, z: 262, len: 170, wid: 18, dir: 1 } } : SNOW ? { blue: { x: -20, z: 468, len: 160, wid: 18, dir: -1 }, red: { x: 20, z: -468, len: 160, wid: 18, dir: 1 } }
+  red: { x: -170, z: -470, len: 160, wid: 18, dir: 1 } } : DAM ? { blue: { x: 175, z: 470, len: 160, wid: 18, dir: -1 }, red: { x: -175, z: -470, len: 160, wid: 18, dir: 1 } } : WAKE ? { blue: { x: -15, z: 470, len: 170, wid: 16, dir: -1 }, red: { x: 0, z: 262, len: 170, wid: 18, dir: 1 } } : PACIFIC ? { blue: { x: 0, z: 448, len: 180, wid: 18, dir: -1 }, red: { x: 0, z: -448, len: 180, wid: 18, dir: 1 } } : SNOW ? { blue: { x: -20, z: 468, len: 160, wid: 18, dir: -1 }, red: { x: 20, z: -468, len: 160, wid: 18, dir: 1 } }
   : { blue: { x: 170, z: 470, len: 160, wid: 18, dir: -1 }, red: { x: -170, z: -470, len: 160, wid: 18, dir: 1 } };
-const LAKES = ZD30 || WAKE || NORMANDY || DAM || AFGHAN || DOGFIGHT ? [] : GERMANY ? [{ x: -250, z: -60, r: 38 }, { x: 260, z: 40, r: 30 }] : SNOW ? [{ x: -190, z: 130, r: 34 }, { x: 190, z: -130, r: 34 }] : HOUSTON ? [{ x: -205, z: 345, r: 28 }, { x: 225, z: 355, r: 24 }] : [{ x: -225, z: 20, r: 48 }, { x: 215, z: -30, r: 40 }, { x: -170, z: 440, r: 24 }];
+const LAKES = ZD30 || WAKE || PACIFIC || NORMANDY || DAM || AFGHAN || DOGFIGHT ? [] : GERMANY ? [{ x: -250, z: -60, r: 38 }, { x: 260, z: 40, r: 30 }] : SNOW ? [{ x: -190, z: 130, r: 34 }, { x: 190, z: -130, r: 34 }] : HOUSTON ? [{ x: -205, z: 345, r: 28 }, { x: 225, z: 355, r: 24 }] : [{ x: -225, z: 20, r: 48 }, { x: 215, z: -30, r: 40 }, { x: -170, z: 440, r: 24 }];
 const LAKE = LAKES[0];
 // Houston: downtown in the middle, the 610 Loop around it, I-45 and I-10 crossing, and Buffalo Bayou winding past the north side
 const BAYOU = [[-575, -120], [-470, -150], [-360, -130], [-260, -175], [-150, -200], [-50, -190], [50, -210], [160, -185], [260, -205], [360, -170], [470, -195], [575, -170]].map(([x, z]) => ({ x, z }));
@@ -379,7 +427,7 @@ const PATHS = ZD30 ? [   // Bilal Town: the lane past the compound's north side,
 ] : DAM ? [
   [BASES.blue, PD.G], [PD.G, PD.D], [PD.G, { x: 205, z: 120 }], [{ x: 205, z: 120 }, PD.B], [PD.G, { x: -205, z: 120 }], [{ x: -205, z: 120 }, PD.A],
   [PD.A, PD.C], [PD.C, PD.B], [PD.A, PD.E], [PD.B, PD.F], [PD.E, BASES.red], [PD.F, BASES.red], [PD.D, { x: 0, z: -40 }],
-] : WAKE ? [
+] : PACIFIC ? PAC_REEF_LINES.flatMap(P => P.slice(0, -1).map((q, i) => [q, P[i + 1]])) : WAKE ? [   // (pacific: along the reefs, bend by bend)
   [BASES.red, PD.A], [PD.A, PD.B], [PD.B, { x: -280, z: 240 }], [{ x: -280, z: 240 }, PD.C], [PD.C, PD.D], [PD.D, { x: 280, z: 240 }], [{ x: 280, z: 240 }, PD.E], [PD.E, PD.F],
 ] : HOUSTON ? [
   ...H_FREEWAYS.map(f => [f[0], f[1]]),
@@ -419,6 +467,7 @@ function rawHeight(x, z) {
   h += Math.pow(vnoise(x * 0.013 + 50, z * 0.013 + 20), 2) * 16 - 4;
   h += (vnoise(x * 0.045 + 9, z * 0.045 + 31) - 0.5) * 3;
   const d = Math.max(Math.abs(x), Math.abs(z));
+  if (PACIFIC) return pacificHeight(x, z);
   if (WAKE) {
     // the carrier: a flat steel deck standing out of the sea, a ramp down its stern to a floating dock
     const C = CARRIER;
@@ -432,7 +481,7 @@ function rawHeight(x, z) {
     if (d < 20) g = 3.2 + bump * smooth(14, 4, d) * smooth(6, 30, pathDist(x, z));
     else if (d < 34) g = lerp(3.2, 0.2, (d - 20) / 14);
     else if (d < 46) g = lerp(0.2, -2.6, (d - 34) / 12);
-    else g = lerp(-2.6, sea, smooth(46, 80, d));
+    else g = lerp(-2.6, sea, smooth(46, 80, d)) - 11 * smooth(90, 150, d);   // past the reef the ocean drops away
     return Math.max(g, wakeIsles(x, z));
   }
   if (DOGFIGHT) {
@@ -466,7 +515,7 @@ function rawHeight(x, z) {
     if (z < 150) g = land;
     else if (z < 236) { const t = smooth(150, 236, z); g = lerp(land, 2.4, Math.pow(t, 0.7)); g = lerp(g, lerp(land, 2.4, smooth(130, 250, z)), gully); }
     else if (z < 336) g = lerp(2.4, 0.15, (z - 236) / 100) + (vnoise(x * 0.05, z * 0.05) - 0.5) * 0.3 - normTrench(x, z);
-    else g = lerp(0.15, -9 + vnoise(x * 0.01, z * 0.01) * 2, smooth(336, 400, z));
+    else g = lerp(0.15, -9 + vnoise(x * 0.01, z * 0.01) * 2, smooth(336, 400, z)) - 11 * smooth(400, 465, z);   // the Channel shelves off to real depth further out, deep enough for a submarine
     if (d > MTN && z < 300) g += Math.pow((d - MTN) / 45, 2) * 40;
     return g;
   }
@@ -619,7 +668,7 @@ function undergroundAt(x, z, y) {
 function groundAt(x, z, y) { const u = y !== undefined ? undergroundAt(x, z, y) : null; return u ? (u.ramp ? underFloor(u, x, z) : u.floor) : heightAt(x, z); }
 
 // water only exists in the lakes (other low ground is just dry valleys)
-function nearLake(x, z) { for (const L of LAKES) if (Math.hypot(x - L.x, z - L.z) < L.r + 20) return true; return WAKE || (NORMANDY && z > 300) || (DAM && z < -60 && z > -400) || (HOUSTON && bayouDist(x, z) < 16) || (AFGHAN && Math.abs(z - RIVER_Z(x)) < 22); }
+function nearLake(x, z) { for (const L of LAKES) if (Math.hypot(x - L.x, z - L.z) < L.r + 20) return true; return WAKE || PACIFIC || (NORMANDY && z > 300) || (DAM && z < -60 && z > -400) || (HOUSTON && bayouDist(x, z) < 16) || (AFGHAN && Math.abs(z - RIVER_Z(x)) < 22); }
 const ICE_Y = 0.15;
 // skyscrapers: planes flown by the computer look out for these as well as the ground
 const TALL = [];

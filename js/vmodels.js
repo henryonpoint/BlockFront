@@ -14,7 +14,7 @@ if (typeof AFGHAN !== 'undefined' && AFGHAN) {   // Desert Combat: US vehicles i
   Object.assign(VPAINT.red, { a: 0x8c8458, b: 0x6c6644, c: 0x9e966a });
 }
 // WWII maps (Berlin, Normandy): olive drab Allied vehicles with white stars, dark-yellow German ones
-const WW2V = typeof GERMANY !== 'undefined' && (GERMANY || NORMANDY || WAKE);
+const WW2V = typeof GERMANY !== 'undefined' && (GERMANY || NORMANDY || WAKE || PACIFIC);
 const VPAINT_WW2 = {
   blue: { a: 0x4d5429, b: 0x3d4321, c: 0x5f6735, team: 0xe6e4da, acc: 0xd8d6c8 },
   red: { a: 0x8c8256, b: 0x6b6342, c: 0x9c9264, team: 0x8a3226, acc: 0xc8b890 },
@@ -52,7 +52,7 @@ function plusGeo(size, arm, lift) {
   const g = new THREE.ShapeGeometry(s); g.rotateX(-Math.PI / 2); g.translate(0, lift, 0); return g;
 }
 function balken(p, size, x, y, z, rx = 0, ry = 0, rz = 0) {
-  if (typeof WAKE !== 'undefined' && WAKE) {   // the Pacific: a plain red disc on a white ring
+  if (typeof WAKE !== 'undefined' && (WAKE || PACIFIC)) {   // the Pacific: a plain red disc on a white ring
     const d = new THREE.CircleGeometry(size * 0.5, 20), w = new THREE.CircleGeometry(size * 0.58, 20); d.translate(0, 0, 0.012);
     p.add(w, 0xf0eee6, x, y, z, rx, ry, rz); p.add(d, 0xc0241c, x, y, z, rx, ry, rz); return;
   }

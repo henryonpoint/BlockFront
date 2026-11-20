@@ -10,6 +10,8 @@ const SH = { built: false, prompt: null };
 function shipBasis(s) { return { fx: -Math.sin(s.yaw), fz: -Math.cos(s.yaw), rx: Math.cos(s.yaw), rz: -Math.sin(s.yaw) }; }
 function shipLocal(s, x, z) { const b = shipBasis(s), dx = x - s.x, dz = z - s.z; return { u: dx * b.fx + dz * b.fz, v: dx * b.rx + dz * b.rz }; }
 function shipWorld(s, u, v) { const b = shipBasis(s); return { x: s.x + b.fx * u + b.rx * v, z: s.z + b.fz * u + b.rz * v }; }
+// the height of a ship's waterline: a submarine that has dived sits lower
+function shipY(s) { return WATER_Y - (s.depth || 0); }
 function inHull(s, u, v, pad = 0) { if (Math.abs(u) > s.L / 2 + pad) return false; return Math.abs(v) <= s.halfW(u) + pad; }
 // the floor under (u, v) for feet at height fy: the highest deck you are standing on (or just stepping up onto)
 function shipFloor(s, u, v, fy) {
@@ -18,15 +20,16 @@ function shipFloor(s, u, v, fy) {
     if (u < d.u0 || u > d.u1 || v < d.v0 || v > d.v1) continue;
     let y = d.y;
     if (d.ramp) { const t = clamp(((d.ramp === 'u' ? u : v) - (d.ramp === 'u' ? d.u0 : d.v0)) / ((d.ramp === 'u' ? d.u1 - d.u0 : d.v1 - d.v0) || 1), 0, 1); y = lerp(d.ya, d.yb, t); }
-    y += WATER_Y;
+    y += shipY(s);
     if (y <= fy + 0.9 && y > best) best = y;
   }
-  if (inHull(s, u, v) && s.mainY + WATER_Y <= fy + 0.9) best = Math.max(best, s.mainY + WATER_Y);
+  if (inHull(s, u, v) && s.mainY + shipY(s) <= fy + 0.9) best = Math.max(best, s.mainY + shipY(s));
   return best;
 }
 function shipUnder(x, z, fy) {   // the ship and floor height under a point, if any
   for (const s of SHIPS2) {
     if (Math.abs(x - s.x) > s.L / 2 + 30 || Math.abs(z - s.z) > s.L / 2 + 30) continue;
+    if ((s.depth || 0) > 1.2) continue;   // a submarine's deck is under water once it dives: nobody stands on it
     const { u, v } = shipLocal(s, x, z); if (!inHull(s, u, v, 0.5)) continue;
     const f = shipFloor(s, u, v, fy); if (f > -Infinity) return { s, f, u, v };
   }
@@ -150,7 +153,7 @@ function addShipDeckRamps(s) {
   rm.position.set((u0 + u1) / 2, WATER_Y + (top + 0.4) / 2, v); rm.rotation.z = ang; rm.scale.x = Math.hypot(len, top) / len; s.g.add(rm);
   const landing = new THREE.Mesh(new THREE.BoxGeometry(4, 0.3, Math.abs(v - 3 + s.halfW(-10)) + 1), new THREE.MeshLambertMaterial({ color: 0x5a5e62 })); landing.position.set(u1 + 2, WATER_Y + top, (v - 3 - s.halfW(-10) + 1) / 2); s.g.add(landing);
 }
-function placeShip(s) { s.g.position.set(s.x, WATER_Y + Math.sin((typeof simTime !== 'undefined' ? simTime : 0) * 0.5 + s.x) * 0.15, s.z); s.g.rotation.set((s.lean || 0) + (s.waveRoll || 0), s.yaw + Math.PI / 2, s.wavePitch || 0, 'YXZ'); }   // the models are built along +x (u), so turn them to face their heading
+function placeShip(s) { s.g.position.set(s.x, shipY(s) + Math.sin((typeof simTime !== 'undefined' ? simTime : 0) * 0.5 + s.x) * 0.15 * Math.max(0, 1 - (s.depth || 0)), s.z); s.g.rotation.set((s.lean || 0) + (s.waveRoll || 0), s.yaw + Math.PI / 2, (s.divePitch || 0) + (s.wavePitch || 0), 'YXZ'); }   // the models are built along +x (u), so turn them to face their heading
 
 // ---------- hooking into ground, walls and water ----------
 function installShipHooks() {
@@ -171,7 +174,8 @@ function installShipHooks() {
     for (const s of SHIPS2) {
       if (Math.abs(pos.x - s.x) > s.L / 2 + 10 || Math.abs(pos.z - s.z) > s.L / 2 + 10) continue;
       let { u, v } = shipLocal(s, pos.x, pos.z), moved = false;
-      const fy = feetY - WATER_Y;
+      if ((s.depth || 0) > 1.2) continue;
+      const fy = feetY - shipY(s);
       for (const w of s.walls) {
         if (fy >= w.y1 - 0.65 || fy + 1.7 < w.y0) continue;
         if (u < w.u0 - r || u > w.u1 + r || v < w.v0 - r || v > w.v1 + r) continue;
@@ -272,6 +276,9 @@ function buildSub(x, z, yaw, team) {
   for (const sd of [-1, 1]) for (const o of [-0.7, 0.7]) P.cyl(0.32, 0.32, 0.1, 0x101214, L / 2 - 4, -0.9 + o, sd * 1.1, Math.PI / 2, 0, 0, 1, 10);
   const m = new THREE.Mesh(P.build(), VEH_MAT); m.castShadow = true; m.receiveShadow = true; g.add(m);
   shipTurret(s, tu + 13, true, mainY, 0.6);                                                       // the deck gun in front of the tower
+  const peri = new THREE.Group(), PP = new Part(); PP.cyl(0.13, 0.13, 1, 0x2a2e33, 0, 0.5, 0, 0, 0, 0, 1, 8); peri.add(new THREE.Mesh(PP.build(), VEH_MAT));
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.45, 0.35), new THREE.MeshLambertMaterial({ color: 0x2a2e33 })); peri.add(head);
+  peri.position.set(tu + 2.5, mainY + 4.2, 0.3); g.add(peri); s.peri = { g: peri, head, u: tu + 2.5 };
   s.walls.push({ u0: tu - 5, u1: tu + 7.4, v0: -1.9, v1: 1.9, y0: mainY, y1: mainY + 4.2 });
   s.helm = { u: tu - 7, v: 0, y: mainY };                                                         // steer from the deck aft of the tower
   const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.45, 0.06, 6, 14), new THREE.MeshLambertMaterial({ color: 0x6b4a2a })); wheel.position.set(s.helm.u, mainY + 1.0, 0); wheel.rotation.y = Math.PI / 2; g.add(wheel);
@@ -284,15 +291,19 @@ function fireTorpedo(s, ghost) {
   for (const sd of [-1, 1]) {
     const p = shipWorld(s, s.L / 2 + 1, sd * 1.1), mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.27, 0.27, 6, 8), new THREE.MeshLambertMaterial({ color: 0x2a2e33 }));
     mesh.rotation.order = 'YXZ'; mesh.rotation.set(Math.PI / 2, s.yaw, 0); scene.add(mesh);
-    TORPS.push({ x: p.x, z: p.z, fx: b.fx, fz: b.fz, sp: 0, life: 16, src: s, mesh, ghost, owner: player });
+    TORPS.push({ x: p.x, z: p.z, y: Math.min(WATER_Y - 0.5, shipY(s) - 0.5), fx: b.fx, fz: b.fz, sp: 0, life: 16, src: s, mesh, ghost, owner: player, goal: !ghost && SH.view === 'periscope' ? player.yaw : null, age: 0 });
   }
   if (!ghost && typeof netFx === 'function' && net.active) netFx(['tp', SHIPS2.indexOf(s)]);
   playAt('thump', player.pos, 0.9);
 }
 function updateTorpedoes(dt) {
   for (let i = TORPS.length - 1; i >= 0; i--) {
-    const t = TORPS[i]; t.sp = Math.min(30, t.sp + dt * 20); t.life -= dt;
-    t.x += t.fx * t.sp * dt; t.z += t.fz * t.sp * dt; t.mesh.position.set(t.x, WATER_Y - 0.5, t.z);
+    const t = TORPS[i]; t.sp = Math.min(30, t.sp + dt * 20); t.life -= dt; t.age += dt;
+    if (t.goal !== null && t.goal !== undefined && t.age > 0.5) {   // the gyro turns it onto the bearing set in the periscope
+      const cur = Math.atan2(-t.fx, -t.fz); let d = t.goal - cur; d = Math.atan2(Math.sin(d), Math.cos(d));
+      const a = cur + clamp(d, -dt * 1.2, dt * 1.2); t.fx = -Math.sin(a); t.fz = -Math.cos(a); t.mesh.rotation.y = a;
+    }
+    t.x += t.fx * t.sp * dt; t.z += t.fz * t.sp * dt; t.y += (WATER_Y - 0.6 - t.y) * Math.min(1, dt * 0.8); t.mesh.position.set(t.x, t.y, t.z);
     if (Math.random() < 0.7) emitSpray(t.x - t.fx * 3, WATER_Y + 0.1, t.z - t.fz * 3, rand(-0.3, 0.3), rand(0.4, 1.2), rand(-0.3, 0.3), 1.6);   // the bubble trail
     let hit = t.life <= 0 ? 'fizzle' : null;
     if (!hit && heightAt(t.x, t.z) > WATER_Y - 1.2 && !SHIPS2.some(q => q !== t.src && inHull(q, ...Object.values(shipLocal(q, t.x, t.z))))) hit = 'shore';
@@ -318,10 +329,16 @@ function shipHit(s, by) {
 // ---------- building them on the maps ----------
 function buildShips() {
   SH.built = true;
-  if (!NORMANDY && !WAKE) return;
+  if (!NORMANDY && !WAKE && !PACIFIC) return;
   installShipHooks();
-  if (NORMANDY) { buildBattleship(-420, 470, -Math.PI / 2, 'blue'); buildCarrier(410, 475, Math.PI / 2, 'blue'); buildDestroyer(330, 410, -Math.PI / 2, 'blue', 96); buildSub(-420, 418, -Math.PI / 2, 'blue'); }
-  if (WAKE) { buildBattleship(-410, 470, -Math.PI / 2, 'blue'); buildDestroyer(-215, 425, -Math.PI / 2, 'blue', 92); buildDestroyer(225, 515, -Math.PI / 2, 'blue', 104); buildDestroyer(345, 420, -Math.PI / 2, 'blue', 84); buildSub(-60, 515, -Math.PI / 2, 'blue'); }
+  if (NORMANDY) { buildBattleship(-420, 470, -Math.PI / 2, 'blue'); buildCarrier(410, 475, Math.PI / 2, 'blue'); buildDestroyer(330, 410, -Math.PI / 2, 'blue', 96); buildSub(-420, 512, -Math.PI / 2, 'blue'); buildSub(-330, 522, -Math.PI / 2, 'blue'); buildSub(470, 515, Math.PI / 2, 'blue'); }
+  if (PACIFIC) {   // a fleet for each side, offshore from its home island
+    buildCarrier(330, 470, Math.PI / 2, 'blue'); buildBattleship(-330, 468, -Math.PI / 2, 'blue'); buildDestroyer(-200, 518, -Math.PI / 2, 'blue', 96); buildDestroyer(200, 520, Math.PI / 2, 'blue', 92);
+    buildSub(-460, 360, -Math.PI / 2, 'blue'); buildSub(460, 350, Math.PI / 2, 'blue');
+    buildCarrier(-330, -470, -Math.PI / 2, 'red'); buildBattleship(330, -468, Math.PI / 2, 'red'); buildDestroyer(200, -518, Math.PI / 2, 'red', 96); buildDestroyer(-200, -520, -Math.PI / 2, 'red', 92);
+    buildSub(460, -360, Math.PI / 2, 'red'); buildSub(-460, -350, -Math.PI / 2, 'red');
+  }
+  if (WAKE) { buildBattleship(-410, 470, -Math.PI / 2, 'blue'); buildDestroyer(-215, 425, -Math.PI / 2, 'blue', 92); buildDestroyer(225, 515, -Math.PI / 2, 'blue', 104); buildDestroyer(345, 420, -Math.PI / 2, 'blue', 84); buildSub(-60, 515, -Math.PI / 2, 'blue'); buildSub(-230, 480, -Math.PI / 2, 'blue'); buildSub(140, 395, Math.PI / 2, 'blue'); buildSub(40, -440, Math.PI / 2, 'red'); }
 }
 
 // ---------- finer, more true-to-life detail on the warships (looks only: decks, walls and hulls are unchanged) ----------
@@ -399,9 +416,28 @@ function updateShips(dt) {
     }
     updateShipFx(s, dt);
     if (s.dmg > 0 && Math.random() < dt * (2 + s.dmg * 2)) { const p = shipWorld(s, rand(-s.L / 4, s.L / 4), 0); smokePuff(new THREE.Vector3(p.x, WATER_Y + s.mainY + 2, p.z), 0x3a3a3a, 3 + s.dmg, 5, 4); }   // smoke from a damaged ship
-    if (s.kind === 'sub') { s.torpT = (s.torpT || 0) - dt; if (captain && keys.Space && s.torpT <= 0) { s.torpT = 4; fireTorpedo(s); showMessage('Torpedoes away!', 1.2); } }
+    if (s.kind === 'sub') {
+      s.torpT = (s.torpT || 0) - dt; if (captain && keys.Space && s.torpT <= 0) { s.torpT = 4; fireTorpedo(s); showMessage('Torpedoes away!', 1.2); }
+      // diving: Q to go down, Z to come up. How deep it can go depends on the water under it
+      const floor = Math.min(...[[s.L / 2, 0], [0, 0], [-s.L / 2, 0]].map(([u, v]) => { const p = shipWorld(s, u, v); return WATER_Y - heightAt(p.x, p.z); }));
+      const maxD = clamp(floor - 4.5, 0, 16);   // keep a few metres between the keel and the sea bed
+      if (captain) { if (keys.KeyQ) s.wantDepth = Math.min(maxD, (s.wantDepth || 0) + dt * 3); if (keys.KeyZ) s.wantDepth = Math.max(0, (s.wantDepth || 0) - dt * 4); }
+      s.wantDepth = Math.min(s.wantDepth || 0, maxD);
+      const was = s.depth || 0; s.depth = was + clamp((s.wantDepth || 0) - was, -dt * 2.4, dt * 1.8);
+      if (s.depth > 0.3 && Math.random() < dt * 8) { const p = shipWorld(s, rand(-s.L / 3, s.L / 3), rand(-2, 2)); emitSpray(p.x, WATER_Y + 0.1, p.z, rand(-0.4, 0.4), rand(0.6, 1.6), rand(-0.4, 0.4), 1.2); }   // air bubbles breaking the surface
+      if (was < 1.2 && s.depth >= 1.2) { for (const c of chars) if (c !== s.captain && c.alive && !c.gv && !c.vehicle) { const l = shipLocal(s, c.pos.x, c.pos.z); if (inHull(s, l.u, l.v, 0.5) && c.pos.y > WATER_Y) c.velY = 0; } if (captain) showMessage('Diving! Anyone on deck is in the water now', 2); }
+      if (captain && was > 1.2 && s.depth <= 1.2) showMessage('Surfaced', 1.2);
+      if (s.peri) {   // the periscope: run up to just above the waves when the boat is under, down when it surfaces
+        const base = shipY(s) + s.mainY + 4.2, want = s.depth > 2.5 ? clamp(WATER_Y + 1.6 - base, 0.4, 10) : 0.4, P = s.peri;
+        P.len = lerp(P.len || 0.4, want, Math.min(1, dt * 2)); P.g.children[0].scale.y = P.len; P.head.position.y = P.len + 0.2;
+        P.up = s.depth > 2.5 && base + P.len > WATER_Y + 0.5;
+        if (P.up && Math.abs(s.speed) > 1 && Math.random() < dt * 10) { const p = shipWorld(s, P.u, 0.3); emitSpray(p.x, WATER_Y + 0.1, p.z, rand(-0.5, 0.5), rand(0.5, 1.4), rand(-0.5, 0.5), 1); }   // the feather of spray a periscope leaves
+      }
+      s.divePitch = lerp(s.divePitch || 0, clamp(((s.wantDepth || 0) - s.depth) * 0.04, -0.07, 0.07), Math.min(1, dt * 2));   // nose down as it dives, up as it rises
+    }
     if (captain) {
-      const hw = shipWorld(s, s.helm.u, s.helm.v); player.pos.set(hw.x, s.helm.y + WATER_Y, hw.z); player.velY = 0; player.onGround = true;
+      const hw = shipWorld(s, s.helm.u, s.helm.v); player.pos.set(hw.x, s.helm.y + shipY(s), hw.z); player.velY = 0; player.onGround = true;
+      if (player.body3p && player.body3p.root) player.body3p.root.visible = !((s.depth || 0) > 1);   // inside the hull once it dives
       shipCamera(s, dt);
       if (s.turrets.length) aimShipGuns(s, dt);
       updateShipHud(s);
@@ -412,6 +448,24 @@ function updateShips(dt) {
 }
 // three views at the wheel: C cycles a chase camera behind the ship, the bridge, and (battleship) the gun sight
 const SHIP_VIEWS = ['chase', 'bridge', 'guns'];
+// the periscope eyepiece: a round view with a crosshair and the bearing, black around the edge
+function zPeriscopeOverlay(on, s, flooded) {
+  let el = document.getElementById('periView');
+  if (!el) {
+    if (!on) return;
+    el = document.createElement('div'); el.id = 'periView';
+    el.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:6;background:radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 0, rgba(0,0,0,0) 36vmin, rgba(0,20,30,0.55) 40vmin, #000 41vmin);font:600 15px system-ui,sans-serif;color:#cfe;';
+    el.innerHTML = '<div style="position:absolute;left:50%;top:50%;width:62vmin;height:1px;margin-left:-31vmin;background:rgba(200,240,230,0.55)"></div><div style="position:absolute;left:50%;top:50%;width:1px;height:62vmin;margin-top:-31vmin;background:rgba(200,240,230,0.55)"></div>' +
+      '<div id="periTicks" style="position:absolute;left:50%;top:50%;width:62vmin;margin-left:-31vmin;margin-top:-10px;display:flex;justify-content:space-between;opacity:0.7">' + '<span>|</span>'.repeat(9) + '</div>' +
+      '<div id="periBear" style="position:absolute;left:0;right:0;bottom:7vh;text-align:center;text-shadow:0 1px 2px #000"></div>';
+    document.body.appendChild(el);
+  }
+  el.style.display = on ? 'block' : 'none';
+  if (!on) return;
+  const brg = Math.round(((-player.yaw * 180 / Math.PI) % 360 + 360) % 360);
+  document.getElementById('periBear').innerHTML = flooded ? 'Too deep to see: rise to periscope depth (Z)' : `Bearing ${String(brg).padStart(3, '0')}° &nbsp;·&nbsp; right mouse to zoom &nbsp;·&nbsp; Space: torpedoes run to this bearing`;
+  el.style.background = flooded ? '#02141c' : 'radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 0, rgba(0,0,0,0) 36vmin, rgba(0,20,30,0.55) 40vmin, #000 41vmin)';
+}
 function shipCamera(s, dt) {
   const view = s.turrets.length || SH.view !== 'guns' ? SH.view || 'chase' : 'chase';
   const dir = new THREE.Vector3(-Math.sin(player.yaw) * Math.cos(player.pitch), Math.sin(player.pitch), -Math.cos(player.yaw) * Math.cos(player.pitch));
@@ -419,12 +473,18 @@ function shipCamera(s, dt) {
   if (view === 'chase') {
     const dist = s.kind === 'carrier' ? 190 : s.kind === 'battleship' ? 165 : s.L * 1.1 + 20, c = new THREE.Vector3(s.x, WATER_Y + s.mainY + (s.L > 120 ? 10 : 4), s.z);
     camera.position.copy(c).addScaledVector(dir, -dist); camera.position.y = Math.max(camera.position.y + (s.L > 120 ? 30 : 14), WATER_Y + 6);
+  } else if (view === 'periscope' && s.peri) {
+    const p = shipWorld(s, s.peri.u, 0.3), top = shipY(s) + s.mainY + 4.2 + (s.peri.len || 0.4) + 0.3;
+    camera.position.set(p.x, Math.max(top, WATER_Y + 0.9), p.z);
+    fov = mouse.right ? 14 : 40;
+    zPeriscopeOverlay(true, s, top < WATER_Y + 0.4);
   } else if (view === 'guns') {
     const t = s.turrets[1] || s.turrets[0], tw = shipWorld(s, t.u, 0);
     camera.position.set(tw.x, WATER_Y + s.mainY + (s.L > 120 ? 16 : 7), tw.z).addScaledVector(new THREE.Vector3(dir.x, 0, dir.z).normalize(), s.L > 120 ? -26 : -12);
     fov = mouse.right ? 18 : 50;
   }
-  if (view !== 'bridge') camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ');
+  if (view !== 'periscope') zPeriscopeOverlay(false);
+  if (view !== 'bridge') camera.rotation.set(view === 'periscope' ? clamp(player.pitch, -0.15, 0.25) : player.pitch, player.yaw, 0, 'YXZ');
   if (Math.abs(camera.fov - fov) > 0.1) { camera.fov += (fov - camera.fov) * Math.min(1, dt * 10); camera.updateProjectionMatrix(); }
 }
 // a white wake behind the stern and foam at the bow that grow with speed; a radar that turns
@@ -498,7 +558,7 @@ function moveShip(s, dx, dz, dyaw) {
   if (!dx && !dz && !dyaw) return;
   const c = Math.cos(-dyaw), sn = Math.sin(-dyaw);
   const carry = (p) => { const rx = p.x - s.x, rz = p.z - s.z; p.x = s.x + rx * c - rz * sn + dx; p.z = s.z + rx * sn + rz * c + dz; };
-  const onShip = (p, y) => { const { u, v } = shipLocal(s, p.x, p.z); return inHull(s, u, v, 0.5) && y > WATER_Y + 1; };
+  const onShip = (p, y) => { const { u, v } = shipLocal(s, p.x, p.z); return (s.depth || 0) < 1.2 && inHull(s, u, v, 0.5) && y > shipY(s) + 1; };
   for (const ch of chars) if (ch.alive && !ch.gv && !ch.vehicle && onShip(ch.pos, ch.pos.y) && ch !== s.captain) { carry(ch.pos); if (ch.isPlayer) player.yaw -= dyaw; else if (ch.heading !== undefined) ch.heading -= dyaw; }
   for (const v of gvehicles) if (v.alive && onShip(v.pos, v.pos.y)) { carry(v.pos); v.yaw -= dyaw; }
   s.x += dx; s.z += dz; s.yaw += dyaw; placeShip(s);
@@ -521,7 +581,7 @@ function aimShipGuns(s, dt) {
     const canBear = Math.abs(rel) < 2.4;                                         // a turret can't fire through the ship's own superstructure
     if (canBear) t.yaw += clamp(wrapAngle(want - t.yaw), -0.9 * dt, 0.9 * dt);
     if (canBear && Math.abs(wrapAngle(want - t.yaw)) < 0.08) s.onTarget++;
-    const dist = Math.hypot(lx, lz), wantP = clamp(Math.atan2(target.y - (s.mainY + t.piv.y + WATER_Y), dist), -0.08, 0.6);
+    const dist = Math.hypot(lx, lz), wantP = clamp(Math.atan2(target.y - (s.mainY + t.piv.y + shipY(s)), dist), -0.08, 0.6);
     t.p += clamp(wantP - t.p, -0.4 * dt, 0.4 * dt);
     t.g.rotation.y = t.yaw; t.pitch.rotation.x = t.p;   /* barrels lift with the aim */
     if (mouse.left && s.fireT <= 0 && canBear && Math.abs(wrapAngle(want - t.yaw)) < 0.08) {
@@ -542,7 +602,7 @@ function updateShipHud(s) {
   if (!el) { el = document.createElement('div'); el.id = 'shipHud'; el.className = 'hud'; el.style.cssText = 'position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:rgba(0,0,0,.5);color:#fff;padding:8px 16px;border-radius:10px;font:600 13px system-ui,sans-serif;text-align:center;pointer-events:none'; document.body.appendChild(el); }
   el.style.display = 'block';
   const rud = Math.round(s.rudder * 100), view = s.turrets.length ? (SH.view || 'chase') : (SH.view === 'guns' ? 'chase' : SH.view || 'chase');
-  const torp = s.kind === 'sub' ? `<br>Torpedoes: ${s.torpT > 0 ? `reloading ${s.torpT.toFixed(1)}s` : '<b style="color:#9be38a">READY</b>'} &nbsp; Space to fire (straight ahead from the bow)` : '';
+  const torp = s.kind === 'sub' ? `<br>Depth: ${(s.depth || 0) < 0.5 ? 'surfaced' : Math.round(s.depth) + ' m' + (s.depth > 1.2 ? ' (submerged)' : '')} &nbsp; Q dive, Z rise<br>Torpedoes: ${s.torpT > 0 ? `reloading ${s.torpT.toFixed(1)}s` : '<b style="color:#9be38a">READY</b>'} &nbsp; Space to fire &nbsp; C: periscope view` : '';
   const dmgTxt = s.disabledT > 0 ? `<br><b style="color:#ff8a7a">Dead in the water: repairs ${Math.ceil(s.disabledT)}s</b>` : s.dmg > 0 ? '<br><b style="color:#ffb060">Damaged</b>' : '';
   const guns = s.turrets.length ? `<br>Guns: ${s.fireT > 0 ? `reloading ${s.fireT.toFixed(1)}s` : `<b style="color:#9be38a">READY</b>`} &nbsp; ${s.onTarget}/${s.turrets.length} turrets on target &nbsp; Click to fire${view === 'guns' ? ', right click to zoom' : ''}` : '';
   el.innerHTML = `<b>${s.name}</b> &nbsp; ${Math.round(Math.abs(s.speed) * 1.94)} knots &nbsp; Throttle ${Math.round(s.throttle * 100)}% &nbsp; Rudder ${rud > 0 ? 'left ' + rud : rud < 0 ? 'right ' + -rud : 'centre'}${guns}${torp}${dmgTxt}<br><span style="opacity:.8">W/S throttle, X stop &nbsp; A/D steer &nbsp; C change view (${view === 'chase' ? 'behind the ship' : view === 'bridge' ? 'bridge' : 'gun sight'}) &nbsp; E leave the wheel</span>`;
@@ -555,17 +615,17 @@ function updateShipPrompt() {
   if (!el) { el = document.createElement('div'); el.id = 'shipPrompt'; el.className = 'hud'; el.style.cssText = 'position:fixed;left:50%;top:62%;transform:translateX(-50%);background:rgba(0,0,0,.55);color:#fff;padding:6px 14px;border-radius:8px;font:600 14px system-ui,sans-serif;pointer-events:none'; document.body.appendChild(el); }
   el.style.display = near && !player.ship ? 'block' : 'none';
   if (near) el.textContent = net.active && !net.isHost ? 'Only the host can steer ships online' : `Press E to take command of the ${near.name.toLowerCase()}`;
-  const hud = document.getElementById('shipHud'); if (hud && !player.ship) hud.style.display = 'none';
+  const hud = document.getElementById('shipHud'); if (hud && !player.ship) { hud.style.display = 'none'; zPeriscopeOverlay(false); }
 }
 addEventListener('keydown', e => {
-  if (e.code === 'KeyC' && player.ship && !e.repeat) { const opts = player.ship.turrets.length ? SHIP_VIEWS : ['chase', 'bridge']; SH.view = opts[(opts.indexOf(SH.view || 'chase') + 1) % opts.length]; return; }
+  if (e.code === 'KeyC' && player.ship && !e.repeat) { const opts = player.ship.kind === 'sub' ? ['chase', 'periscope', 'guns'] : player.ship.turrets.length ? SHIP_VIEWS : ['chase', 'bridge']; SH.view = opts[(opts.indexOf(SH.view || 'chase') + 1) % opts.length]; return; }
   if (e.code !== 'KeyE' || e.repeat || typeof started === 'undefined' || !started) return;
   if (player.ship) { if (player.ship.marker) player.ship.marker.visible = false; player.ship.captain = null; player.ship = null; if (camera.fov !== (SET.fov || 75)) { camera.fov = SET.fov || 75; camera.updateProjectionMatrix(); } showMessage('You left the wheel', 1.5); return; }
   if (SH.near && !(net.active && !net.isHost) && !SH.near.captain) { SH.near.captain = player; player.ship = SH.near; showMessage(`You have command of the ${SH.near.name.toLowerCase()}! W/S throttle, A/D steer`, 3); }
 });
 // online: the host sends where the ships are; everyone else moves theirs to match (carrying whoever is aboard)
-function shipState() { return SHIPS2.map(s => [Math.round(s.x * 10), Math.round(s.z * 10), Math.round(s.yaw * 1000), s.turrets.map(t => Math.round(t.yaw * 100))]); }
+function shipState() { return SHIPS2.map(s => [Math.round(s.x * 10), Math.round(s.z * 10), Math.round(s.yaw * 1000), s.turrets.map(t => Math.round(t.yaw * 100)), Math.round((s.depth || 0) * 10)]); }
 function applyShipState(st) {
   if (!Array.isArray(st)) return;
-  st.forEach((a, i) => { const s = SHIPS2[i]; if (!s || !a) return; moveShip(s, a[0] / 10 - s.x, a[1] / 10 - s.z, a[2] / 1000 - s.yaw); (a[3] || []).forEach((y, k) => { const t = s.turrets[k]; if (t) { t.yaw = y / 100; t.g.rotation.y = t.yaw; } }); });
+  st.forEach((a, i) => { const s = SHIPS2[i]; if (!s || !a) return; moveShip(s, a[0] / 10 - s.x, a[1] / 10 - s.z, a[2] / 1000 - s.yaw); (a[3] || []).forEach((y, k) => { const t = s.turrets[k]; if (t) { t.yaw = y / 100; t.g.rotation.y = t.yaw; } }); if (a[4] !== undefined) { s.depth = a[4] / 10; placeShip(s); } });
 }

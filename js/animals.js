@@ -25,7 +25,7 @@ const SPECIES = {
   gator: { len: 2.6, leg: 0.12, w: 0.55, col: 0x3e4a2a, belly: 0x8a9060, head: 0.2, neck: 0.02, tail: 'gator', speed: 0.5, run: 2, flee: 10, herd: [1, 1], swim: true, low: true, snout: true },
 };
 function animalSet() {
-  if (WAKE) return { land: ['crab', 'crab', 'turtle', 'crab'], water: [] };
+  if (WAKE || PACIFIC) return { land: ['crab', 'crab', 'turtle', 'crab'], water: [] };
   if (typeof HOUSTON !== 'undefined' && HOUSTON) return { land: ['squirrel', 'squirrel', 'armadillo', 'longhorn', 'rabbit', 'fox'], water: ['duck', 'gator'] };
   if (SNOW) return { land: ['wolf', 'hare', 'hare', 'elk', 'bear', 'fox'], water: [] };
   if (DESERT) return { land: ['camel', 'goat', 'lizard', 'lizard', 'fox', 'rabbit'], water: ['duck'] };

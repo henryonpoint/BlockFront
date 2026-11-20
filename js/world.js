@@ -199,13 +199,15 @@ function terrainColorWake(x, z, h, slope) {
     else if (I.kind === 'rocks' && h > 2) c.lerp(new THREE.Color(0.48, 0.46, 0.44).multiplyScalar(0.85 + nf * 0.3), clamp((h - 2) / 4, 0, 0.9));   // grey rock
     else if (I.kind === 'sandbar') c.lerp(sand, 0.9); }
   if (h < -0.4) c.lerp(new THREE.Color(0.78, 0.74, 0.56), 0.6);          // sand under the shallow water
+  if (h < -3) c.lerp(new THREE.Color(0.1, 0.25, 0.32), smooth(-3, -16, h));   // and dark blue water where it gets deep
   if (pathDist(x, z) < 4.5) c.lerp(new THREE.Color(0.7, 0.62, 0.46), 0.8);
   const r = RUNWAYS.red; if (Math.abs(x - r.x) < r.len / 2 + 8 && Math.abs(z - r.z) < r.wid / 2 + 6) c.lerp(new THREE.Color(0.66, 0.62, 0.52), 0.85);   // coral airstrip
   const b = BASES.red, bd = Math.hypot(x - b.x, z - b.z); if (bd < 30) c.lerp(new THREE.Color(0.7, 0.64, 0.5), smooth(30, 24, bd));
+  if (PACIFIC) { const r2 = RUNWAYS.blue; if (Math.abs(x - r2.x) < r2.len / 2 + 8 && Math.abs(z - r2.z) < r2.wid / 2 + 6) c.lerp(new THREE.Color(0.66, 0.62, 0.52), 0.85); const b2 = BASES.blue, bd2 = Math.hypot(x - b2.x, z - b2.z); if (bd2 < 30) c.lerp(new THREE.Color(0.7, 0.64, 0.5), smooth(30, 24, bd2)); }
   return c;
 }
 function terrainColor(x, z, h, slope) {
-  if (WAKE) return terrainColorWake(x, z, h, slope);
+  if (WAKE || PACIFIC) return terrainColorWake(x, z, h, slope);
   if (HOUSTON) return terrainColorHouston(x, z, h, slope);
   if (SNOW) return terrainColorSnow(x, z, h, slope);
   if (AFGHAN && typeof terrainColorLevel === 'function') return terrainColorLevel(x, z, h, slope);
@@ -266,7 +268,7 @@ function buildTerrain() {
     for (const [n, r] of [['A', 58], ['E', 58], ['B', 52], ['D', 52], ['G', 54], ['F', 34]]) addFlatCircle(PD[n].x, PD[n].z, r, 22);
   } else if (DAM || NORMANDY) {
     // no big centre square here
-  } else if (!WAKE) {
+  } else if (!WAKE && !PACIFIC) {
   if (TOWN_AT) addFlatCircle(TOWN_AT.x, TOWN_AT.z, 58, 25);
   if (!DESERT && !GERMANY) for (const p of [PD.F, PD.G, PD.A]) addFlatCircle(p.x, p.z, 36, 20);
   }
@@ -275,7 +277,7 @@ function buildTerrain() {
     addFlatCircle(BASES[t].x, BASES[t].z, 34, 22);
     const r = RUNWAYS[t]; if (r && !r.carrier) addFlatRect(r.x, r.z, r.len / 2 + (SNOW ? 140 : 8), r.wid / 2 + (SNOW ? 24 : 6), SNOW ? 40 : 22);
   }
-  if (!WAKE && !DAM) chooseBunkerSites();
+  if (!WAKE && !PACIFIC && !DAM) chooseBunkerSites();
   if (typeof chooseNestSites === 'function' && !ZD30) chooseNestSites();
   buildHeights();
 
@@ -309,7 +311,7 @@ function buildTerrain() {
     // far below the mountain top: a pale snowfield lost in the haze
     const outer = new THREE.Mesh(new THREE.RingGeometry(HALF * 0.95, 1400, 48, 1), new THREE.MeshBasicMaterial({ color: 0xd9e0e8 }));
     outer.rotation.x = -Math.PI / 2; outer.position.y = -95; scene.add(outer);
-  } else if (WAKE || NORMANDY) {
+  } else if (WAKE || PACIFIC || NORMANDY) {
     // nothing: the ocean runs to the horizon
   } else {
     const outer = new THREE.Mesh(new THREE.RingGeometry(DOGFIGHT ? HALF * 0.99 : HALF * 1.35, Math.max(1400, HALF * 2.2), 48, 1), new THREE.MeshLambertMaterial({ color: DESERT ? 0xc9a46c : 0x8f9a86 }));
@@ -331,7 +333,7 @@ function buildTerrain() {
   // lake
   waterMesh = new THREE.Group(); scene.add(waterMesh);
   if (SNOW) { const ice = new THREE.MeshPhongMaterial({ color: 0xbfd8ea, shininess: 110, specular: 0xffffff, transparent: true, opacity: 0.85 }); for (const L of LAKES) { const im = new THREE.Mesh(new THREE.CircleGeometry(L.r + 2, 48), ice); im.rotation.x = -Math.PI / 2; im.position.set(L.x, ICE_Y + 0.06, L.z); im.receiveShadow = true; scene.add(im); } return; }
-  if (WAKE) { const sea = new THREE.Mesh(new THREE.PlaneGeometry(3200, 3200, 1, 1), waterMat); sea.rotation.x = -Math.PI / 2; sea.position.y = WATER_Y; waterMesh.add(sea); }
+  if (WAKE || PACIFIC) { const sea = new THREE.Mesh(new THREE.PlaneGeometry(3200, 3200, 1, 1), waterMat); sea.rotation.x = -Math.PI / 2; sea.position.y = WATER_Y; waterMesh.add(sea); }
   if (NORMANDY) { const sea = new THREE.Mesh(new THREE.PlaneGeometry(3200, 1500, 1, 1), waterMat); sea.rotation.x = -Math.PI / 2; sea.position.set(0, WATER_Y, 300 + 750); waterMesh.add(sea); }
   if (DAM) { const res = new THREE.Mesh(new THREE.PlaneGeometry(560, 340, 1, 1), waterMat); res.rotation.x = -Math.PI / 2; res.position.set(0, WATER_Y, -230); waterMesh.add(res); }
   if (HOUSTON) {   // Buffalo Bayou: a ribbon of water along its winding line
@@ -1010,20 +1012,21 @@ const HIT_MAT = new THREE.MeshBasicMaterial(), HIT_MAT2 = new THREE.MeshBasicMat
 
 function buildWorld() {
   buildTerrain();
-  if (!WAKE && !DAM && !ZD30) buildBunkers();
+  if (!WAKE && !PACIFIC && !DAM && !ZD30) buildBunkers();
   if (typeof buildNests === 'function') buildNests();
-  if (!SNOW && !HOUSTON && !WAKE && !DAM && !ZD30) { if (TOWN_AT && !AFGHAN) buildTown(); if (!NORMANDY && !AFGHAN) buildFarm(); }   /* Desert Combat builds its own Iraqi town */
+  if (!SNOW && !HOUSTON && !WAKE && !PACIFIC && !DAM && !ZD30) { if (TOWN_AT && !AFGHAN) buildTown(); if (!NORMANDY && !AFGHAN) buildFarm(); }   /* Desert Combat builds its own Iraqi town */
   if (!ZD30) TEAMS.forEach(t => { if (!(WAKE && t === 'blue')) buildBase(t); });   /* the raid has no bases: the team starts by the crashed helicopter */
   buildPoints();
   if (ZD30 && typeof buildZD30 === 'function') buildZD30();
   if (COOP && typeof installCoopHooks === 'function') installCoopHooks();
   if (!NO_TUNNELS) buildTunnels();
-  if (!WAKE) buildNature();
+  if (!WAKE && !PACIFIC) buildNature();
   if (!ZD30) buildClouds();   /* a clear, moonless night over Abbottabad */
   if (SNOW && typeof buildSnowExtras === 'function') buildSnowExtras();
   if (DESERT && !AFGHAN && typeof buildDesertExtras === 'function') buildDesertExtras();
   if (HOUSTON && typeof buildHoustonExtras === 'function') buildHoustonExtras();
   if (WAKE && typeof buildWakeExtras === 'function') buildWakeExtras();
+  if (PACIFIC && typeof buildPacificExtras === 'function') buildPacificExtras();
   if ((GERMANY || NORMANDY || DAM || AFGHAN) && typeof buildLevelExtras === 'function') buildLevelExtras();
   mergeStatic();
 }
