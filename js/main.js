@@ -219,7 +219,11 @@ function updateShadowLOD(dt) {
   const cam = camera.position;
   const set = (obj, on) => { if (!obj) return; if (obj._shOn === on) return; obj._shOn = on; if (!obj._shList) { obj._shList = []; obj.traverse(o => { if (o.isMesh && o.castShadow) obj._shList.push(o); }); } for (const o of obj._shList) o.castShadow = on; };
   for (const c of chars) if (c.model && c.model.root) set(c.model.root, c.pos.distanceToSquared(cam) < 70 * 70);
-  for (const v of gvehicles) if (v.model && v.model.g) set(v.model.g, v.pos.distanceToSquared(cam) < 130 * 130);
+  const fogFar = scene.fog && scene.fog.far ? (scene.fog.far + 25) * (scene.fog.far + 25) : Infinity;
+  for (const v of gvehicles) if (v.model && v.model.g) {
+    const d2 = v.pos.distanceToSquared(cam); set(v.model.g, d2 < 130 * 130);
+    if (v.alive) v.model.g.visible = d2 < fogFar || v === player.gv;   // past the far edge of the haze it can't be seen, so it isn't drawn
+  }
 }
 function step(dt) {
   simTime += dt;

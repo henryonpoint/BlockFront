@@ -303,11 +303,23 @@ function raySphere(o, d, c, r) {
 }
 // returns nearest hit {dist, point, char, head, prop, plane, terrain}
 const _clownC = new THREE.Vector3();
+// a cheap first check before the exact one: is this sphere anywhere near the stretch of ray we care about?
+// (three.js tests each object's sphere against an endless ray, so scenery far behind or far beyond still got checked triangle by triangle)
+const _rs = new THREE.Sphere(), _rv = new THREE.Vector3();
+function nearSeg(o, d, maxD, c, r) { _rv.subVectors(c, o); const t = Math.max(0, Math.min(maxD, _rv.dot(d))); return _rv.addScaledVector(d, -t).lengthSq() <= r * r; }
+function meshNearSeg(m, o, d, maxD) {
+  const g = m.geometry; if (!g) return true; if (!g.boundingSphere) g.computeBoundingSphere();
+  if (m.userData.merged) { if (!m.userData.ws) m.userData.ws = g.boundingSphere.clone().applyMatrix4(m.matrixWorld); return nearSeg(o, d, maxD, m.userData.ws.center, m.userData.ws.radius); }
+  _rs.copy(g.boundingSphere).applyMatrix4(m.matrixWorld); return nearSeg(o, d, maxD, _rs.center, _rs.radius);
+}
 function rayHit(origin, dir, maxD, shooterTeam, opts = {}) {
   raycaster.set(origin, dir); raycaster.far = maxD;
-  const targets = [...solidMeshes, ...propMeshes(), ...buildMeshes()];
-  for (const v of gvehicles) if (v.alive && v !== opts.ignoreGV) targets.push(v.model.g);
-  if (!opts.noChars) targets.push(...aliveCharRoots(opts.includeOwnTeam ? null : shooterTeam));
+  const targets = [];
+  for (const m of solidMeshes) if (!m.isMesh || meshNearSeg(m, origin, dir, maxD)) targets.push(m);
+  for (const m of propMeshes()) targets.push(m);
+  for (const m of buildMeshes()) targets.push(m);
+  for (const v of gvehicles) if (v.alive && v !== opts.ignoreGV && nearSeg(origin, dir, maxD, v.pos, 9)) targets.push(v.model.g);
+  if (!opts.noChars) for (const r of aliveCharRoots(opts.includeOwnTeam ? null : shooterTeam)) if (nearSeg(origin, dir, maxD, r.position, 3)) targets.push(r);
   const hits = raycaster.intersectObjects(targets, true);
   let best = null;
   if (hits.length) {

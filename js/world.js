@@ -976,25 +976,37 @@ function matKey(a) {
 // combine static meshes that share a material into one draw call
 function mergeStatic() {
   scene.updateMatrixWorld(true);
-  const groups = new Map();
+  const groups = new Map(), solidSet = new Set(solidMeshes), cells = new Map();
   for (const m of [...scene.children]) {
     if (!m.isMesh || !m.userData.static || Array.isArray(m.material)) continue;
     const key = matKey(m.material);   // materials that look exactly alike count as one, so one-off copies (a new material per bush, per block) still combine
     let a = groups.get(key); if (!a) groups.set(key, a = []); a.push(m);
   }
-  const solidSet = new Set(solidMeshes);
   for (const list of groups.values()) {
     if (list.length < 2) continue;
     const mat = list[0].material;
     const mm = new THREE.Mesh(mergeGeos(list.map(m => prepGeo(m))), mat);
     mm.castShadow = list.some(m => m.castShadow); mm.receiveShadow = true;
     scene.add(mm);
-    let solid = false;
-    for (const m of list) { scene.remove(m); m.geometry.dispose(); if (solidSet.has(m)) { solidSet.delete(m); solid = true; } }
-    if (solid) solidSet.add(mm);
+    for (const m of list) {
+      if (solidSet.has(m)) {   // solid scenery also goes into the hidden hit-test copy, sorted into 80 m squares
+        solidSet.delete(m);
+        if (!m.geometry.boundingSphere) m.geometry.computeBoundingSphere();
+        const c = m.geometry.boundingSphere.center.clone().applyMatrix4(m.matrixWorld), k = Math.floor(c.x / 80) + ',' + Math.floor(c.z / 80) + (m.material.side === THREE.DoubleSide ? '|d' : '|f');   // keep each piece's one- or two-sided hits
+        let l = cells.get(k); if (!l) cells.set(k, l = []); l.push(prepGeo(m));
+      }
+      scene.remove(m); m.geometry.dispose();
+    }
+  }
+  // the hidden copy: never drawn, only used by bullets, shells and lines of sight. One piece per square means a hit test checks
+  // only the scenery near it, instead of a handful of map-wide pieces with tens of thousands of triangles each
+  for (const [k, geos] of cells) {
+    const hm = new THREE.Mesh(mergeGeos(geos), k.endsWith('|d') ? HIT_MAT2 : HIT_MAT); hm.geometry.computeBoundingSphere(); hm.userData.merged = true; hm.updateMatrixWorld(true);
+    solidSet.add(hm);
   }
   solidMeshes.length = 0; solidMeshes.push(...solidSet);
 }
+const HIT_MAT = new THREE.MeshBasicMaterial(), HIT_MAT2 = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide });
 
 function buildWorld() {
   buildTerrain();

@@ -65,7 +65,7 @@ const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(LITE ? 1 : Math.min(devicePixelRatio, 1.5));
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = !LITE;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = THREE.PCFShadowMap;   // the standard filter: the soft one sampled many more times for every lit pixel
 renderer.autoClear = false;
 document.body.prepend(renderer.domElement);
 
@@ -140,10 +140,10 @@ NearBroadphase.prototype.rebuild = function (world) {
     if ((x1 - x0 + 1) * (z1 - z0 + 1) > 64) { this.globals.push(b); continue; }
     for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) { const k = x * 100003 + z; let l = this.statics.get(k); if (!l) this.statics.set(k, l = []); l.push(b); }
   }
-  this.count = world.bodies.length; this.age = 0;
+  this.staticDirty = false; this.age = 0;
 };
 NearBroadphase.prototype.collisionPairs = function (world, p1, p2) {
-  if (world.bodies.length !== this.count || ++this.age > 90) this.rebuild(world);
+  if (this.staticDirty || this.count < 0 || ++this.age > 900) { this.count = 0; this.rebuild(world); }   // only when fixed pieces come or go (a shell or a ragdoll does not need it)
   const C = this.cell, dyn = [], dgrid = new Map();
   for (const b of world.bodies) if (b.type !== CANNON.Body.STATIC) {
     if (b.aabbNeedsUpdate) b.computeAABB();
@@ -171,7 +171,9 @@ NearBroadphase.prototype.collisionPairs = function (world, p1, p2) {
 world.broadphase = new NearBroadphase(); world.broadphase.setWorld(world);
 // the terrain is in group 2; moving things hit it unless they started underground (those only hit group 1: floors and walls)
 const _addBody = world.addBody.bind(world);
-world.addBody = function (b) { if (b.type !== CANNON.Body.STATIC && !b.underground && b.collisionFilterMask === 1) b.collisionFilterMask = -1; return _addBody(b); };
+world.addBody = function (b) { if (b.type !== CANNON.Body.STATIC && !b.underground && b.collisionFilterMask === 1) b.collisionFilterMask = -1; if (b.type === CANNON.Body.STATIC) world.broadphase.staticDirty = true; return _addBody(b); };
+const _removeBody = world.removeBody.bind(world);
+world.removeBody = function (b) { if (b.type === CANNON.Body.STATIC) world.broadphase.staticDirty = true; return _removeBody(b); };
 // remember only the pairs that touch (the default table has a slot for every pair of objects and is cleared every update)
 world.collisionMatrix = new CANNON.ObjectCollisionMatrix(); world.collisionMatrixPrevious = new CANNON.ObjectCollisionMatrix();
 world.solver.iterations = 8;

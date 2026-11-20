@@ -92,6 +92,8 @@ function buildPresence() {
   return fitSize(o, ['fx', 'h', 'dd', 'rq', 'b', 'ch', 'cm']);
 }
 const _enc = new TextEncoder();
+function packI16(a) { const u = new Uint8Array(a.buffer, a.byteOffset, a.byteLength); let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); }
+function unpackI16(str) { const s = atob(str), u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return new Int16Array(u.buffer, 0, u.length >> 1); }
 function fitSize(o, lists) {
   let n = _enc.encode(JSON.stringify(o)).length, guard = 0;
   while (n > 3800 && guard++ < 200) {
@@ -105,14 +107,18 @@ function fitSize(o, lists) {
 function buildWorld1() {
   const o = { v: 2, id: net.myId };
   {
-    o.N = npcs.map(n => {
-      if (n.inactive) return 0;
-      let f = (n.alive ? 1 : 0) | (n.tgtVisible || n.planeTarget ? 2 : 0) | (n.moving ? 4 : 0) | ((n.shots || 0) << 4);
-      if (n.turret) f |= (turrets.indexOf(n.turret) + 1) << 8;
-      const a = [Math.round(n.pos.x * 5), Math.round(n.pos.z * 5), Math.round(n.pos.y * 5), Math.round(n.heading * 20), f];
-      if (n.gv) a.push((n.gv.idx + 1) * 8 + n.seat);   // which vehicle and seat (its own number: there are more vehicles than the old packed bits could hold)
-      return a;
+    // every soldier as five 16-bit numbers in one base64 string: about a third the size of the same numbers written out as text,
+    // which keeps the host's message well inside the size limit even with 200 soldiers
+    const buf = new Int16Array(npcs.length * 5), G = [];
+    npcs.forEach((n, i) => {
+      const k = i * 5;
+      if (n.inactive) { buf[k + 4] = -1; return; }
+      let f = (n.alive ? 1 : 0) | (n.tgtVisible || n.planeTarget ? 2 : 0) | (n.moving ? 4 : 0) | (Math.min(15, n.shots || 0) << 4);
+      if (n.turret) f |= Math.min(127, turrets.indexOf(n.turret) + 1) << 8;
+      buf[k] = Math.round(n.pos.x * 5); buf[k + 1] = Math.round(n.pos.z * 5); buf[k + 2] = clamp(Math.round(n.pos.y * 5), -32000, 32000); buf[k + 3] = Math.round(((n.heading % 6.2832) + 6.2832) % 6.2832 * 20 - 63); buf[k + 4] = f;
+      if (n.gv) G.push(i, (n.gv.idx + 1) * 8 + n.seat);   // which vehicle and seat, for the few soldiers in one
     });
+    o.NB = packI16(buf); if (G.length) o.NG = G;
     o.P = points.map(q => Math.round(q.progress * 100)); o.O = points.map(q => q.owner ? q.owner[0] : '-').join(''); if (FOUR) o.CT = points.map(q => q.capTeam ? q.capTeam[0] : '-').join('');
     o.TK = TEAMS.map(t => teamKills[t] || 0); o.KF = net.kf.filter(e => simTime - e[e.length - 1] < 8).map(e => e.slice(0, -1));
     if (gameOver) o.GO = winner;
@@ -146,7 +152,7 @@ function buildWorld2() {
 }
 
 // ---------- connecting ----------
-const GAME_BUILD = 78;   // bump when vehicles or the world change, so mismatched versions never mix
+const GAME_BUILD = 79;   // bump when vehicles or the world change, so mismatched versions never mix
 // the version number on the start screen and pause menu, so everyone can check they are on the same one
 const GAME_DATE = 'Nov 15, 2026';
 setTimeout(() => { const v = document.getElementById('verTag'); if (v) v.textContent = `Version ${GAME_BUILD}  \u00b7  ${GAME_DATE}`; const p = document.getElementById('verPause'); if (p) p.textContent = `Version ${GAME_BUILD}`; }, 0);
@@ -499,6 +505,14 @@ function applySnapshot(P, dt) {
   if (Array.isArray(P.CF) && (P.CF[0] !== appliedPoints || P.CF[1] !== BATTLE.soldiers) && net.cfKey !== P.CF[0] + '/' + P.CF[1]) { net.cfKey = P.CF[0] + '/' + P.CF[1]; applyBattle({ points: P.CF[0], soldiers: P.CF[1] }, true); }   // once per change, not on every update
   if (Array.isArray(P.P) && P.P.length !== points.length) return;   // setup still switching over
   if (Array.isArray(P.N)) P.N.forEach((d, i) => { try { applyNpcSnap(d, i); } catch (e) { if (typeof loopError === 'function') loopError('npc snapshot', e); } });
+  if (typeof P.NB === 'string') {
+    const b = unpackI16(P.NB), G = new Map(); if (Array.isArray(P.NG)) for (let j = 0; j + 1 < P.NG.length; j += 2) G.set(P.NG[j], P.NG[j + 1]);
+    for (let i = 0; i * 5 + 4 < b.length; i++) {
+      const k = i * 5, f = b[k + 4];
+      const d = f === -1 ? 0 : [b[k], b[k + 1], b[k + 2], b[k + 3] + 63, f]; if (d && G.has(i)) d.push(G.get(i));
+      try { applyNpcSnap(d, i); } catch (e) { if (typeof loopError === 'function') loopError('npc snapshot', e); }
+    }
+  }
   applyRestOfSnapshot(P);
   if (P.TW && typeof applyTowerMask === 'function') applyTowerMask(P.TW);
   if (P.TR && typeof applyTreasure === 'function') applyTreasure(P.TR);

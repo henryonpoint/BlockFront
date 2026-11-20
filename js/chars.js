@@ -215,10 +215,15 @@ function updateRagdolls(dt) {
   for (let i = ragdolls.length - 1; i >= 0; i--) {
     const r = ragdolls[i], root = r.c.model.root;
     r.t += dt;
-    root.position.copy(r.body.position); root.quaternion.copy(r.body.quaternion);
-    if (r.t > 4.5) root.position.y -= (r.t - 4.5) * 1.2;
+    if (!r.frozen) {
+      root.position.copy(r.body.position); root.quaternion.copy(r.body.quaternion);
+      // once the body has come to rest it leaves the physics: tumbling boxes against the ground were the costliest part of every
+      // physics update on busy maps, and a body lying still needs none of it
+      if ((r.t > 1.4 && r.body.velocity.lengthSquared() < 0.6 && r.body.angularVelocity.lengthSquared() < 1) || r.t > 3.2) { world.removeBody(r.body); r.frozen = true; r.restY = root.position.y; }
+    }
+    if (r.t > 4.5) root.position.y = (r.frozen ? r.restY : r.body.position.y) - (r.t - 4.5) * 1.2;
     if (r.t > 5.5 || r.c.alive) {
-      world.removeBody(r.body); ragdolls.splice(i, 1);
+      if (!r.frozen) world.removeBody(r.body); ragdolls.splice(i, 1);
       if (!r.c.alive) root.visible = false;
       r.c.model.body.position.y = 0; root.quaternion.identity();
     }
