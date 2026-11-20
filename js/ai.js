@@ -266,13 +266,23 @@ function footGoal(n) {
   return w === PD[gp.name] ? n.goal : w;
 }
 // ---------- per frame ----------
+// how far a soldier is from the nearest human player (the only ones who can see detail), worked out once a frame
+const _hum = { t: -1, list: [] };
+function nearestHuman2(p) {
+  if (_hum.t !== simTime) { _hum.t = simTime; _hum.list.length = 0; if (player.alive) _hum.list.push(player.pos); for (const c of chars) if (c.isRemote && c.alive) _hum.list.push(c.pos); }
+  let m = Infinity; for (const q of _hum.list) { const dx = q.x - p.x, dz = q.z - p.z, d = dx * dx + dz * dz; if (d < m) m = d; }
+  return m;
+}
 function updateNPC(n, dt) {
   if (n.inactive) return;
   if (!n.alive) { n.respawnT -= dt; if (n.respawnT <= 0 && !gameOver) spawnChar(n); return; }
+  // a soldier well away from every player moves every other frame with twice the time step: nobody close enough to see the difference
+  n.farAway = nearestHuman2(n.pos) > 130 * 130 && !n.gv && !n.turret && !n.inBoat && !(n.target && (n.target.isPlayer || n.target.isRemote));
+  if (n.farAway) { n.skipDt = (n.skipDt || 0) + dt; if (n._ix === undefined) n._ix = Math.max(0, npcs.indexOf(n)); if ((n._ix & 1) !== (simFrame & 1)) return; dt = Math.min(n.skipDt, 0.1); n.skipDt = 0; } else n.skipDt = 0;   // half of them on even frames, half on odd
   buildEffectsOnChar(n, dt);
   const S = ROLE_STATS[n.role];
   n.thinkT -= dt;
-  if (n.thinkT <= 0) { n.thinkT = rand(0.28, 0.42); npcThink(n, S); }
+  if (n.thinkT <= 0) { n.thinkT = n.farAway ? rand(0.55, 0.8) : rand(0.28, 0.42); npcThink(n, S); }
   if (n.target && !n.target.alive) { n.target = null; n.tgtVisible = false; }
   if (n.gv) { npcInVehicle(n, dt); return; }
   if (n.turret) { npcTurret(n, dt); return; }
@@ -482,6 +492,8 @@ function animateNPC(n, dt, speed, aiming) {
   m.gun.visible = true;
   m.root.position.copy(n.pos); m.root.rotation.y = n.heading;
   n.walkPhase = (isFinite(n.walkPhase) ? n.walkPhase : 0) + (isFinite(speed) ? speed : 0) * dt * 2.1;   // soldiers shown from the host's data start without one
+  n.walkSpeed = speed;
+  if (!m.body.visible) { n.crouchK = n.crouch ? 1 : 0; return; }   // drawn as the simple distant figure: its arms and legs aren't shown, so don't pose them
   const sw = speed > 0.2 ? Math.sin(n.walkPhase) * (n.crouch ? 0.35 : 0.75) : 0;
   n.crouchK = (n.crouchK || 0) + ((n.crouch ? 1 : 0) - (n.crouchK || 0)) * Math.min(1, dt * 10);
   const ck = n.crouchK;

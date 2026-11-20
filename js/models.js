@@ -374,31 +374,35 @@ function makeCharacterWW2(team, role) {
 // Past about 75 m a soldier is a few pixels tall, yet his full model costs 11 separate draws. Out there his detailed
 // body is hidden and he is drawn as one copy of a simple figure, all of a team's far soldiers together in a single draw.
 // Only the drawing changes: he is still hit, aimed at and moved exactly as before.
-const FAR = { d2: 75 * 75, meshes: {}, tmpM: new THREE.Matrix4(), tmpQ: new THREE.Quaternion(), tmpS: new THREE.Vector3(1, 1, 1), on: true };
-function farSoldierGeo(team) {
+const FAR = { d2: 42 * 42, meshes: {}, tmpM: new THREE.Matrix4(), tmpQ: new THREE.Quaternion(), tmpS: new THREE.Vector3(1, 1, 1), on: true };
+function farSoldierGeo(team, pose) {   // pose 0: standing, 1: left foot forward, 2: right foot forward (a two-step walk)
   const T = (WW2S && TEAM_LOOK_WW2[team]) || TEAM_LOOK[team] || TEAM_LOOK.blue, p = new Part();
-  for (const s of [-1, 1]) { p.box(0.3, 0.92, 0.32, T.uni2, 0.17 * s, 0.5, 0); p.box(0.32, 0.12, 0.4, T.boot || 0x1d1c1a, 0.17 * s, 0.05, 0.04); }   // legs and boots
+  for (const s of [-1, 1]) {   // legs and boots, swinging from the hip
+    const a = pose === 0 ? 0 : (pose === 1 ? -s : s) * 0.42, cz = 0.46 * Math.sin(a), cy = 0.96 - 0.46 * Math.cos(a);
+    p.box(0.3, 0.92, 0.32, T.uni2, 0.17 * s, cy, cz, -a, 0, 0); p.box(0.32, 0.12, 0.4, T.boot || 0x1d1c1a, 0.17 * s, 0.96 - 0.92 * Math.cos(a) + 0.04, 0.92 * Math.sin(a) + 0.04);
+  }
   p.box(0.66, 0.78, 0.4, T.uni, 0, 1.36, 0); p.box(0.7, 0.5, 0.44, T.armor, 0, 1.42, 0);                       // body and vest
   for (const s of [-1, 1]) p.box(0.2, 0.7, 0.22, T.uni, 0.42 * s, 1.36, 0.1, -0.5, 0, 0);                     // arms forward, holding the rifle
   p.box(0.1, 0.12, 0.95, 0x25272b, 0.12, 1.32, 0.42);                                                           // the rifle
-  p.box(0.32, 0.34, 0.32, 0xc89a78, 0, 1.92, 0); p.dome(0.24, T.armor, 0, 2.02, 0, 1, 0.8, 1);                 // head and helmet
+  p.box(0.32, 0.34, 0.32, 0xc89a78, 0, 1.92, 0); p.box(0.22, 0.06, 0.02, 0x2a2a2a, 0, 1.95, 0.165); p.dome(0.24, T.armor, 0, 2.02, 0, 1, 0.8, 1);   // head, eyes and helmet
   return p.build();
 }
-function farMesh(team) {
-  let m = FAR.meshes[team];
-  if (!m) { m = FAR.meshes[team] = new THREE.InstancedMesh(farSoldierGeo(team), SOLDIER_MAT, Math.max(64, chars.length + 8)); m.frustumCulled = false; m.count = 0; m.userData.settleSkip = true; m.userData.kept = true; scene.add(m); }
+function farMesh(team, pose) {
+  const key = team + pose; let m = FAR.meshes[key];
+  if (!m) { m = FAR.meshes[key] = new THREE.InstancedMesh(farSoldierGeo(team, pose), SOLDIER_MAT, Math.max(64, chars.length + 8)); m.frustumCulled = false; m.count = 0; m.userData.settleSkip = true; m.userData.kept = true; scene.add(m); }
   return m;
 }
 function updateFarSoldiers() {
   if (!FAR.on || typeof chars === 'undefined') return;
-  const cam = camera.position, used = {};
+  const cam = camera.position, used = {}, d2 = FAR.d2 * Math.pow(75 / Math.max(10, camera.fov), 2);   // zooming in (scopes, binoculars) brings back the full detail
   for (const c of chars) {
     if (c.isPlayer || !c.model || !c.model.root) continue;
-    const m = c.model, far = c.alive && !c.gv && !c.vehicle && m.root.visible && c.pos.distanceToSquared(cam) > FAR.d2;
+    const m = c.model, far = c.alive && !c.gv && !c.vehicle && !c.turret && !c.inBoat && m.root.visible && c.pos.distanceToSquared(cam) > d2;
     if (m.body.visible === far) m.body.visible = !far;   // the detailed body only up close
     if (!far) continue;
-    const im = farMesh(c.team), i = used[c.team] || 0; if (i >= im.instanceMatrix.count) continue;
-    used[c.team] = i + 1;
+    const walk = c.walkSpeed > 0.2 ? Math.sin(c.walkPhase || 0) : 0, pose = walk > 0.35 ? 1 : walk < -0.35 ? 2 : 0;
+    const key = c.team + pose, im = farMesh(c.team, pose), i = used[key] || 0; if (i >= im.instanceMatrix.count) continue;
+    used[key] = i + 1;
     FAR.tmpQ.setFromEuler(m.root.rotation); FAR.tmpS.set(1, c.crouch ? 0.72 : 1, 1);
     im.setMatrixAt(i, FAR.tmpM.compose(m.root.position, FAR.tmpQ, FAR.tmpS));
   }

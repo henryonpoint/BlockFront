@@ -225,8 +225,9 @@ function updateShadowLOD(dt) {
     if (v.alive) v.model.g.visible = d2 < fogFar || v === player.gv;   // past the far edge of the haze it can't be seen, so it isn't drawn
   }
 }
+let simFrame = 0;
 function step(dt) {
-  simTime += dt;
+  simTime += dt; simFrame++;
   soundBudget = 8;
   guard('net', () => netUpdate(dt));
   guard('player', () => updatePlayer(dt));
