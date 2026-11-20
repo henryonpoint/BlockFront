@@ -352,10 +352,11 @@ function wallTopOf(k) { return 3.7; }
 const ZRUG = [0x7a2420, 0x8a3a24, 0x5a2a3a, 0x2a3a5a, 0x6a4a2a, 0x3a5a4a, 0x9a6a30];
 function zRugAt(P, x, z, w, d, F, col) {   // a patterned carpet: field, border and a medallion
   const c = col || pick(ZRUG), b = pick([0xd8b860, 0xe0d0b0, 0x2a2a3a, 0x9a2a24]);
-  P.box(w, 0.018, d, b, x, F + 0.01, z); P.box(w - 0.16, 0.02, d - 0.16, c, x, F + 0.012, z);
-  P.box(w - 0.3, 0.022, 0.04, b, x, F + 0.014, z - d / 2 + 0.2); P.box(w - 0.3, 0.022, 0.04, b, x, F + 0.014, z + d / 2 - 0.2);
-  P.box(Math.min(w, d) * 0.35, 0.024, Math.min(w, d) * 0.35, b, x, F + 0.015, z, 0, Math.PI / 4, 0);
-  P.box(Math.min(w, d) * 0.2, 0.026, Math.min(w, d) * 0.2, c, x, F + 0.016, z, 0, Math.PI / 4, 0);
+  const L = k => F + 0.012 * k - 0.006;   // layer k's centre: tops at 1.2, 2.4, 3.6, 4.8 cm
+  P.box(w, 0.012, d, b, x, L(1), z); P.box(w - 0.16, 0.012, d - 0.16, c, x, L(2), z);
+  P.box(w - 0.3, 0.012, 0.04, b, x, L(3), z - d / 2 + 0.2); P.box(w - 0.3, 0.012, 0.04, b, x, L(3), z + d / 2 - 0.2);
+  P.box(Math.min(w, d) * 0.35, 0.012, Math.min(w, d) * 0.35, b, x, L(3), z, 0, Math.PI / 4, 0);
+  P.box(Math.min(w, d) * 0.2, 0.012, Math.min(w, d) * 0.2, c, x, L(4), z, 0, Math.PI / 4, 0);
 }
 function zLivedIn(P) {
   const CS = ZC.CS;
@@ -385,9 +386,9 @@ function zLivedIn(P) {
     if (R.name === 'bedroom' || R.name === 'master' || R.name === 'living' || R.name === 'classroom') {
       for (let i = 0; i < 3; i++) P.box(0.5, 0.14, 0.5, pick([0x8a2a2a, 0xa07a30, 0x3a5a7a, 0x6a3a6a]), X0 + 0.45 + i * 0.6, F + 0.07, Z0 + 0.45);   // floor cushions
       for (let i = 0; i < 4; i++) P.box(0.9, 0.09, 0.6, pick([0xd04a4a, 0x4a7ab0, 0xe0c050, 0x6aa06a, 0xe8e4d8]), X1 - 0.65, F + 0.05 + i * 0.09, Z1 - 0.55);   // folded quilts
-      P.box(0.62, 0.015, 1.1, pick([0x1e5a3a, 0x7a2420, 0x2a3a5a]), X0 + w * 0.6, F + 0.03, cz, 0, Math.PI / 2, 0);   // a prayer mat
-      P.box(0.2, 0.016, 0.3, 0xd8b860, X0 + w * 0.6 - 0.3, F + 0.04, cz);
-      if (big) { P.cyl(0.07, 0.07, 0.3, pick([0xd0d0d0, 0x2a6a4a, 0xb02a2a]), cx + 0.6, F + 0.15, cz - 0.5, 0, 0, 0, 1, 10); for (let i = 0; i < 3; i++) P.cyl(0.03, 0.025, 0.08, 0xd8a050, cx + 0.8 + i * 0.1, F + 0.04, cz - 0.4, 0, 0, 0, 1, 8); P.box(0.4, 0.02, 0.3, 0xb8b8b0, cx + 0.85, F + 0.012, cz - 0.4); }   // thermos and tea glasses on a tray
+      P.box(0.62, 0.012, 1.1, pick([0x1e5a3a, 0x7a2420, 0x2a3a5a]), X0 + w * 0.6, F + 0.036, cz, 0, Math.PI / 2, 0);   // a prayer mat
+      P.box(0.2, 0.012, 0.3, 0xd8b860, X0 + w * 0.6 - 0.3, F + 0.05, cz);
+      if (big) { P.cyl(0.07, 0.07, 0.3, pick([0xd0d0d0, 0x2a6a4a, 0xb02a2a]), cx + 0.6, F + 0.15, cz - 0.5, 0, 0, 0, 1, 10); for (let i = 0; i < 3; i++) P.cyl(0.03, 0.025, 0.08, 0xd8a050, cx + 0.8 + i * 0.1, F + 0.04, cz - 0.4, 0, 0, 0, 1, 8); P.box(0.4, 0.012, 0.3, 0xb8b8b0, cx + 0.85, F + 0.036, cz - 0.4); }   // thermos and tea glasses on a tray
     }
     if (R.name === 'bedroom' && R.k < 2) {   // the children's things
       for (let i = 0; i < 4; i++) P.box(rand(0.12, 0.25), rand(0.1, 0.2), rand(0.12, 0.25), pick([0xe04a4a, 0x3a8ad0, 0xf0c030, 0x4ac04a]), cx + rand(-w / 4, w / 4), F + 0.08, cz + rand(-d / 4, d / 4), 0, rand(0, 3), 0);
@@ -406,7 +407,7 @@ function zLivedIn(P) {
       for (let i = 0; i < 5; i++) P.cyl(0.12, 0.1, 0.12, pick([0xa8a8a0, 0x7a7a74, 0xb88a50]), X0 + 0.4 + i * 0.35, F + 1.85, Z0 + 0.15, 0, 0, 0, 1, 10);   // pots on a shelf
       P.box(w - 0.4, 0.04, 0.3, 0x6a5038, cx, F + 1.78, Z0 + 0.15);
       for (let i = 0; i < 6; i++) P.box(0.3, 0.3, 0.3, pick([0xd8d0b0, 0xb8a888]), X1 - 0.3, F + 0.15 + (i % 3) * 0.3, Z1 - 0.3 - Math.floor(i / 3) * 0.32);   // sacks of flour and rice
-      P.box(0.6, 0.02, 0.6, 0x1a1a1a, cx, F + 0.012, Z1 - 0.6); P.cyl(0.25, 0.25, 0.02, 0xd0c8a0, cx, F + 0.03, Z1 - 0.6, 0, 0, 0, 1, 14);   // a mat with a round of bread dough
+      P.box(0.6, 0.012, 0.6, 0x1a1a1a, cx, F + 0.036, Z1 - 0.6); P.cyl(0.25, 0.25, 0.02, 0xd0c8a0, cx, F + 0.055, Z1 - 0.6, 0, 0, 0, 1, 14);   // a mat with a round of bread dough
     }
     if (R.name === 'living' || R.name === 'media' || R.name === 'study') {
       P.box(0.4, 0.04, 0.4, 0x8a6a44, cx, F + 0.42, cz); for (const [ox, oz] of [[-0.17, -0.17], [0.17, -0.17], [-0.17, 0.17], [0.17, 0.17]]) P.box(0.03, 0.42, 0.03, 0x6a4a30, cx + ox, F + 0.21, cz + oz);   // a little table
@@ -1205,13 +1206,21 @@ const _zf = new THREE.Vector3(), _zr = new THREE.Vector3();
 function zLampsUpdate() {
   if (!ZD.lampSpots || simTime - (ZD.lampT || -9) < 0.5) return; ZD.lampT = simTime;
   const near = ZD.lampSpots.slice().sort((a, b) => a.distanceToSquared(player.pos) - b.distanceToSquared(player.pos));
-  ZD.houseLights.forEach((L, i) => { if (near[i]) L.position.copy(near[i]); });
+  ZD.houseLights.forEach((L, i) => { const want = near[i]; if (want && !L.position.equals(want)) L.userData.next = want; });
+}
+function zLampsFade(dt) {   // a lamp that needs to move fades out first, moves, then fades back in: no sudden jumps in the lighting
+  for (const L of ZD.houseLights || []) {
+    const goal = L.userData.next ? 0 : 0.9;
+    L.intensity += clamp(goal - L.intensity, -dt * 3, dt * 3);
+    if (L.userData.next && L.intensity <= 0.01) { L.position.copy(L.userData.next); L.userData.next = null; }
+  }
 }
 function zLightsUpdate() {
-  zLampsUpdate();
+  zLampsUpdate(); zLampsFade(1 / 60);
   if (!ZD.ir) return;
   const on = started && player.alive && !player.vehicle && !player.gv;
   ZD.ir.intensity = on && ZD.nvg ? 1.5 : 0; ZD.ir.position.copy(camera.position);
+  if (ZD.ir.visible !== !!ZD.nvg) { ZD.ir.visible = !!ZD.nvg; ZD.torch.visible = !ZD.nvg; }
   camera.getWorldDirection(_zf); _zr.set(-_zf.z, 0, _zf.x).normalize();
   ZD.torch.intensity = on && !ZD.nvg ? 2.4 : 0;
   ZD.torch.position.copy(camera.position).addScaledVector(_zr, 0.18).add(new THREE.Vector3(0, -0.12, 0)); ZD.torch.target.position.copy(camera.position).addScaledVector(_zf, 10);

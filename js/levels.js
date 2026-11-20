@@ -884,11 +884,44 @@ function buildIntensity() {
 // at the bombers with black bursts in the sky, searchlights, rows of concrete dragon's teeth across the fields,
 // burned-out tanks, sandbag machine-gun nests where the streets leave town, and ash drifting down.
 const BW = { fires: [], flak: [], lights: [], ash: null, flakT: 0, fireT: 0 };
+// a scorched sky: black smoke rolling overhead, lit dull red from below by the fires burning all round the horizon,
+// the sun only a dim blood-red disc behind it
+function berlinSky() {
+  const horizon = new THREE.Color(0x5a2c1c);
+  scene.fog.color.copy(horizon); FOG_COLOR.copy(horizon); renderer.setClearColor(horizon);
+  sky.material = new THREE.ShaderMaterial({
+    side: THREE.BackSide, depthWrite: false, fog: false,
+    uniforms: { t: { value: 0 }, sun: { value: SUN_DIR }, hor: { value: horizon } },
+    vertexShader: 'varying vec3 vDir; void main(){ vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+    fragmentShader: `uniform float t; uniform vec3 sun, hor; varying vec3 vDir;
+      float h21(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float n2(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y); }
+      float fbm(vec2 p){ float a = 0.5, s = 0.0; for (int i = 0; i < 5; i++) { s += a * n2(p); p = p * 2.03 + vec2(1.7, 9.2); a *= 0.5; } return s; }
+      void main(){
+        vec3 d = normalize(vDir); float h = d.y;
+        vec2 uv = d.xz / max(0.12, h + 0.25) * 1.6;                                   // smoke laid out over the sky like a ceiling
+        float smoke = fbm(uv + vec2(t * 0.012, t * 0.005)), billow = fbm(uv * 2.3 - vec2(t * 0.02, 0.0));
+        vec3 top = vec3(0.07, 0.06, 0.06), mid = vec3(0.24, 0.12, 0.08);
+        vec3 c = mix(hor, mid, smoothstep(0.0, 0.18, h));
+        c = mix(c, top, smoothstep(0.15, 0.7, h));
+        float dark = smoothstep(0.35, 0.8, smoke * 0.7 + billow * 0.45);              // thick black smoke
+        c = mix(c, vec3(0.04, 0.035, 0.035), dark * smoothstep(0.02, 0.3, h));
+        float under = (1.0 - smoothstep(0.0, 0.35, h)) * (0.55 + 0.45 * n2(vec2(atan(d.z, d.x) * 6.0, t * 0.15)));
+        c += vec3(0.55, 0.16, 0.04) * under * (1.0 - dark * 0.6);                       // fire glow underneath, flickering round the horizon
+        float s = max(dot(d, sun), 0.0);
+        c += vec3(0.75, 0.12, 0.04) * (pow(s, 600.0) * 1.2 + pow(s, 40.0) * 0.25) * (1.0 - dark * 0.85);   // the sun, a dim red disc
+        c = mix(c, hor * 0.7, smoothstep(0.0, -0.2, h));
+        gl_FragColor = vec4(c, 1.0);
+      }`,
+  });
+  for (const c of clouds) if (c.material && c.material.color) { c.material = c.material.clone(); c.material.color.set(0x2a2220); c.material.emissive.set(0x1a0d08); }   // the clouds are smoke too
+}
 function buildBerlinWar() {
   // the light: dull and smoky, the sun a pale disc
-  sky.material.uniforms.top.value.set(0x56606a); sky.material.uniforms.mid.value.set(0x868a8c); sky.material.uniforms.low.value.set(0x77746c); sky.material.uniforms.glow.value = 0.3;
-  hemiLight.color.set(0xc4c2ba); hemiLight.groundColor.set(0x4a4636); hemiLight.intensity *= 0.92;
-  sunLight.color.set(0xffdcb4); sunLight.intensity *= 0.8;
+  berlinSky();
+  hemiLight.color.set(0xb08870); hemiLight.groundColor.set(0x2a1a14); hemiLight.intensity *= 0.62;   // dim, rust-coloured light through the smoke
+  sunLight.color.set(0xff8a50); sunLight.intensity *= 0.5;
   const dark = 0x2a2826, burnt = 0x3a3430, rust = 0x5a4434, olive = 0x4a4c3a, sand = 0x9a8a68, conc = 0x9a978e;
   // buildings burning across the city: flames in the windows, black smoke pouring up
   const W = new Part();
@@ -971,6 +1004,7 @@ function buildBerlinWar() {
     BW.ash = new THREE.Points(g, new THREE.PointsMaterial({ color: 0x6a6660, size: 0.18, transparent: true, opacity: 0.8, depthWrite: false })); BW.ash.frustumCulled = false; scene.add(BW.ash); }
 }
 function updateBerlinWar(dt) {
+  if (sky.material.uniforms.t) sky.material.uniforms.t.value += dt;
   if (!BW.ash) return;
   if (!BW.tinted) {   // once everything is built: soot-darkened walls, grey smoke-stained clouds, tired trees
     BW.tinted = true; const done = new Set();
