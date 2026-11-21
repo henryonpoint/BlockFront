@@ -170,6 +170,7 @@ function damage(c, amount, attacker, dir, force = 4, headshot = false) {
   if (c.isPlayer && attacker && !attacker.isPlayer) showHitDir(attacker.pos || attacker.chest && attacker.chest());
   if (c.isPlayer && amount > 3) sfxHurt();
   if (netRoute(c, amount, attacker, dir, force, headshot)) return;
+  if (c.isPlayer && c.vest > 1) amount /= c.vest;   // bulletproof vest (2) or super body armor (4): you can take that many times the damage
   if (c.armor > 0) { const absorbed = Math.min(c.armor, amount * 0.6); c.armor -= absorbed; amount -= absorbed; }
   c.hp -= amount;
   c.lastAttacker = attacker;
@@ -181,6 +182,7 @@ function kill(c, attacker, dir, force, headshot) {
   if (!c.alive) return;
   if (c.isPlayer && typeof godOn === 'function' && godOn() && !gameOver) { c.hp = 100; return; }
   c.alive = false; c.hp = 0; c.deaths++;
+  if (c.isPlayer && c.vest) { c.vest = 0; if (typeof showMessage === 'function') setTimeout(() => showMessage('You lost your armor. Buy another in the shop', 2.5), 1200); }
   if (typeof dropAmmo === 'function') dropAmmo(c);
   c.respawnT = c.isPlayer ? 6 : 7 + Math.random() * 3;
   if (c.turret) { c.turret.user = null; c.turret = null; }

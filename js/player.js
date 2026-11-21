@@ -673,6 +673,8 @@ $('exitMenu').addEventListener('click', e => {
 const GEAR = [
   { id: 'medkit', name: 'Medkit', desc: 'Heal to full health', price: 150, buy: () => { player.hp = 100; } },
   { id: 'armor', name: 'Body Armor', desc: 'Blocks part of incoming damage', price: 250, buy: () => { player.armor = 100; } },
+  { id: 'vest', name: 'Bulletproof Vest', desc: 'Take twice as much damage before you go down. Yours until you go down', price: 600, buy: () => { if ((player.vest || 0) >= 4) { showMessage('You already have super body armor', 2); return; } player.vest = 2; showMessage('Bulletproof vest on: you can take twice the damage', 2.5); } },
+  { id: 'superarmor', name: 'Super Body Armor', desc: 'Take four times as much damage before you go down. Yours until you go down', price: 1800, buy: () => { player.vest = 4; showMessage('Super body armor on: you can take four times the damage', 2.5); } },
   { id: 'ammo', name: 'Ammo Crate', desc: 'Refill all your ammo', price: 100, buy: () => { WEAPONS.forEach(w => { player.ammo[w.id].reserve = w.reserve; }); } },
   { id: 'nades', name: 'Grenades x3', desc: 'Throw with G', price: 200, buy: () => { player.grenades += 3; } },
   { id: 'squad', name: 'Recruit Soldier', desc: 'A new soldier joins your team', price: 400, buy: () => { if (net.active && !net.isHost) netRequest(['rec', player.team]); else recruitNPC(player.team); } },
@@ -717,7 +719,7 @@ function renderShop() {
     make(`${i + 1}. ${w.name}`, owned ? 'Ready in slot ' + (i + 1) : 'Unlocks slot ' + (i + 1), w.price, owned ? 'owned' : (player.money < w.price ? 'poor' : ''), () => { player.owned[w.id] = true; selectWeapon(i); });
   });
   const h2 = document.createElement('h3'); h2.textContent = 'Gear and support'; grid.appendChild(h2);
-  GEAR.forEach(g => make(g.name, g.desc, g.price, player.money < g.price ? 'poor' : '', g.buy));
+  GEAR.forEach(g => make(g.name, g.desc, g.price, (g.id === 'vest' && (player.vest || 0) >= 2) || (g.id === 'superarmor' && (player.vest || 0) >= 4) ? 'owned' : player.money < g.price ? 'poor' : '', g.buy));   // armor you already wear shows as owned
   const h3 = document.createElement('h3'); h3.textContent = 'Build (press V in battle to place)'; grid.appendChild(h3);
   BUILD_KEYS.forEach(k => { const D = BUILDS[k], have = player.inventory[k] || 0; make(D.name + (have ? ` (have ${have})` : ''), D.desc, D.price, player.money < D.price ? 'poor' : '', () => { player.inventory[k] = (player.inventory[k] || 0) + 1; player.placeNext = k; }); });
 }
@@ -888,6 +890,8 @@ function updateHUD(dt) {
   const w = curW(), a = player.ammo[w.id];
   $('hpFill').style.width = Math.max(0, player.hp) + '%'; $('hpNum').textContent = Math.max(0, Math.ceil(player.hp));
   $('arFill').style.width = player.armor + '%'; $('arNum').textContent = Math.ceil(player.armor);
+  { let vb = $('vestBadge'); if (!vb) { vb = document.createElement('span'); vb.id = 'vestBadge'; vb.style.cssText = 'margin-left:8px;padding:2px 8px;border-radius:6px;font:700 13px system-ui,sans-serif;color:#111;vertical-align:middle'; $('vitals').appendChild(vb); }
+    const v = player.alive ? (player.vest || 0) : 0; vb.style.display = v ? 'inline-block' : 'none'; vb.textContent = v >= 4 ? 'SUPER ARMOR x4' : 'VEST x2'; vb.style.background = v >= 4 ? '#ffc43a' : '#9fd0ff'; }
   $('money').textContent = `$${player.money}`;
   const onFoot = !player.vehicle && !player.turret && !player.gv && !player.planeGun;
   $('ammo').style.display = onFoot && player.alive ? 'block' : 'none';
