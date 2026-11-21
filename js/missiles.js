@@ -4,6 +4,37 @@
 // helicopter, and nudges itself onto one that is nearly dead ahead. When it goes off, the camera watches the
 // explosion from the side for a few seconds, then you are back where you fired from. Right click returns early.
 let MC = null;
+// first person: a nose section fixed in front of the camera, and a ring showing where you are steering
+const FPN = {};
+function fpNose(kind) {
+  for (const k in FPN) FPN[k].visible = false;
+  if (!kind) { const r = document.getElementById('fpRing'); if (r) r.style.display = 'none'; return null; }
+  if (!FPN[kind]) {
+    const P = new Part(), g = new THREE.Group();
+    if (kind === 'missile') {
+      P.cyl(0.13, 0.13, 1.0, 0xe2e4e6, 0, 0, -0.75, Math.PI / 2, 0, 0, 1, 16);                         // the white body
+      P.cyl(0.02, 0.13, 0.45, 0xd0d3d6, 0, 0, -1.47, -Math.PI / 2, 0, 0, 1, 16);                       // the pointed nose
+      P.ball(0.07, 0x1a2a3a, 0, 0, -1.66, 1, 1, 1.2);                                                  // the seeker's glass eye
+      P.cyl(0.135, 0.135, 0.06, 0xd03a2a, 0, 0, -1.0, Math.PI / 2, 0, 0, 1, 16);                       // a red warhead band
+      for (const a of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) P.box(0.02, 0.22, 0.2, 0xb8bcc0, Math.sin(a) * 0.2, Math.cos(a) * 0.2, -1.12, 0, 0, a);   // the steering fins
+    } else {
+      P.cyl(0.2, 0.2, 1.2, 0x2a2e33, 0, 0, -0.8, Math.PI / 2, 0, 0, 1, 16);                           // dark steel body
+      P.ball(0.2, 0x2a2e33, 0, 0, -1.4, 1, 1, 1.3);                                                    // rounded warhead nose
+      P.cyl(0.205, 0.205, 0.05, 0x8a6a2a, 0, 0, -1.1, Math.PI / 2, 0, 0, 1, 16);                       // a brass band
+    }
+    const m = new THREE.Mesh(P.build(), VEH_MAT); m.frustumCulled = false; g.add(m); m.position.set(0, -0.3, 0); scene.add(g); FPN[kind] = g;
+  }
+  const g = FPN[kind]; g.visible = true; g.position.copy(camera.position); g.quaternion.copy(camera.quaternion);
+  return g;
+}
+function fpRing(dir) {   // dir: where you want to go; the ring sits where that is on the screen
+  let r = document.getElementById('fpRing');
+  if (!r) { r = document.createElement('div'); r.id = 'fpRing'; r.style.cssText = 'position:fixed;width:34px;height:34px;margin:-17px 0 0 -17px;border:3px solid rgba(255,90,60,.9);border-radius:50%;pointer-events:none;z-index:6;box-shadow:0 0 6px rgba(0,0,0,.6)'; document.body.appendChild(r); }
+  camera.updateMatrixWorld(true);   // the camera just moved: refresh its matrices before projecting
+  const v = camera.position.clone().addScaledVector(dir, 200).project(camera);
+  if (v.z > 1) { r.style.display = 'none'; return; }
+  r.style.display = 'block'; r.style.left = (clamp(v.x, -0.95, 0.95) * 0.5 + 0.5) * innerWidth + 'px'; r.style.top = (-clamp(v.y, -0.95, 0.95) * 0.5 + 0.5) * innerHeight + 'px';
+}
 function guidedWanted() { return !MC && player.alive; }
 function fireGuidedMissile(from, dir, opts = {}) {
   dir = dir.clone().normalize();
@@ -47,7 +78,7 @@ removeProjectile = function (pr) {
   }
   return _rmProj.apply(this, arguments);
 };
-function endMissileCam() { MC = null; for (const id of ['crosshair', 'slots']) { const e = document.getElementById(id); if (e) e.style.visibility = ''; } const el = document.getElementById('msHud'); if (el) el.style.display = 'none'; }
+function endMissileCam() { MC = null; fpNose(null); for (const id of ['crosshair', 'slots']) { const e = document.getElementById(id); if (e) e.style.visibility = ''; } const el = document.getElementById('msHud'); if (el) el.style.display = 'none'; }
 // runs just before the frame is drawn, after every other camera has had its turn
 function missileCamera(dt) {
   if (!MC) return;
@@ -63,12 +94,15 @@ function missileCamera(dt) {
     const pr = MC.pr; if (!projectiles.includes(pr)) { endMissileCam(); return; }
     mouse.left = false;   // no shooting while you steer
     const p = pr.mesh.position, d = pr.vel.clone().normalize();
-    camera.position.copy(p).addScaledVector(d, -7); camera.position.y += 1.6;
-    const g = heightAt(camera.position.x, camera.position.z); if (camera.position.y < g + 0.6) camera.position.y = g + 0.6;
-    camera.rotation.set(MC.pitch, MC.yaw, 0, 'YXZ');
-    el.innerHTML = `${MC.name} &nbsp; ${Math.max(0, pr.life).toFixed(0)}s of fuel &nbsp; height ${Math.max(0, Math.round(p.y - Math.max(WATER_Y, heightAt(p.x, p.z))))} m<br><span style="opacity:.8">Move the mouse to steer &nbsp; right click to go back</span>`;
-    if (back) endMissileCam();
+    camera.position.copy(p).addScaledVector(d, 0.6);                       // on the missile, looking down its nose
+    camera.up.set(0, 1, 0); camera.lookAt(camera.position.clone().add(d));
+    if (camShake > 0) camera.rotation.z += (Math.random() - 0.5) * camShake;
+    pr.mesh.visible = false; fpNose('missile');
+    fpRing(new THREE.Vector3(-Math.sin(MC.yaw) * Math.cos(MC.pitch), Math.sin(MC.pitch), -Math.cos(MC.yaw) * Math.cos(MC.pitch)));
+    el.innerHTML = `${MC.name} &nbsp; ${Math.max(0, pr.life).toFixed(0)}s of fuel &nbsp; height ${Math.max(0, Math.round(p.y - Math.max(WATER_Y, heightAt(p.x, p.z))))} m<br><span style="opacity:.8">Move the mouse to put the nose on the red ring's target &nbsp; right click to go back</span>`;
+    if (back) { pr.mesh.visible = true; endMissileCam(); }
   } else {
+    fpNose(null);
     MC.t += dt; MC.puffT -= dt;
     if (MC.puffT <= 0 && MC.t < 2.2) { MC.puffT = 0.12; const q = MC.p.clone().add(new THREE.Vector3(rand(-2, 2), MC.t * 3 + rand(0, 2), rand(-2, 2))); smokePuff(q, MC.t < 0.6 ? 0xff8a30 : 0x3a3a3a, 3 + MC.t * 1.5, 4, 2); }   // fire, then a column of black smoke
     let s = new THREE.Vector3(MC.dir.z, 0, -MC.dir.x); if (s.lengthSq() < 0.01) s.set(1, 0, 0); s.normalize();

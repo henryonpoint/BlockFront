@@ -495,7 +495,7 @@ function updateShips(dt) {
   if (DCS.length) updateDepthCharges(dt);
 }
 // riding a torpedo: low over the waves behind it; when it hits, a high look down on the blast that circles slowly
-function endTorpCam() { const T = SH.torpCam; SH.torpCam = null; if (T) { player.yaw = T.yaw0; player.pitch = T.pitch0; } const el = document.getElementById('torpHud'); if (el) el.style.display = 'none'; }
+function endTorpCam() { const T = SH.torpCam; SH.torpCam = null; fpNose(null); for (const id of ['crosshair', 'slots']) { const e = document.getElementById(id); if (e) e.style.visibility = ''; } if (T && T.t && T.t.mesh) T.t.mesh.visible = true; if (T) { player.yaw = T.yaw0; player.pitch = T.pitch0; } const el = document.getElementById('torpHud'); if (el) el.style.display = 'none'; }
 function torpCamera(dt) {
   const T = SH.torpCam; let el = document.getElementById('torpHud');
   if (!el) { el = document.createElement('div'); el.id = 'torpHud'; el.className = 'hud'; el.style.cssText = 'position:fixed;left:50%;top:14%;transform:translateX(-50%);background:rgba(0,0,0,.55);color:#fff;padding:6px 14px;border-radius:8px;font:600 14px system-ui,sans-serif;pointer-events:none;text-align:center'; document.body.appendChild(el); }
@@ -506,11 +506,15 @@ function torpCamera(dt) {
     if (keys.KeyA) player.yaw += dt * 1.4; if (keys.KeyD) player.yaw -= dt * 1.4;
     player.pitch = clamp(player.pitch, -0.3, 0.2);
     const h = Math.atan2(-t.fx, -t.fz);
-    camera.position.set(t.x + Math.sin(h) * 7, WATER_Y + 1.6, t.z + Math.cos(h) * 7);
-    camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ');
-    el.innerHTML = `Torpedo run &nbsp; ${Math.round(t.sp * 1.94)} knots &nbsp; ${Math.max(0, t.life).toFixed(0)}s of fuel<br><span style="opacity:.8">Mouse or A/D to steer &nbsp; right click to go back to the ship</span>`;
+    camera.position.set(t.x, WATER_Y + 0.42 + Math.sin(simTime * 6) * 0.04, t.z);   // riding on the torpedo, just above the waves, looking down its nose
+    camera.rotation.set(-0.06, h, Math.sin(simTime * 3.1) * 0.015, 'YXZ');
+    t.mesh.visible = false; fpNose('torpedo'); for (const id of ['crosshair', 'slots']) { const e = document.getElementById(id); if (e) e.style.visibility = 'hidden'; }
+    if (Math.random() < 0.6) { const nx = t.x + t.fx * 1.6, nz = t.z + t.fz * 1.6; emitSpray(nx + rand(-0.3, 0.3), WATER_Y + 0.05, nz + rand(-0.3, 0.3), rand(-1, 1) + t.fx * 2, rand(0.6, 1.6), rand(-1, 1) + t.fz * 2, 0.7); }   // the bow wave
+    fpRing(new THREE.Vector3(-Math.sin(player.yaw), -0.02, -Math.cos(player.yaw)));
+    el.innerHTML = `Torpedo run &nbsp; ${Math.round(t.sp * 1.94)} knots &nbsp; ${Math.max(0, t.life).toFixed(0)}s of fuel<br><span style="opacity:.8">Mouse or A/D to swing the red ring, the torpedo turns to it &nbsp; right click to go back</span>`;
     if (mouse.right) endTorpCam();
   } else {
+    fpNose(null);
     T.time += dt; const a = T.time * 0.35, R = 34;
     camera.position.set(T.p.x + Math.sin(a) * R, WATER_Y + 46 - T.time * 2, T.p.z + Math.cos(a) * R); camera.lookAt(T.p.x, WATER_Y + 2, T.p.z);
     el.innerHTML = T.what === 'shore' ? 'The torpedo hit the shore' : T.what === 'boat' ? 'Direct hit on a boat!' : `Direct hit on the ${T.what.toLowerCase()}!`;
