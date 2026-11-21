@@ -302,15 +302,22 @@ function fireTorpedo(s, ghost) {
     mesh.rotation.order = 'YXZ'; mesh.rotation.set(Math.PI / 2, s.yaw, 0); scene.add(mesh);
     TORPS.push({ x: p.x, z: p.z, y: Math.min(WATER_Y - 0.5, shipY(s) - 0.5), fx, fz, sp: 0, life: 16, src: s, mesh, ghost, owner: player, goal, age: dd ? 0.2 : 0 });
   }
+  if (!ghost && s.captain === player && !SH.torpCam) {   // ride the first torpedo: the camera follows it and you steer
+    const a = TORPS[TORPS.length - 2], b2 = TORPS[TORPS.length - 1], h = goal !== null ? goal : Math.atan2(-a.fx, -a.fz);
+    a.cam = b2.cam = true; a.goal = b2.goal = h; SH.torpCam = { mode: 'run', t: a, mate: b2, ship: s, yaw0: player.yaw, pitch0: player.pitch };
+    player.yaw = h; player.pitch = -0.05;
+  }
   if (!ghost && typeof netFx === 'function' && net.active) netFx(['tp', SHIPS2.indexOf(s)]);
   playAt('thump', player.pos, 0.9);
 }
 function updateTorpedoes(dt) {
   for (let i = TORPS.length - 1; i >= 0; i--) {
     const t = TORPS[i]; t.sp = Math.min(30, t.sp + dt * 20); t.life -= dt; t.age += dt;
-    if (t.goal !== null && t.goal !== undefined && t.age > 0.5) {   // the gyro turns it onto the bearing set in the periscope
+    const TC = SH.torpCam, riding = TC && TC.mode === 'run' && (t === TC.t || t === TC.mate);
+    if (riding) t.goal = player.yaw;
+    if (t.goal !== null && t.goal !== undefined && t.age > (riding ? 0.15 : 0.5)) {   // the gyro turns it onto the bearing you set
       const cur = Math.atan2(-t.fx, -t.fz); let d = t.goal - cur; d = Math.atan2(Math.sin(d), Math.cos(d));
-      const a = cur + clamp(d, -dt * 1.2, dt * 1.2); t.fx = -Math.sin(a); t.fz = -Math.cos(a); t.mesh.rotation.y = a;
+      const r = riding ? 1.6 : 1.2, a = cur + clamp(d, -dt * r, dt * r); t.fx = -Math.sin(a); t.fz = -Math.cos(a); t.mesh.rotation.y = a;
     }
     t.x += t.fx * t.sp * dt; t.z += t.fz * t.sp * dt; t.y += (WATER_Y - 0.6 - t.y) * Math.min(1, dt * 0.8); t.mesh.position.set(t.x, t.y, t.z);
     if (Math.random() < 0.7) emitSpray(t.x - t.fx * 3, WATER_Y + 0.1, t.z - t.fz * 3, rand(-0.3, 0.3), rand(0.4, 1.2), rand(-0.3, 0.3), 1.6);   // the bubble trail
@@ -320,6 +327,13 @@ function updateTorpedoes(dt) {
     for (const v of gvehicles) { if (hit || !v.alive || !v.T.boat) continue; if (Math.hypot(v.pos.x - t.x, v.pos.z - t.z) < 4) hit = 'boat'; }
     if (!hit) continue;
     scene.remove(t.mesh); t.mesh.geometry.dispose(); TORPS.splice(i, 1);
+    const TC2 = SH.torpCam;
+    if (TC2 && TC2.mode === 'run' && (t === TC2.t || t === TC2.mate)) {   // the one you're riding is gone: watch the blast from above, or switch to its mate
+      const other = t === TC2.t ? TC2.mate : TC2.t, otherLive = other && TORPS.includes(other);
+      if (hit !== 'fizzle') SH.torpCam = { mode: 'hit', p: new THREE.Vector3(t.x, WATER_Y, t.z), time: 0, ship: TC2.ship, yaw0: TC2.yaw0, pitch0: TC2.pitch0, what: hit.kind ? hit.name : hit === 'boat' ? 'boat' : 'shore' };
+      else if (otherLive && t === TC2.t) { TC2.t = other; TC2.mate = null; }
+      else if (!otherLive) endTorpCam();
+    }
     if (hit === 'fizzle') continue;
     const p = new THREE.Vector3(t.x, WATER_Y + 0.5, t.z);
     for (let k = 0; k < 60; k++) emitSpray(t.x + rand(-2, 2), WATER_Y + 0.5, t.z + rand(-2, 2), rand(-3, 3), rand(10, 26), rand(-3, 3), 2.6);   // a tall column of water
@@ -432,7 +446,7 @@ function updateShips(dt) {
     const captain = s.captain === player ? player : null;
     if (host) {
       let wantRudder = 0;
-      if (captain) { s.throttle = clamp(s.throttle + ((keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0)) * dt * 0.5, -0.4, 1); if (keys.KeyX) s.throttle = 0; wantRudder = (keys.KeyA ? 1 : 0) - (keys.KeyD ? 1 : 0); }
+      if (captain) { s.throttle = clamp(s.throttle + ((keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0)) * dt * 0.5, -0.4, 1); if (keys.KeyX) s.throttle = 0; wantRudder = SH.torpCam ? 0 : (keys.KeyA ? 1 : 0) - (keys.KeyD ? 1 : 0); }
       else if (!s.captain) s.throttle *= Math.exp(-dt * 0.3);
       s.rudder += clamp(wantRudder - s.rudder, -dt * 1.5, dt * 1.5);              // the rudder swings over smoothly, and centres when you let go
       const big = s.kind === 'battleship' || s.kind === 'carrier';
@@ -468,18 +482,40 @@ function updateShips(dt) {
       s.divePitch = lerp(s.divePitch || 0, clamp(((s.wantDepth || 0) - s.depth) * 0.04, -0.07, 0.07), Math.min(1, dt * 2));   // nose down as it dives, up as it rises
     }
     s.torpT = (s.torpT || 0) - dt; s.dcT = (s.dcT || 0) - dt; s.aaT = (s.aaT || 0) - dt;
-    if (captain) shipWeapons(s);
+    if (captain && !SH.torpCam) shipWeapons(s);
     if (captain) {
       const hw = shipWorld(s, s.helm.u, s.helm.v); player.pos.set(hw.x, s.helm.y + shipY(s), hw.z); player.velY = 0; player.onGround = true;
       if (player.body3p && player.body3p.root) player.body3p.root.visible = !((s.depth || 0) > 1);   // inside the hull once it dives
-      shipCamera(s, dt);
-      aimShipGuns(s, dt);
-      updateShipHud(s);
+      if (SH.torpCam) torpCamera(dt); else { shipCamera(s, dt); aimShipGuns(s, dt); }
+      if (SH.torpCam) { const h = document.getElementById('shipHud'); if (h) h.style.display = 'none'; } else updateShipHud(s);
     }
   }
   updateShipPrompt();
   if (TORPS.length) updateTorpedoes(dt);
   if (DCS.length) updateDepthCharges(dt);
+}
+// riding a torpedo: low over the waves behind it; when it hits, a high look down on the blast that circles slowly
+function endTorpCam() { const T = SH.torpCam; SH.torpCam = null; if (T) { player.yaw = T.yaw0; player.pitch = T.pitch0; } const el = document.getElementById('torpHud'); if (el) el.style.display = 'none'; }
+function torpCamera(dt) {
+  const T = SH.torpCam; let el = document.getElementById('torpHud');
+  if (!el) { el = document.createElement('div'); el.id = 'torpHud'; el.className = 'hud'; el.style.cssText = 'position:fixed;left:50%;top:14%;transform:translateX(-50%);background:rgba(0,0,0,.55);color:#fff;padding:6px 14px;border-radius:8px;font:600 14px system-ui,sans-serif;pointer-events:none;text-align:center'; document.body.appendChild(el); }
+  el.style.display = 'block'; zPeriscopeOverlay(false); if (T.ship && T.ship.marker) T.ship.marker.visible = false;
+  const fov = SET.fov || 75; if (Math.abs(camera.fov - fov) > 0.1) { camera.fov = fov; camera.updateProjectionMatrix(); }
+  if (T.mode === 'run') {
+    const t = T.t; if (!t || !TORPS.includes(t)) { endTorpCam(); return; }
+    if (keys.KeyA) player.yaw += dt * 1.4; if (keys.KeyD) player.yaw -= dt * 1.4;
+    player.pitch = clamp(player.pitch, -0.3, 0.2);
+    const h = Math.atan2(-t.fx, -t.fz);
+    camera.position.set(t.x + Math.sin(h) * 7, WATER_Y + 1.6, t.z + Math.cos(h) * 7);
+    camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ');
+    el.innerHTML = `Torpedo run &nbsp; ${Math.round(t.sp * 1.94)} knots &nbsp; ${Math.max(0, t.life).toFixed(0)}s of fuel<br><span style="opacity:.8">Mouse or A/D to steer &nbsp; right click to go back to the ship</span>`;
+    if (mouse.right) endTorpCam();
+  } else {
+    T.time += dt; const a = T.time * 0.35, R = 34;
+    camera.position.set(T.p.x + Math.sin(a) * R, WATER_Y + 46 - T.time * 2, T.p.z + Math.cos(a) * R); camera.lookAt(T.p.x, WATER_Y + 2, T.p.z);
+    el.innerHTML = T.what === 'shore' ? 'The torpedo hit the shore' : T.what === 'boat' ? 'Direct hit on a boat!' : `Direct hit on the ${T.what.toLowerCase()}!`;
+    if (T.time > 4 || mouse.right) endTorpCam();
+  }
 }
 // three views at the wheel: C cycles a chase camera behind the ship, the bridge, and (battleship) the gun sight
 const SHIP_VIEWS = ['chase', 'bridge', 'guns'];
@@ -689,12 +725,13 @@ function updateShipPrompt() {
   el.style.display = (near || climb) && !player.ship ? 'block' : 'none';
   if (climb) el.textContent = `Press E to climb aboard the ${climb.name.toLowerCase()}`;
   if (near) el.textContent = net.active && !net.isHost ? 'Only the host can steer ships online' : `Press E to take command of the ${near.name.toLowerCase()}`;
+  if (SH.torpCam && (!player.ship || !player.alive)) endTorpCam();
   const hud = document.getElementById('shipHud'); if (hud && !player.ship) { hud.style.display = 'none'; zPeriscopeOverlay(false); }
 }
 addEventListener('keydown', e => {
   if (e.code === 'KeyC' && player.ship && !e.repeat) { const opts = player.ship.kind === 'sub' ? ['chase', 'periscope', 'guns'] : player.ship.turrets.length ? SHIP_VIEWS : ['chase', 'bridge']; SH.view = opts[(opts.indexOf(SH.view || 'chase') + 1) % opts.length]; return; }
   if (e.code !== 'KeyE' || e.repeat || typeof started === 'undefined' || !started) return;
-  if (player.ship) { if (player.ship.marker) player.ship.marker.visible = false; player.ship.captain = null; player.ship = null; if (camera.fov !== (SET.fov || 75)) { camera.fov = SET.fov || 75; camera.updateProjectionMatrix(); } showMessage('You left the wheel', 1.5); return; }
+  if (player.ship) { if (SH.torpCam) endTorpCam(); if (player.ship.marker) player.ship.marker.visible = false; player.ship.captain = null; player.ship = null; if (camera.fov !== (SET.fov || 75)) { camera.fov = SET.fov || 75; camera.updateProjectionMatrix(); } showMessage('You left the wheel', 1.5); return; }
   if (!SH.near && SH.climb) {   // up the ladder and straight to the wheel
     const c = SH.climb, hw = shipWorld(c, c.helm.u, c.helm.v); player.pos.set(hw.x, c.helm.y + WATER_Y + 0.1, hw.z); player.velY = 0;
     SH.climb = null; showMessage(`You climbed aboard the ${c.name.toLowerCase()}. Press E at the wheel to take command`, 3); return;
