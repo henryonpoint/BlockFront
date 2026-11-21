@@ -1,7 +1,7 @@
 // ===================== vehicles.js : turrets and planes =====================
 const turrets = [];
 // the modern fighters: afterburner, head-up display, radar, guided missiles
-function isFighterJet(k) { return k === 'f18' || k === 'f22' || k === 'f35' || k === 'su35' || k === 'su75' || k === 'f44'; }
+function isFighterJet(k) { return k === 'f18' || k === 'f22' || k === 'f35' || k === 'su35' || k === 'su75' || k === 'f44' || k === 'f16'; }
 function makeTurret(x, z, type, yaw) {
   const y = heightAt(x, z);
   const g = new THREE.Group(); g.position.set(x, y, z); scene.add(g);
@@ -142,14 +142,14 @@ function buildPlanes() {
   if (ZD30) return;   // no airfield
   if (DOGFIGHT) {   // the dogfight: a squadron per team, starting in the air (players take over a plane when they deploy)
     for (const t of ['blue', 'red']) for (let i = 0; i < 9; i++) {
-      const B = BASES[t], s = teamSide(t), kind = JETFIGHT ? (i === 4 ? 'f44' : (t === 'blue' ? ['f18', 'f22', 'f35'] : ['su35', 'su75', 'f22'])[i % 3]) : WWIFIGHT ? (t === 'red' ? 'triplane' : 'biplane') : 'prop';
+      const B = BASES[t], s = teamSide(t), kind = JETFIGHT ? (i === 4 ? 'f44' : (t === 'blue' ? ['f18', 'f16', 'f22', 'f35'] : ['su35', 'su75', 'f22', 'f16'])[i % 4]) : WWIFIGHT ? (t === 'red' ? 'triplane' : 'biplane') : 'prop';
       makePlane(t, B.x + (i - 4) * 45, B.z - s * 120, s > 0 ? 0 : Math.PI, 0, kind);
     }
     return;
   }
   const HK = { blue: ['f35', 'harrier', 'f22'], red: ['su35', 'harrier', 'su75'] };   /* Houston: modern jets, and a Harrier each */
-  [[30, 6], [52, 30], [70, 55]].forEach(([off, wait], i) => makePlane('blue', RUNWAYS.blue.x + off, RUNWAYS.blue.z, RUNWAYS.blue.carrier ? 0 : Math.PI / 2, wait, HOUSTON ? HK.blue[i] : AFGHAN ? 'f18' : undefined));
-  [[-30, 6], [-52, 30], [-70, 55]].forEach(([off, wait], i) => makePlane('red', RUNWAYS.red.x + off, RUNWAYS.red.z, -Math.PI / 2, wait, HOUSTON ? HK.red[i] : AFGHAN ? 'f18' : undefined));   /* Desert Combat: modern jets */
+  [[30, 6], [52, 30], [70, 55]].forEach(([off, wait], i) => makePlane('blue', RUNWAYS.blue.x + off, RUNWAYS.blue.z, RUNWAYS.blue.carrier ? 0 : Math.PI / 2, wait, HOUSTON ? HK.blue[i] : AFGHAN ? (i === 1 ? 'f16' : 'f18') : undefined));
+  [[-30, 6], [-52, 30], [-70, 55]].forEach(([off, wait], i) => makePlane('red', RUNWAYS.red.x + off, RUNWAYS.red.z, -Math.PI / 2, wait, HOUSTON ? HK.red[i] : AFGHAN ? (i === 1 ? 'f16' : 'f18') : undefined));   /* Desert Combat: modern jets */
   if (NORMANDY) {   // a big air battle over the beach: more fighters on both sides, up quickly
     [[8, 1], [-14, 12]].forEach(([off, wait]) => makePlane('blue', RUNWAYS.blue.x + off, RUNWAYS.blue.z, 0, wait));
     [[-8, 1], [14, 12]].forEach(([off, wait]) => makePlane('red', RUNWAYS.red.x + off, RUNWAYS.red.z, -Math.PI / 2, wait));
@@ -283,7 +283,7 @@ let cockpitFull = false;   // the third view: the full cockpit, with dashboard, 
 // each kind of plane has its own cockpit, built like the real one. tub: floor, walls, seat, stick and the nose ahead
 // (shown in both cockpit views); full: the dashboard, sights and canopy frame (the full cockpit view only)
 const _cockpits = {};
-function cockpitStyle(pl) { const k = pl && (pl.kind === 'harrier' || pl.kind === 'su35' ? 'f18' : pl.kind === 'f35' || pl.kind === 'su75' || pl.kind === 'f44' ? 'f22' : pl.kind); return k === 'triplane' || k === 'biplane' ? k : k === 'f18' || k === 'f22' || k === 'stealth' ? k : 'prop'; }
+function cockpitStyle(pl) { const k = pl && (pl.kind === 'harrier' || pl.kind === 'su35' || pl.kind === 'f16' ? 'f18' : pl.kind === 'f35' || pl.kind === 'su75' || pl.kind === 'f44' ? 'f22' : pl.kind); return k === 'triplane' || k === 'biplane' ? k : k === 'f18' || k === 'f22' || k === 'stealth' ? k : 'prop'; }
 function cockpitModel() {
   const st = cockpitStyle(player.vehicle || (_cockpit && { kind: _cockpit.userData.style }));
   if (_cockpit && _cockpit.userData.style === st) return _cockpit;

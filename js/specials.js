@@ -182,7 +182,7 @@ function jetModel(team, kind) {
       p.box(2.3, 0.42, 0.9, black, 0, 0, 5.15); p.box(2.0, 0.28, 0.06, 0x050506, 0, 0, 5.62);                           // one wide, flat engine nozzle
       p.box(0.18, 0.03, 2.6, P.team, 0, 0.47, 0.6);                                                                     // a thin team stripe on the spine
       p.box(0.03, 0.03, 1.8, black, 0, 0.66, -3.75);                                                                    // canopy frame
-    } else if (kind === 'f35' || kind === 'su35' || kind === 'su75') {
+    } else if (kind === 'f35' || kind === 'su35' || kind === 'su75' || kind === 'f16') {
       // the newer fighters: the F-35 Lightning II (one big engine, chunky and stealthy), the Su-35 Flanker (huge,
       // two engines in separate pods, long tail stinger, camouflage) and the Su-75 Checkmate (one engine, a big
       // chin intake and a V-tail instead of tailplanes)
@@ -227,6 +227,25 @@ function jetModel(team, kind) {
         }
         p.cyl(0.28, 0.08, 2.6, main, 0, -0.1, 5.8, RX, 0, 0, 1, 10);                                                // the tail stinger between the engines
         p.box(0.3, 0.04, 2.0, P.team, 0, 0.66, -1.0);
+      } else if (kind === 'f16') {   // F-16 Fighting Falcon: one engine, one tall tail, the big air intake under the cockpit, a bubble canopy
+        const main = 0x949ca4, dark = 0x6e767e, panel = 0x858d95;
+        body([[0.02, -6.0], [0.2, -5.6], [0.34, -5.1], [0.44, -4.6]], 1.15, 0.95, 0x80878e, 16, 0.05);              // radar nose
+        body([[0.44, -4.6], [0.56, -3.9], [0.62, -3.0], [0.66, -1.8], [0.68, 2.6], [0.6, 4.2], [0.5, 4.8]], 1.15, 0.95, main, 16, 0.05);
+        p.ball(1, main, 0, 0.55, -1.0, 0.45, 0.3, 2.3);                                                              // the spine behind the canopy
+        p.box(1.0, 0.7, 2.2, dark, 0, -0.72, -1.4); p.box(0.86, 0.56, 0.08, black, 0, -0.74, -2.52);                 // the chin intake
+        plate([[0.55, -3.6], [0.9, -2.0], [1.5, -0.4], [4.6, 1.6], [4.6, 2.3], [1.4, 2.5], [0.5, 2.5]], 0.02, 0.1, main);   // blended wing with long strakes
+        plate([[0.55, 3.4], [2.4, 4.2], [2.4, 5.0], [0.55, 4.8]], -0.05, 0.08, main);                                // tailplanes
+        fin(1, 0, 0, [[2.3, 0.3], [4.4, 0.3], [5.0, 2.6], [4.1, 2.6]], main);                                       // one tall tail
+        p.box(0.12, 0.3, 0.5, P.team, 0, 2.45, 4.6);                                                                 // team colour at the top of the tail
+        for (const sd of [-1, 1]) {
+          fin(sd, 0.45, 2.6, [[3.2, 0], [4.0, 0], [4.2, 0.6], [3.5, 0.6]], dark);                                    // little fins under the tail
+          p.cyl(0.08, 0.08, 2.1, 0xd8dadc, 4.7 * sd, 0.02, 1.9, RX, 0, 0, 1, 10);                                   // wingtip missiles
+          for (const x of [2.3, 3.4]) { p.box(0.1, 0.28, 0.8, panel, x * sd, -0.14, 1.5); p.cyl(0.1, 0.1, 2.2, 0xd8dadc, x * sd, -0.4, 1.4, RX, 0, 0, 1, 10); p.cyl(0.01, 0.1, 0.32, 0x8a8e92, x * sd, -0.4, 0.15, -RX, 0, 0, 1, 10); }
+          p.box(0.08, 0.06, 0.12, sd > 0 ? 0x30d040 : 0xe03030, 4.6 * sd, 0.06, 1.7);
+        }
+        p.cyl(0.3, 0.3, 2.6, 0x9aa2aa, 0, -0.95, 0.9, RX, 0, 0, 1, 14);                                             // centre fuel tank
+        nozzle(0, 0.05, 4.95, 0.48, 0x6a6e72);
+        for (const z of [-2.0, -0.6, 0.8, 2.2]) p.box(1.2, 0.015, 0.03, panel, 0, 0.7, z);
       } else {   // su75 Checkmate
         const main = 0x5e6872, dark = 0x48515a, panel = 0x56606a;
         body([[0.02, -5.7], [0.3, -5.1], [0.56, -4.4], [0.74, -3.6], [0.84, -2.6], [0.88, -1.2], [0.88, 2.6], [0.74, 4.2], [0.58, 4.7]], 1.35, 0.76, main, 6);   // a faceted, flat-sided body
@@ -332,8 +351,8 @@ function jetModel(team, kind) {
   });
   const m = new THREE.Mesh(geo, VEH_MAT); m.castShadow = true; g.add(m);
   // the canopy: a long bubble sitting on the cockpit; the stealth fighters' glass has a gold tint
-  const CN = { f44: [0.4, -3.8, 0.72, 0.5, 2.6], f18: [0.6, -3.5, 0.8, 0.62, 2.3], f22: [0.6, -3.35, 0.85, 0.62, 2.3], f35: [0.7, -3.0, 0.95, 0.66, 2.3], su35: [0.68, -3.55, 0.8, 0.7, 2.3], su75: [0.62, -2.95, 0.9, 0.6, 2.2] }[kind];
-  const gold = kind === 'f22' || kind === 'f35' || kind === 'su75';
+  const CN = { f16: [0.68, -3.65, 0.78, 0.68, 2.5], f44: [0.4, -3.8, 0.72, 0.5, 2.6], f18: [0.6, -3.5, 0.8, 0.62, 2.3], f22: [0.6, -3.35, 0.85, 0.62, 2.3], f35: [0.7, -3.0, 0.95, 0.66, 2.3], su35: [0.68, -3.55, 0.8, 0.7, 2.3], su75: [0.62, -2.95, 0.9, 0.6, 2.2] }[kind];
+  const gold = kind === 'f22' || kind === 'f35' || kind === 'su75' || kind === 'f16';
   const canopy = new THREE.Mesh(new THREE.SphereGeometry(0.5, 16, 10), new THREE.MeshPhongMaterial({ color: kind === 'f44' ? 0x3a0c10 : gold ? 0x7a6a34 : 0x223344, specular: kind === 'f44' ? 0xff4a5a : gold ? 0xffe8a0 : 0x99bbdd, transparent: true, opacity: kind === 'f44' ? 0.85 : gold ? 0.75 : 0.6, shininess: 120 }));
   if (CN) { canopy.scale.set(CN[2], CN[3], CN[4]); canopy.position.set(0, CN[0], CN[1]); }
   else { canopy.scale.set(0.8, 0.6, 2.2); canopy.position.set(0, kind === 'stealth' ? 0.75 : 0.62, kind === 'stealth' ? -2.2 : -3.4); }
@@ -352,8 +371,8 @@ function jetModel(team, kind) {
   // landing gear: down on the runway and low and slow, folded away in flight
   let gear = null;
   if (isFighterJet(kind)) {
-    const GP = new Part(), strut = 0x9a9ea2, tyre = 0x1a1a1a, door = { f44: 0x1f2127, f18: 0x7a838d, f22: 0x5e646b, f35: 0x6e747a, su35: 0x5e7086, su75: 0x525c66 }[kind];
-    const nz = { f44: -4.4, f18: -3.9, f22: -3.9, f35: -3.4, su35: -4.3, su75: -3.4 }[kind], mz = kind === 'su35' ? 1.6 : 1.0, mx = kind === 'su35' ? 1.1 : 1.0;
+    const GP = new Part(), strut = 0x9a9ea2, tyre = 0x1a1a1a, door = { f16: 0x858d95, f44: 0x1f2127, f18: 0x7a838d, f22: 0x5e646b, f35: 0x6e747a, su35: 0x5e7086, su75: 0x525c66 }[kind];
+    const nz = { f16: -3.2, f44: -4.4, f18: -3.9, f22: -3.9, f35: -3.4, su35: -4.3, su75: -3.4 }[kind], mz = kind === 'su35' ? 1.6 : 1.0, mx = kind === 'su35' ? 1.1 : 1.0;
     GP.cyl(0.07, 0.07, 1.15, strut, 0, -0.85, nz); GP.cyl(0.24, 0.24, 0.16, tyre, 0, -1.33, nz, 0, 0, Math.PI / 2, 1, 12); GP.box(0.04, 0.5, 0.9, door, 0.22, -0.55, nz + 0.1);
     for (const sd of [-1, 1]) {
       GP.cyl(0.09, 0.09, 1.2, strut, mx * sd, -0.8, mz, 0, 0, -sd * 0.12); GP.cyl(0.3, 0.3, 0.22, tyre, (mx + 0.08) * sd, -1.3, mz, 0, 0, Math.PI / 2, 1, 14);
@@ -370,7 +389,7 @@ function jetModel(team, kind) {
     const ab = new THREE.Group(); ab.visible = false; g.add(ab);
     const fm = new THREE.MeshBasicMaterial({ color: 0xff9a3a, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false });
     const cm = new THREE.MeshBasicMaterial({ color: 0x8fd0ff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
-    const one = kind === 'f35' || kind === 'su75' || kind === 'f44', spots = kind === 'f44' ? [[-0.55, 0, 5.6], [0, 0, 5.6], [0.55, 0, 5.6]] : one ? [[0, 0, 5.3]] : kind === 'su35' ? [[-1.05, -0.45, 5.8], [1.05, -0.45, 5.8]] : [-1, 1].map(sd => [sd * (kind === 'f22' ? 0.48 : 0.45), 0, kind === 'f22' ? 5.2 : 5.4]), k = one ? 1.35 : 1;
+    const one = kind === 'f35' || kind === 'su75' || kind === 'f44' || kind === 'f16', spots = kind === 'f44' ? [[-0.55, 0, 5.6], [0, 0, 5.6], [0.55, 0, 5.6]] : kind === 'f16' ? [[0, 0.05, 5.45]] : one ? [[0, 0, 5.3]] : kind === 'su35' ? [[-1.05, -0.45, 5.8], [1.05, -0.45, 5.8]] : [-1, 1].map(sd => [sd * (kind === 'f22' ? 0.48 : 0.45), 0, kind === 'f22' ? 5.2 : 5.4]), k = one ? 1.35 : 1;
     for (const [x, y, z] of spots) {
       const outer = new THREE.Mesh(new THREE.ConeGeometry(0.4 * k, 3.2 * k, 10), fm); outer.rotation.x = Math.PI / 2; outer.position.set(x, y, z + 1.6 * k); ab.add(outer);
       const inner = new THREE.Mesh(new THREE.ConeGeometry(0.22 * k, 1.6 * k, 8), cm); inner.rotation.x = Math.PI / 2; inner.position.set(x, y, z + 0.8 * k); ab.add(inner);
@@ -437,6 +456,7 @@ function P_TEAM_RING(team) { return (VPAINT[team] || VPAINT.blue).team; }
 // speed (times the normal plane), toughness, bombs and how fast they reload
 const PLANE_KINDS = {
   prop: { name: 'Fighter plane', spd: 1, hp: 320, bombs: 1, regen: 25, model: team => makePlaneModel(team) },
+  f16: { name: 'F-16 Fighting Falcon', spd: 1.85, hp: 420, bombs: 2, regen: 14, model: team => jetModel(team, 'f16') },
   f18: { name: 'F-18 Hornet', spd: 1.75, hp: 420, bombs: 2, regen: 15, model: team => jetModel(team, 'f18') },
   f22: { name: 'F-22 Raptor', spd: 2.0, hp: 480, bombs: 2, regen: 12, model: team => jetModel(team, 'f22') },
   f44: { name: 'F-44 Black Reign', spd: 2.4, hp: 520, bombs: 2, regen: 10, model: team => jetModel(team, 'f44') },
