@@ -606,6 +606,7 @@ function updateAIPlane(pl, dt) {
 }
 function updatePlanes(dt) {
   for (const pl of planes) {
+    if (pl.model.gear) pl.model.gear.visible = pl.onGround || (pl.pos.y - heightAt(pl.pos.x, pl.pos.z) < 14 && pl.speed < 70);   // wheels down for landing and takeoff
     if (pl.remote) { if (pl.alive) { pl.model.g.position.copy(pl.pos); pl.model.g.quaternion.copy(pl.quat); pl.model.prop.rotation.z += (5 + pl.speed) * dt; } continue; }
     if (!pl.alive) { if (!net.active || net.isHost) { pl.respawnT -= dt; if (pl.respawnT <= 0) resetPlane(pl); } continue; }
     if (pl.pilot === player) updatePlayerPlane(pl, dt);

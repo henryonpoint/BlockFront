@@ -162,19 +162,20 @@ function jetModel(team, kind) {
   const P = VPAINT[team] || VPAINT.blue, g = new THREE.Group();
   const geo = vcached(kind + team, () => {
     const p = new Part();
+    // a smooth (or faceted) body from a side profile: [radius, z] pairs from the nose back; sx/sy make it wide and flat
+    const body = (prof, sx, sy, col, seg = 16, y = 0) => { const g = new THREE.LatheGeometry(prof.map(([r, z]) => new THREE.Vector2(Math.max(0.001, r), z)), seg); g.rotateX(Math.PI / 2); p.add(g, col, 0, y, 0, 0, 0, 0, sx, sy, 1); };
     if (kind === 'f35' || kind === 'su35' || kind === 'su75') {
       // the newer fighters: the F-35 Lightning II (one big engine, chunky and stealthy), the Su-35 Flanker (huge,
       // two engines in separate pods, long tail stinger, camouflage) and the Su-75 Checkmate (one engine, a big
       // chin intake and a V-tail instead of tailplanes)
       const black = 0x1c1e22;
       const plate = (half, y, t, col) => { const sh = new THREE.Shape(), pts = half.concat(half.slice().reverse().map(([x, z]) => [-x, z])); pts.forEach(([x, z], i) => i ? sh.lineTo(x, z) : sh.moveTo(x, z)); sh.closePath(); p.add(new THREE.ExtrudeGeometry(sh, { depth: t, bevelEnabled: false }), col, 0, y, 0, RX, 0, 0); };
-      const fin = (side, x, cant, outline, col) => { const sh = new THREE.Shape(); outline.forEach(([z, y], i) => i ? sh.lineTo(z, y) : sh.moveTo(z, y)); sh.closePath(); const gg = new THREE.ExtrudeGeometry(sh, { depth: 0.08, bevelEnabled: false }); gg.rotateY(-Math.PI / 2); gg.rotateZ(cant * side); gg.translate(x * side, 0, 0); p.add(gg, col, 0, 0, 0); };
+      const fin = (side, x, cant, outline, col) => { const sh = new THREE.Shape(); outline.forEach(([z, y], i) => i ? sh.lineTo(z, y) : sh.moveTo(z, y)); sh.closePath(); const gg = new THREE.ExtrudeGeometry(sh, { depth: 0.08, bevelEnabled: false }); gg.rotateY(-Math.PI / 2); gg.rotateZ(-cant * side); gg.translate(x * side, 0, 0); p.add(gg, col, 0, 0, 0); };
       const nozzle = (x, y, z, r, petal) => { p.cyl(r, r * 0.9, 0.9, petal, x, y, z, RX, 0, 0, 1, 14); p.cyl(r * 0.8, r * 0.8, 0.05, black, x, y, z + 0.46, RX, 0, 0, 1, 14); for (let k = 0; k < 12; k++) { const a = k / 12 * Math.PI * 2; p.box(0.14, 0.03, 0.26, 0x5a5048, x + Math.cos(a) * r * 0.92, y + Math.sin(a) * r * 0.92, z + 0.5, 0, 0, a + Math.PI / 2); } };
       if (kind === 'f35') {
         const main = 0x7c8288, dark = 0x5c6268, edge = 0x50555b, panel = 0x6e747a;
-        p.add(new THREE.CylinderGeometry(0.8, 0.9, 6.8, 8), main, 0, 0, 0.4, RX, 0, 0, 1.3, 1, 0.8);                // a fat body around the one big engine
-        p.add(new THREE.CylinderGeometry(0.06, 0.8, 2.6, 8), main, 0, 0, -4.3, -RX, 0, 0, 1.3, 1, 0.8);
-        p.add(new THREE.CylinderGeometry(0.05, 0.36, 1.1, 8), 0x666c72, 0, 0, -5.1, -RX, 0, 0, 1.3, 1, 0.8);         // radar nose
+        body([[0.02, -5.6], [0.26, -5.1], [0.46, -4.6], [0.58, -4.2]], 1.3, 0.82, 0x666c72, 8);                     // a short, blunt radar nose
+        body([[0.58, -4.2], [0.76, -3.5], [0.88, -2.6], [0.95, -1.4], [0.95, 2.6], [0.8, 4.1], [0.6, 4.7]], 1.3, 0.82, main, 8);   // a fat body around the one big engine
         p.ball(1, main, 0, 0.48, -0.5, 0.75, 0.38, 2.4);                                                             // the spine hump behind the cockpit
         plate([[0.9, -1.0], [1.4, -0.6], [4.6, 1.5], [4.6, 2.3], [1.0, 2.6], [0.7, 2.6]], 0.05, 0.12, main);         // short trapezoid wing
         plate([[0.7, 3.0], [2.6, 3.8], [2.6, 4.6], [0.7, 4.4]], 0.0, 0.08, main);                                    // tailplanes
@@ -188,10 +189,10 @@ function jetModel(team, kind) {
         for (const z of [-2.0, -0.6, 0.8, 2.2]) p.box(1.4, 0.015, 0.03, panel, 0, 0.62, z);
         p.box(1.2, 0.015, 2.4, panel, 0, -0.72, 0.4);                                                                // weapon bay doors underneath
       } else if (kind === 'su35') {
-        const main = 0x6c7f94, dark = 0x4a5e76, light = 0x8a9eb2, radome = 0xb4b8bc;
-        p.add(new THREE.CylinderGeometry(0.6, 0.7, 5.6, 14), main, 0, 0.05, -1.4, RX, 0, 0, 1.1, 1, 0.9);           // the front body with the cockpit
-        p.add(new THREE.CylinderGeometry(0.08, 0.6, 2.8, 14), radome, 0, 0.05, -5.6, -RX, 0, 0, 1.1, 1, 0.9);       // a long pale radar nose
-        p.ball(1, main, 0, 0.55, -3.0, 0.62, 0.42, 1.9);                                                            // the raised canopy line
+        const main = 0x6c7f94, dark = 0x55697f, light = 0x7d91a6, radome = 0xb4b8bc;
+        body([[0.02, -6.9], [0.24, -6.4], [0.42, -5.7], [0.54, -5.0]], 1.1, 0.92, radome, 16, 0.05);              // the pale radar nose, drooping a little
+        body([[0.54, -5.0], [0.64, -4.2], [0.7, -3.2], [0.72, -2.0], [0.66, 0.4], [0.5, 1.8]], 1.15, 0.92, main, 16, 0.05);   // the front body with the cockpit
+        p.ball(1, main, 0, 0.42, -1.6, 0.6, 0.34, 2.0);                                                             // the spine behind the cockpit
         plate([[0.6, -3.9], [1.6, -1.6], [2.0, 0], [2.0, 4.6], [0.4, 4.8]], -0.02, 0.36, main);                      // the flat lifting body between the engines
         plate([[1.9, -1.5], [2.3, -1.1], [6.6, 2.4], [6.6, 3.0], [2.4, 3.4], [1.9, 3.4]], 0.0, 0.12, main);          // big swept wing
         plate([[1.7, 4.2], [3.7, 5.0], [3.7, 5.9], [1.7, 5.6]], -0.12, 0.08, main);                                  // tailplanes
@@ -203,15 +204,14 @@ function jetModel(team, kind) {
           p.box(0.1, 0.32, 0.5, P.team, 1.83 * sd, 2.4, 4.75);                                                       // team colour on the fin tips
           for (const x of [3.0, 4.1, 5.2]) { p.box(0.1, 0.25, 0.8, dark, x * sd, -0.12, 1.7); p.cyl(0.1, 0.1, 2.3, 0xd8dadc, x * sd, -0.38, 1.6, RX, 0, 0, 1, 10); p.cyl(0.01, 0.1, 0.32, 0x8a8e92, x * sd, -0.38, 0.3, -RX, 0, 0, 1, 10); }   // missiles under the wings
           p.cyl(0.12, 0.12, 1.8, 0x9aa2aa, 6.65 * sd, 0.06, 2.2, RX, 0, 0, 1, 10);                                    // wingtip pods
-          p.box(1.6, 0.02, 0.9, dark, 4.0 * sd, 0.13, 1.4, 0, 0.4 * sd, 0); p.box(1.1, 0.02, 0.7, light, 5.3 * sd, 0.13, 2.4, 0, -0.3 * sd, 0); p.box(0.9, 0.02, 1.2, dark, 1.2 * sd, 0.36, 2.6, 0, 0.2, 0);   // camouflage patches
+          p.box(1.6, 0.02, 0.9, dark, 4.0 * sd, 0.13, 1.4, 0, 0.4 * sd, 0); p.box(1.1, 0.02, 0.7, light, 5.3 * sd, 0.13, 2.4, 0, -0.3 * sd, 0);   // camouflage patches
           p.box(0.08, 0.06, 0.12, sd > 0 ? 0x30d040 : 0xe03030, 6.6 * sd, 0.08, 3.0);
         }
         p.cyl(0.28, 0.08, 2.6, main, 0, -0.1, 5.8, RX, 0, 0, 1, 10);                                                // the tail stinger between the engines
         p.box(0.3, 0.04, 2.0, P.team, 0, 0.66, -1.0);
       } else {   // su75 Checkmate
         const main = 0x5e6872, dark = 0x48515a, panel = 0x56606a;
-        p.add(new THREE.CylinderGeometry(0.78, 0.86, 6.6, 6), main, 0, 0, 0.3, RX, 0, 0, 1.35, 1, 0.75);           // a faceted, flat-sided body
-        p.add(new THREE.CylinderGeometry(0.06, 0.78, 2.6, 6), main, 0, 0, -4.3, -RX, 0, 0, 1.35, 1, 0.75);
+        body([[0.02, -5.7], [0.3, -5.1], [0.56, -4.4], [0.74, -3.6], [0.84, -2.6], [0.88, -1.2], [0.88, 2.6], [0.74, 4.2], [0.58, 4.7]], 1.35, 0.76, main, 6);   // a faceted, flat-sided body
         p.ball(1, main, 0, 0.45, -0.4, 0.7, 0.32, 2.4);
         p.box(1.35, 0.62, 2.4, dark, 0, -0.72, -2.0); p.box(1.2, 0.5, 0.08, black, 0, -0.76, -3.22, -0.35, 0, 0);    // the big chin intake under the nose
         plate([[0.9, -1.3], [1.5, -0.9], [4.9, 1.8], [4.9, 2.5], [1.1, 2.8], [0.7, 2.8]], 0.03, 0.12, main);         // trapezoid wing
@@ -231,12 +231,12 @@ function jetModel(team, kind) {
       const F22 = kind === 'f22', main = F22 ? 0x6e747c : 0x8d96a0, dark = F22 ? 0x50565d : 0x6a737d, black = 0x1c1e22;
       // a flat plate from a top-view outline (right half, mirrored), and a fin standing on edge
       const plate = (half, y, t, col) => { const sh = new THREE.Shape(), pts = half.concat(half.slice().reverse().map(([x, z]) => [-x, z])); pts.forEach(([x, z], i) => i ? sh.lineTo(x, z) : sh.moveTo(x, z)); sh.closePath(); p.add(new THREE.ExtrudeGeometry(sh, { depth: t, bevelEnabled: false }), col, 0, y, 0, RX, 0, 0); };
-      const fin = (side, x, cant, outline, col) => { const sh = new THREE.Shape(); outline.forEach(([z, y], i) => i ? sh.lineTo(z, y) : sh.moveTo(z, y)); sh.closePath(); const g = new THREE.ExtrudeGeometry(sh, { depth: 0.08, bevelEnabled: false }); g.rotateY(-Math.PI / 2); g.rotateZ(cant * side); g.translate(x * side, 0, 0); p.add(g, col, 0, 0.2, 0); };
+      const fin = (side, x, cant, outline, col) => { const sh = new THREE.Shape(); outline.forEach(([z, y], i) => i ? sh.lineTo(z, y) : sh.moveTo(z, y)); sh.closePath(); const g = new THREE.ExtrudeGeometry(sh, { depth: 0.08, bevelEnabled: false }); g.rotateY(-Math.PI / 2); g.rotateZ(-cant * side); g.translate(x * side, 0, 0); p.add(g, col, 0, 0.2, 0); };
       // fuselage: long and slim, flattened, with a sharp nose (six-sided on the F-22 for its angular stealth look)
-      const seg = F22 ? 6 : 14;
-      p.add(new THREE.CylinderGeometry(0.62, 0.7, 7.6, seg), main, 0, 0, 0.6, RX, 0, 0, 1.25, 1, 0.78);
-      p.add(new THREE.CylinderGeometry(0.08, 0.62, 2.8, seg), main, 0, 0, -4.6, -RX, 0, 0, 1.25, 1, 0.75);
-      p.add(new THREE.CylinderGeometry(0.05, 0.05, 0.5, 6), black, 0, 0, -6.2, RX, 0, 0);   // pitot tip
+      const seg = F22 ? 6 : 16;
+      if (F22) { body([[0.02, -6.2], [0.22, -5.7], [0.4, -5.1], [0.52, -4.6]], 1.3, 0.78, 0x5a6068, 6); body([[0.52, -4.6], [0.66, -3.9], [0.76, -3.0], [0.82, -1.8], [0.82, 2.8], [0.72, 4.3], [0.6, 4.8]], 1.3, 0.78, main, 6); }
+      else { body([[0.02, -6.0], [0.2, -5.6], [0.36, -5.0], [0.46, -4.5]], 1.15, 0.9, 0x6c747c); body([[0.46, -4.5], [0.6, -3.8], [0.68, -3.0], [0.72, -2.0], [0.74, 2.6], [0.64, 4.4], [0.56, 5.0]], 1.2, 0.85, main); }
+      p.cyl(0.03, 0.03, 0.6, black, 0, 0, F22 ? -6.4 : -6.2, RX, 0, 0);   // pitot tip
       if (F22) {
         plate([[0.3, -5.4], [1.0, -2.4], [5.4, 1.5], [5.3, 2.2], [1.0, 3.0], [0.2, 3.0]], 0.05, 0.12, main);          // diamond wing with chines
         plate([[0.8, 3.1], [2.9, 4.5], [2.7, 5.4], [0.7, 5.1]], 0.0, 0.08, main);                                    // tailplanes
@@ -255,8 +255,7 @@ function jetModel(team, kind) {
       p.box(0.3, 0.04, 2.4, P.team, 0, 0.56, 1.4);   // team colour stripe along the spine
       // finer detail: a darker radar nose, gun port, canopy frame and headrest, panel lines, leading-edge strips,
       // lights, nozzle petals, tail stripes, and (on the F-18) missiles on pylons and a centre fuel tank
-      const radome = F22 ? 0x5a6068 : 0x6c747c, panel = F22 ? 0x5e646b : 0x7a838d, lite = 0xb8ffb0;
-      p.add(new THREE.CylinderGeometry(0.06, 0.34, 1.2, F22 ? 6 : 14), radome, 0, 0, -5.45, -RX, 0, 0, 1.25, 1, 0.75);
+      const panel = F22 ? 0x5e646b : 0x7a838d, lite = 0xb8ffb0;
       p.box(0.12, 0.06, 0.25, black, 0.42, 0.22, -3.6);                                                      // gun port
       p.box(0.04, 0.04, 1.9, black, 0, 0.93, -3.4); p.box(0.7, 0.04, 0.05, black, 0, 0.82, -2.9);                // canopy frame
       p.box(0.34, 0.32, 0.12, black, 0, 0.72, -2.75); p.box(0.22, 0.08, 0.3, 0x2a2e33, 0, 0.62, -4.3);      // ejection seat headrest, coaming
@@ -314,8 +313,25 @@ function jetModel(team, kind) {
     return p;
   });
   const m = new THREE.Mesh(geo, VEH_MAT); m.castShadow = true; g.add(m);
-  const canopy = new THREE.Mesh(new THREE.SphereGeometry(0.5, 12, 8), new THREE.MeshPhongMaterial({ color: 0x223344, transparent: true, opacity: 0.6, shininess: 100 }));
-  canopy.scale.set(0.8, 0.6, 2.2); canopy.position.set(0, kind === 'stealth' ? 0.75 : kind === 'su35' ? 0.78 : 0.62, kind === 'stealth' ? -2.2 : kind === 'su35' ? -3.4 : -3.4); g.add(canopy);
+  // the canopy: a long bubble sitting on the cockpit; the stealth fighters' glass has a gold tint
+  const CN = { f18: [0.6, -3.5, 0.8, 0.62, 2.3], f22: [0.6, -3.35, 0.85, 0.62, 2.3], f35: [0.7, -3.0, 0.95, 0.66, 2.3], su35: [0.68, -3.55, 0.8, 0.7, 2.3], su75: [0.62, -2.95, 0.9, 0.6, 2.2] }[kind];
+  const gold = kind === 'f22' || kind === 'f35' || kind === 'su75';
+  const canopy = new THREE.Mesh(new THREE.SphereGeometry(0.5, 16, 10), new THREE.MeshPhongMaterial({ color: gold ? 0x7a6a34 : 0x223344, specular: gold ? 0xffe8a0 : 0x99bbdd, transparent: true, opacity: gold ? 0.75 : 0.6, shininess: 120 }));
+  if (CN) { canopy.scale.set(CN[2], CN[3], CN[4]); canopy.position.set(0, CN[0], CN[1]); }
+  else { canopy.scale.set(0.8, 0.6, 2.2); canopy.position.set(0, kind === 'stealth' ? 0.75 : 0.62, kind === 'stealth' ? -2.2 : -3.4); }
+  g.add(canopy);
+  // landing gear: down on the runway and low and slow, folded away in flight
+  let gear = null;
+  if (isFighterJet(kind)) {
+    const GP = new Part(), strut = 0x9a9ea2, tyre = 0x1a1a1a, door = { f18: 0x7a838d, f22: 0x5e646b, f35: 0x6e747a, su35: 0x5e7086, su75: 0x525c66 }[kind];
+    const nz = { f18: -3.9, f22: -3.9, f35: -3.4, su35: -4.3, su75: -3.4 }[kind], mz = kind === 'su35' ? 1.6 : 1.0, mx = kind === 'su35' ? 1.1 : 1.0;
+    GP.cyl(0.07, 0.07, 1.15, strut, 0, -0.85, nz); GP.cyl(0.24, 0.24, 0.16, tyre, 0, -1.33, nz, 0, 0, Math.PI / 2, 1, 12); GP.box(0.04, 0.5, 0.9, door, 0.22, -0.55, nz + 0.1);
+    for (const sd of [-1, 1]) {
+      GP.cyl(0.09, 0.09, 1.2, strut, mx * sd, -0.8, mz, 0, 0, -sd * 0.12); GP.cyl(0.3, 0.3, 0.22, tyre, (mx + 0.08) * sd, -1.3, mz, 0, 0, Math.PI / 2, 1, 14);
+      GP.cyl(0.14, 0.14, 0.24, strut, (mx + 0.09) * sd, -1.3, mz, 0, 0, Math.PI / 2, 1, 8); GP.box(0.04, 0.7, 1.1, door, (mx - 0.35) * sd, -0.55, mz);
+    }
+    gear = new THREE.Mesh(GP.build(), VEH_MAT); gear.castShadow = true; g.add(gear);
+  }
   const prop = new THREE.Object3D(); g.add(prop);
   const bomb = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 1.6, 10), new THREE.MeshLambertMaterial({ color: 0x30343a })); bomb.rotation.x = RX; bomb.position.set(0, -0.6, 0); g.add(bomb);
   const gunYaw = new THREE.Group(); gunYaw.position.set(0, 0.6, 2.5); g.add(gunYaw); const gunPitch = new THREE.Group(); gunYaw.add(gunPitch);
@@ -332,7 +348,7 @@ function jetModel(team, kind) {
     }
     g.userData.ab = ab;
   }
-  return { g, prop, bomb, canopy, gunYaw, gunPitch };
+  return { g, prop, bomb, canopy, gunYaw, gunPitch, gear };
 }
 // World War 1 fighters: a red triplane (three stacked wings, like the famous Red Baron's) and a two-winged biplane
 function ww1Model(team, kind) {
