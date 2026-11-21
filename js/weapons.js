@@ -408,6 +408,7 @@ function spawnRocket(origin, dir, owner, opts = {}) {
   g.position.copy(origin); g.lookAt(origin.clone().add(dir)); scene.add(g);
   projectiles.push({ type: 'rocket', mesh: g, vel: dir.clone().multiplyScalar(opts.speed || 42), life: 5, smokeT: 0, owner, homing: !!opts.homing, dmg: opts.dmg || 140, radius: opts.radius || 7, ghost: !!opts.ghost, shell: !!opts.shell });
   if (opts.shell) { b.material = PJ.shell; tip.material = PJ.shell; }
+  if (opts.flak) { const pr = projectiles[projectiles.length - 1]; pr.flak = true; pr.life = opts.fuse || 3; g.scale.setScalar(0.6); }
   if (!opts.ghost) netFx(['r', teamIdx(owner.team), ...v3(origin), ...v3(dir, 3), opts.speed || 42, opts.homing ? 1 : 0, opts.radius || 7, opts.shell ? 1 : 0]);
 }
 // a proper hand grenade: ridged olive body, a grey fuse on top and a red light that blinks faster as it is about to go off
@@ -456,6 +457,22 @@ function updateProjectiles(dt) {
     const pr = projectiles[i];
     pr.life -= dt; pr.age = (pr.age || 0) + dt;
     if (pr.type === 'rocket') {
+      if (pr.flak) {   // anti-aircraft shell: bursts when it passes close to an enemy plane, or at the range you aimed at
+        let near = null; const P0 = pr.mesh.position, V = pr.vel, vv = V.lengthSq() * dt * dt;
+        for (const pl of planes) {   // closest approach along this frame's flight, so a fast shell can't skip past
+          if (!pl.alive || pl.team === pr.owner.team) continue;
+          const dx = pl.pos.x - P0.x, dy = pl.pos.y - P0.y, dz = pl.pos.z - P0.z, k = vv > 0 ? clamp((dx * V.x + dy * V.y + dz * V.z) * dt / vv, 0, 1) : 0;
+          const ex = dx - V.x * dt * k, ey = dy - V.y * dt * k, ez = dz - V.z * dt * k;
+          if (ex * ex + ey * ey + ez * ez < 100) { near = pl; P0.set(P0.x + V.x * dt * k, P0.y + V.y * dt * k, P0.z + V.z * dt * k); break; }
+        }
+        if (near || pr.life <= 0) {
+          const at = pr.mesh.position.clone(); removeProjectile(pr);
+          if (!pr.ghost) for (const pl of planes) { if (!pl.alive || pl.team === pr.owner.team) continue; const d = pl.pos.distanceTo(at); if (d < 15) damagePlane(pl, pr.dmg * (d < 6 ? 1 : 0.5), pr.owner); }   // the burst throws splinters about 15 m
+          smokePuff(at, 0x262626, 2.4, 2.5, 1.2); burst(at, 6, 0xffb040, 6, 0.3, 0.1);
+          if (!near && at.y < WATER_Y + 3) explosion(at, pr.radius, 20, pr.owner, pr.dmg * 0.6, pr.ghost);   // aimed low: it hits the water or a boat
+          continue;
+        }
+      }
       if (pr.homing) {
         let best = pr.target && pr.target.alive ? pr.target : null, bd = best ? best.pos.distanceTo(pr.mesh.position) : 260;   // a guided missile keeps its lock
         if (!best) for (const pl of planes) {

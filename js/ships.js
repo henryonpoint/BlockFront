@@ -49,7 +49,7 @@ function shipSlab(P, s, top, depth, color, shrink = 0) {
 
 function buildBattleship(x, z, yaw, team) {
   const L = 190, B = 30, mainY = 8;
-  const s = { kind: 'battleship', name: 'Battleship', team, x, z, yaw, L, B, mainY, speed: 0, throttle: 0, rudder: 0, decks: [], walls: [], turrets: [], fireT: 0 };
+  const s = { kind: 'battleship', name: 'Battleship', team, x, z, yaw, L, B, mainY, speed: 0, throttle: 0, rudder: 0, decks: [], walls: [], turrets: [], fireT: 0 }; s.aa = []; SH.building = s;
   s.halfW = u => u > 50 ? lerp(B / 2, 2, clamp((u - 50) / 45, 0, 1)) : u < -80 ? lerp(B / 2, B / 2 - 6, clamp((-u - 80) / 15, 0, 1)) : B / 2;
   const g = new THREE.Group(); scene.add(g); s.g = g;
   const P = new Part(), grey = 0x7a8088, dark = 0x5a6068, deck = 0x9a7a52, hullC = 0x6a7078, red = 0x6a2a24;
@@ -63,7 +63,7 @@ function buildBattleship(x, z, yaw, team) {
   P.cyl(2.6, 3, 10, dark, -20, mainY + 14, 0); P.cyl(2.4, 2.8, 9, dark, -30, mainY + 13, 0);
   P.cyl(0.4, 0.5, 18, dark, -2, mainY + 29, 0); P.box(8, 0.4, 0.4, dark, -2, mainY + 34, 0);
   for (const v of [-9, 9]) for (const u of [-28, -18, -4, 6]) P.box(3, 2, 3, dark, u, mainY + 7, v);   // secondary gun mounts
-  for (let i = 0; i < 10; i++) P.box(1, 1.2, 1, 0x3a3e44, -40 + i * 8, mainY + 0.8, (i % 2 ? 1 : -1) * 13.5);   // anti-aircraft guns along the rails
+  for (let i = 0; i < 10; i++) { P.box(1, 1.2, 1, 0x3a3e44, -40 + i * 8, mainY + 0.8, (i % 2 ? 1 : -1) * 13.5); s.aa.push({ u: -40 + i * 8, v: (i % 2 ? 1 : -1) * 13.5, y: mainY + 1.4 }); }   // anti-aircraft guns along the rails
   // railings along the deck edge
   for (let u = -94; u < 94; u += 4) for (const sd of [-1, 1]) P.box(4, 0.1, 0.1, dark, u + 2, mainY + 1.1, sd * (s.halfW(u + 2) - 0.3));
   // finer detail: portholes along the hull, anchors at the bow, lifeboats, searchlights, a range finder on the bridge
@@ -103,7 +103,7 @@ function buildBattleship(x, z, yaw, team) {
 }
 function buildCarrier(x, z, yaw, team) {
   const L = 220, B = 38, mainY = 18, hangY = 8;
-  const s = { kind: 'carrier', name: 'Aircraft carrier', team, x, z, yaw, L, B, mainY, speed: 0, throttle: 0, rudder: 0, decks: [], walls: [], turrets: [], fireT: 0 };
+  const s = { kind: 'carrier', name: 'Aircraft carrier', team, x, z, yaw, L, B, mainY, speed: 0, throttle: 0, rudder: 0, decks: [], walls: [], turrets: [], fireT: 0 }; s.aa = []; SH.building = s;
   s.halfW = u => u > 80 ? lerp(B / 2, 8, clamp((u - 80) / 30, 0, 1)) : B / 2;
   const g = new THREE.Group(); scene.add(g); s.g = g;
   const P = new Part(), grey = 0x737a82, dark = 0x50565e, deck = 0x3a3d42, hullC = 0x666d75, red = 0x6a2a24;
@@ -190,7 +190,7 @@ function installShipHooks() {
     }
     return floor;
   };
-  const _af = applyFx; applyFx = function (e, src) { if (e && e[1] === 'tp') { const s = SHIPS2[e[2]]; if (s) fireTorpedo(s, true); return; } return _af.apply(this, arguments); };
+  const _af = applyFx; applyFx = function (e, src) { if (e && e[1] === 'tp') { const s = SHIPS2[e[2]]; if (s) fireTorpedo(s, true); return; } if (e && e[1] === 'dc') { const s = SHIPS2[e[2]]; if (s) dropDepthCharges(s, true); return; } return _af.apply(this, arguments); };
   const _fw = fireWeapon;
   fireWeapon = function () { if (player.ship) return; return _fw.apply(this, arguments); };   // in command, the click fires the ship's guns
 }
@@ -212,7 +212,7 @@ function shipTurret(s, u, fwd, y, size) {   // a turret whose barrels lift and t
 }
 function buildDestroyer(x, z, yaw, team, L = 100) {
   const B = 11, mainY = 5;
-  const s = { kind: 'destroyer', name: 'Destroyer', team, x, z, yaw, L, B, mainY, speed: 0, throttle: 0, rudder: 0, decks: [], walls: [], turrets: [], fireT: 0, reload: 1.6, topSpeed: 22 };
+  const s = { kind: 'destroyer', name: 'Destroyer', team, x, z, yaw, L, B, mainY, speed: 0, throttle: 0, rudder: 0, decks: [], walls: [], turrets: [], fireT: 0, reload: 1.6, topSpeed: 22 }; s.aa = []; SH.building = s;
   s.halfW = u => u > L * 0.15 ? lerp(B / 2, 0.9, Math.pow(clamp((u - L * 0.15) / (L * 0.35), 0, 1), 1.6)) : u < -L * 0.38 ? lerp(B / 2, B / 2 - 1.6, clamp((-u - L * 0.38) / (L * 0.12), 0, 1)) : B / 2;
   const g = new THREE.Group(); scene.add(g); s.g = g;
   const P = new Part(), grey = 0x737a82, dark = 0x4e545c, hullC = 0x6a7078, deckC = 0x5a5e62, navy = 0x3e4752;
@@ -227,6 +227,7 @@ function buildDestroyer(x, z, yaw, team, L = 100) {
   for (const dv of [-1, 0, 1]) P.cyl(0.14, 0.2, 9, dark, su - 2.5 + (dv === 0 ? -1 : 0), mainY + 9.5, dv * 0.8, 0, 0, dv * 0.08, 1, 6); P.box(5, 0.2, 0.2, dark, su - 3, mainY + 12.5, 0);
   for (const fu of [su - 12, su - 21]) { P.cyl(1.3, 1.5, 6, grey, fu, mainY + 5, 0, 0, 0, 0.12, 1, 12); P.cyl(1.35, 1.35, 0.6, 0x1c1e22, fu - 0.35, mainY + 8, 0, 0, 0, 0.12, 1, 12); }
   // torpedo tubes amidships, depth charge racks at the stern, 40 mm guns, lifeboats, railings
+  s.tubeU = su - 34;
   for (const tu of [su - 30, su - 38]) { P.cyl(1.2, 1.2, 0.6, dark, tu, mainY + 0.55, 0, 0, 0, 0, 1, 10); for (const o of [-0.9, -0.3, 0.3, 0.9]) P.cyl(0.24, 0.24, 6.5, dark, tu, mainY + 1.15, o, 0, 0, Math.PI / 2, 1, 8); }
   for (const sd of [-1, 1]) { P.box(5, 0.9, 0.9, dark, -L / 2 + 4, mainY + 0.7, sd * 2.4); for (let i = 0; i < 4; i++) P.cyl(0.35, 0.35, 0.7, 0x2a2e34, -L / 2 + 2.4 + i * 1.1, mainY + 1.5, sd * 2.4, 0, 0, 0, 1, 8); }
   for (const [u, v] of [[su - 26, -4], [su - 26, 4], [su + 9, -3.6], [su + 9, 3.6]]) shipBofors(P, u, v, mainY, grey, dark);
@@ -246,7 +247,7 @@ function buildDestroyer(x, z, yaw, team, L = 100) {
 // ---------- a submarine: runs on the surface, fires torpedoes from its bow tubes and has a deck gun ----------
 function buildSub(x, z, yaw, team) {
   const L = 76, B = 7.4, mainY = 2.3;
-  const s = { kind: 'sub', name: 'Submarine', team, x, z, yaw, L, B, mainY, speed: 0, throttle: 0, rudder: 0, decks: [], walls: [], turrets: [], fireT: 0, reload: 1.2, topSpeed: 18, torpT: 0, torps: 4 };
+  const s = { kind: 'sub', name: 'Submarine', team, x, z, yaw, L, B, mainY, speed: 0, throttle: 0, rudder: 0, decks: [], walls: [], turrets: [], fireT: 0, reload: 1.2, topSpeed: 18, torpT: 0, torps: 4 }; s.aa = []; SH.building = s;
   s.halfW = u => Math.max(0.6, 2.2 * Math.sqrt(Math.max(0, 1 - Math.pow(u / (L / 2), 2))));   // the narrow walking deck along the top
   const g = new THREE.Group(); scene.add(g); s.g = g;
   const P = new Part(), hullC = 0x3c4248, dark = 0x2a2e33, deckC = 0x4a4038, red = 0x5a2420;
@@ -287,11 +288,19 @@ function buildSub(x, z, yaw, team) {
 // torpedoes: run straight just under the surface, leave a trail of bubbles, and blow up on the first hull, boat or shore they meet
 const TORPS = [];
 function fireTorpedo(s, ghost) {
-  const b = shipBasis(s);
+  const b = shipBasis(s), dd = s.kind === 'destroyer';
+  let goal = null;
+  if (!ghost && SH.view === 'periscope') goal = player.yaw;
+  else if (!ghost && s.aimPt) { const c = shipWorld(s, dd ? s.tubeU : s.L / 2, 0); goal = Math.atan2(-(s.aimPt.x - c.x), -(s.aimPt.z - c.z)); }
   for (const sd of [-1, 1]) {
-    const p = shipWorld(s, s.L / 2 + 1, sd * 1.1), mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.27, 0.27, 6, 8), new THREE.MeshLambertMaterial({ color: 0x2a2e33 }));
+    let p = shipWorld(s, s.L / 2 + 1, sd * 1.1), fx = b.fx, fz = b.fz;
+    if (dd) {   // launched over the side facing the target, then the gyro turns them
+      const side = s.aimPt && !ghost ? (Math.sign(shipLocal(s, s.aimPt.x, s.aimPt.z).v) || 1) : sd;
+      p = shipWorld(s, s.tubeU + sd * 4, side * (s.halfW(s.tubeU) + 1.5)); fx = b.rx * side; fz = b.rz * side;
+    }
+    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.27, 0.27, 6, 8), new THREE.MeshLambertMaterial({ color: 0x2a2e33 }));
     mesh.rotation.order = 'YXZ'; mesh.rotation.set(Math.PI / 2, s.yaw, 0); scene.add(mesh);
-    TORPS.push({ x: p.x, z: p.z, y: Math.min(WATER_Y - 0.5, shipY(s) - 0.5), fx: b.fx, fz: b.fz, sp: 0, life: 16, src: s, mesh, ghost, owner: player, goal: !ghost && SH.view === 'periscope' ? player.yaw : null, age: 0 });
+    TORPS.push({ x: p.x, z: p.z, y: Math.min(WATER_Y - 0.5, shipY(s) - 0.5), fx, fz, sp: 0, life: 16, src: s, mesh, ghost, owner: player, goal, age: dd ? 0.2 : 0 });
   }
   if (!ghost && typeof netFx === 'function' && net.active) netFx(['tp', SHIPS2.indexOf(s)]);
   playAt('thump', player.pos, 0.9);
@@ -316,14 +325,37 @@ function updateTorpedoes(dt) {
     for (let k = 0; k < 60; k++) emitSpray(t.x + rand(-2, 2), WATER_Y + 0.5, t.z + rand(-2, 2), rand(-3, 3), rand(10, 26), rand(-3, 3), 2.6);   // a tall column of water
     if (!t.ghost) explosion(p, 11, 40, t.owner, 380);
     else { playAt('boom', p, 1.2); fxExplosion(p, 9); }
-    if (hit && hit.kind && !t.ghost) shipHit(hit, t.owner);
+    if (hit && hit.kind && !t.ghost) shipHit(hit, t.owner, 'Torpedo');
   }
 }
 // a big ship hit by torpedoes lists, slows and smokes; three hits leave it dead in the water for a minute
-function shipHit(s, by) {
+// depth charges: roll off the stern, sink, and burst under the water; deadly to a submarine close by
+const DCS = [];
+function dropDepthCharges(s, ghost) {
+  for (const sd of [-1, 1]) {
+    const p = shipWorld(s, -s.L / 2 - 0.5, sd * 2.4), mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.8, 8), new THREE.MeshLambertMaterial({ color: 0x2a2e34 }));
+    mesh.position.set(p.x, WATER_Y + s.mainY, p.z); scene.add(mesh); DCS.push({ x: p.x, z: p.z, y: WATER_Y + s.mainY, t: 0, mesh, ghost, owner: player, src: s, delay: sd > 0 ? 0.6 : 0 });
+  }
+  if (!ghost && typeof netFx === 'function' && net.active) netFx(['dc', SHIPS2.indexOf(s)]);
+  playAt('thump', player.pos, 0.6);
+}
+function updateDepthCharges(dt) {
+  for (let i = DCS.length - 1; i >= 0; i--) {
+    const c = DCS[i]; c.t += dt; c.y -= dt * (c.y > WATER_Y ? 6 : 4); c.mesh.position.y = c.y; c.mesh.rotation.x += dt * 3;
+    if (c.y < WATER_Y && c.y > WATER_Y - 0.5 && Math.random() < 0.5) emitSpray(c.x, WATER_Y + 0.1, c.z, rand(-1, 1), rand(1, 3), rand(-1, 1), 1.2);
+    if (c.t < 2.6 + c.delay) continue;
+    scene.remove(c.mesh); c.mesh.geometry.dispose(); DCS.splice(i, 1);
+    for (let k = 0; k < 70; k++) emitSpray(c.x + rand(-4, 4), WATER_Y + 0.3, c.z + rand(-4, 4), rand(-4, 4), rand(8, 20), rand(-4, 4), 2.8);   // the white dome of water
+    const p = new THREE.Vector3(c.x, WATER_Y + 0.3, c.z);
+    if (c.ghost) { playAt('boom', p, 1); continue; }
+    explosion(p, 9, 30, c.owner, 150);
+    for (const q of SHIPS2) if (q.kind === 'sub' && q !== c.src) { const l = shipLocal(q, c.x, c.z); if (inHull(q, l.u, l.v, 14)) shipHit(q, c.owner, 'Depth charge'); }
+  }
+}
+function shipHit(s, by, what = 'Hit') {
   s.dmg = (s.dmg || 0) + (s.kind === 'battleship' || s.kind === 'carrier' ? 1 : 1.6);
   s.smokeT = 999;
-  if (by === player) showMessage(s.dmg >= 3 ? `The ${s.name.toLowerCase()} is dead in the water!` : `Torpedo hit on the ${s.name.toLowerCase()}!`, 2.5);
+  if (by === player) showMessage(s.dmg >= 3 ? `The ${s.name.toLowerCase()} is dead in the water!` : `${what} hit on the ${s.name.toLowerCase()}!`, 2.5);
   if (s.dmg >= 3) { s.disabledT = 60; s.throttle = 0; }
 }
 // ---------- building them on the maps ----------
@@ -347,6 +379,7 @@ function shipGun5(P, u, v, y, facing, grey, dark) {   // a twin 5-inch gun turre
   for (const o of [-0.7, 0.7]) P.cyl(0.18, 0.2, 4.2, dark, u + o, y + 1.1, v + facing * 3.9, Math.PI / 2, 0, 0, 1, 8);
 }
 function shipBofors(P, u, v, y, grey, dark) {   // a quad 40 mm anti-aircraft mount in its round tub
+  if (SH.building && SH.building.aa) SH.building.aa.push({ u, v, y: y + 1.6 });   // the captain can fire these
   P.cyl(1.5, 1.6, 1.0, grey, u, y + 0.5, v, 0, 0, 0, 1, 12); P.box(1.4, 0.8, 1.2, dark, u, y + 1.2, v);
   for (const o of [-0.45, -0.15, 0.15, 0.45]) P.cyl(0.07, 0.07, 2.2, dark, u + o, y + 1.6, v + (v > 0 ? 1 : -1) * 1.0, Math.PI / 2 - 0.5 * (v > 0 ? 1 : -1), 0, 0, 1, 6);
 }
@@ -417,7 +450,6 @@ function updateShips(dt) {
     updateShipFx(s, dt);
     if (s.dmg > 0 && Math.random() < dt * (2 + s.dmg * 2)) { const p = shipWorld(s, rand(-s.L / 4, s.L / 4), 0); smokePuff(new THREE.Vector3(p.x, WATER_Y + s.mainY + 2, p.z), 0x3a3a3a, 3 + s.dmg, 5, 4); }   // smoke from a damaged ship
     if (s.kind === 'sub') {
-      s.torpT = (s.torpT || 0) - dt; if (captain && keys.Space && s.torpT <= 0) { s.torpT = 4; fireTorpedo(s); showMessage('Torpedoes away!', 1.2); }
       // diving: Q to go down, Z to come up. How deep it can go depends on the water under it
       const floor = Math.min(...[[s.L / 2, 0], [0, 0], [-s.L / 2, 0]].map(([u, v]) => { const p = shipWorld(s, u, v); return WATER_Y - heightAt(p.x, p.z); }));
       const maxD = clamp(floor - 4.5, 0, 16);   // keep a few metres between the keel and the sea bed
@@ -435,16 +467,19 @@ function updateShips(dt) {
       }
       s.divePitch = lerp(s.divePitch || 0, clamp(((s.wantDepth || 0) - s.depth) * 0.04, -0.07, 0.07), Math.min(1, dt * 2));   // nose down as it dives, up as it rises
     }
+    s.torpT = (s.torpT || 0) - dt; s.dcT = (s.dcT || 0) - dt; s.aaT = (s.aaT || 0) - dt;
+    if (captain) shipWeapons(s);
     if (captain) {
       const hw = shipWorld(s, s.helm.u, s.helm.v); player.pos.set(hw.x, s.helm.y + shipY(s), hw.z); player.velY = 0; player.onGround = true;
       if (player.body3p && player.body3p.root) player.body3p.root.visible = !((s.depth || 0) > 1);   // inside the hull once it dives
       shipCamera(s, dt);
-      if (s.turrets.length) aimShipGuns(s, dt);
+      aimShipGuns(s, dt);
       updateShipHud(s);
     }
   }
   updateShipPrompt();
   if (TORPS.length) updateTorpedoes(dt);
+  if (DCS.length) updateDepthCharges(dt);
 }
 // three views at the wheel: C cycles a chase camera behind the ship, the bridge, and (battleship) the gun sight
 const SHIP_VIEWS = ['chase', 'bridge', 'guns'];
@@ -571,7 +606,7 @@ function aimShipGuns(s, dt) {
   const target = hit ? hit.point : camera.position.clone().addScaledVector(dir, 3000);
   if (!s.marker) { s.marker = new THREE.Mesh(new THREE.RingGeometry(9, 12, 32), new THREE.MeshBasicMaterial({ color: 0xff4a3a, transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthTest: false })); s.marker.rotation.x = -Math.PI / 2; s.marker.renderOrder = 5; scene.add(s.marker); }
   s.marker.visible = true; s.marker.position.set(target.x, Math.max(target.y, WATER_Y) + 0.4, target.z); s.marker.scale.setScalar(1 + target.distanceTo(camera.position) / 900);
-  s.onTarget = 0;
+  s.aimPt = target; s.onTarget = 0;
   s.fireT -= dt;
   let fired = 0;
   for (const t of s.turrets) {
@@ -584,7 +619,7 @@ function aimShipGuns(s, dt) {
     const dist = Math.hypot(lx, lz), wantP = clamp(Math.atan2(target.y - (s.mainY + t.piv.y + shipY(s)), dist), -0.08, 0.6);
     t.p += clamp(wantP - t.p, -0.4 * dt, 0.4 * dt);
     t.g.rotation.y = t.yaw; t.pitch.rotation.x = t.p;   /* barrels lift with the aim */
-    if (mouse.left && s.fireT <= 0 && canBear && Math.abs(wrapAngle(want - t.yaw)) < 0.08) {
+    if (mouse.left && shipWeapon(s) === 'guns' && !((s.depth || 0) > 1.2) && s.fireT <= 0 && canBear && Math.abs(wrapAngle(want - t.yaw)) < 0.08) {
       for (const vv of t.bar) {
         const m = new THREE.Vector3(vv, 0, -t.len).applyEuler(new THREE.Euler(t.p, 0, 0)).add(t.piv).applyEuler(new THREE.Euler(0, t.yaw, 0)).add(new THREE.Vector3(t.u, s.mainY, 0));
         const wp = new THREE.Vector3(m.z * 0, 0, 0); s.g.localToWorld(wp.set(m.x, m.y, m.z));
@@ -597,15 +632,46 @@ function aimShipGuns(s, dt) {
   }
   if (fired) { s.fireT = s.reload || 3; playAt('boom', player.pos, s.kind === 'battleship' ? 1.3 : 0.9); camShake = Math.max(camShake, s.kind === 'battleship' ? 0.12 : 0.05); if (s.kind === 'battleship') showMessage('FIRE! Main guns reloading...', 1.5); }
 }
+// the captain's weapons: 1-4 (or R) picks one, a click fires it. Space always fires torpedoes
+function shipWeaponList(s) {
+  if (!s.wlist) { s.wlist = []; if (s.turrets.length) s.wlist.push('guns'); if (s.aa && s.aa.length) s.wlist.push('aa'); if (s.kind === 'sub' || s.kind === 'destroyer') s.wlist.push('torp'); if (s.kind === 'destroyer') s.wlist.push('dc'); s.wsel = 0; }
+  return s.wlist;
+}
+function shipWeapon(s) { const l = shipWeaponList(s); return l[s.wsel || 0]; }
+const SHIP_WNAME = { guns: 'Main guns', aa: 'AA guns', torp: 'Torpedoes', dc: 'Depth charges' };
+function shipWeapons(s) {
+  const w = shipWeapon(s), sub = (s.depth || 0) > 1.2;
+  if ((keys.Space || (mouse.left && w === 'torp')) && s.torpT <= 0 && shipWeaponList(s).includes('torp')) { s.torpT = s.kind === 'destroyer' ? 6 : 4; fireTorpedo(s); showMessage('Torpedoes away!', 1.2); }
+  if (mouse.left && w === 'dc' && s.dcT <= 0) { s.dcT = 3; dropDepthCharges(s); showMessage('Depth charges away!', 1.2); }
+  if (mouse.left && w === 'aa' && s.aaT <= 0 && s.aimPt && !sub) {   // the 40 mm guns on the side facing the target pump out shells
+    s.aaT = 0.09;
+    const tv = Math.sign(shipLocal(s, s.aimPt.x, s.aimPt.z).v), mounts = s.aa.filter(m => Math.abs(m.v) < 1 || Math.sign(m.v) === tv);
+    const m = (mounts.length ? mounts : s.aa)[Math.floor(Math.random() * (mounts.length || s.aa.length))], w0 = shipWorld(s, m.u, m.v);
+    const from = new THREE.Vector3(w0.x, shipY(s) + m.y, w0.z), d = s.aimPt.clone().sub(from), dist = d.length();
+    d.normalize(); d.x += rand(-0.012, 0.012); d.y += rand(-0.012, 0.012); d.z += rand(-0.012, 0.012); d.normalize();
+    spawnRocket(from, d, player, { speed: 330, dmg: 45, radius: 3, shell: true, flak: true, fuse: Math.min(4, Math.max(0.3, dist / 330)) });
+    burst(from, 3, 0xffd080, 4, 0.2, 0.08); if (Math.random() < 0.5) playAt('mg', from, 0.5);
+  }
+}
+addEventListener('keydown', e => {
+  if (!player.ship || e.repeat) return;
+  const l = shipWeaponList(player.ship), n = { Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3 }[e.code];
+  if (n !== undefined && n < l.length) player.ship.wsel = n;
+  else if (e.code === 'KeyR') player.ship.wsel = ((player.ship.wsel || 0) + 1) % l.length;
+  else return;
+  showMessage(SHIP_WNAME[shipWeapon(player.ship)] + ' selected', 1);
+});
 function updateShipHud(s) {
   let el = document.getElementById('shipHud');
   if (!el) { el = document.createElement('div'); el.id = 'shipHud'; el.className = 'hud'; el.style.cssText = 'position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:rgba(0,0,0,.5);color:#fff;padding:8px 16px;border-radius:10px;font:600 13px system-ui,sans-serif;text-align:center;pointer-events:none'; document.body.appendChild(el); }
   el.style.display = 'block';
   const rud = Math.round(s.rudder * 100), view = s.turrets.length ? (SH.view || 'chase') : (SH.view === 'guns' ? 'chase' : SH.view || 'chase');
   const torp = s.kind === 'sub' ? `<br>Depth: ${(s.depth || 0) < 0.5 ? 'surfaced' : Math.round(s.depth) + ' m' + (s.depth > 1.2 ? ' (submerged)' : '')} &nbsp; Q dive, Z rise<br>Torpedoes: ${s.torpT > 0 ? `reloading ${s.torpT.toFixed(1)}s` : '<b style="color:#9be38a">READY</b>'} &nbsp; Space to fire &nbsp; C: periscope view` : '';
+  const wsel = shipWeapon(s), rdy = { guns: s.fireT, aa: s.aaT, torp: s.torpT, dc: s.dcT };
+  const wl = '<br>' + shipWeaponList(s).map((w, i) => `<span style="${w === wsel ? 'background:#ffd36a;color:#111;' : 'opacity:.75;'}padding:1px 6px;border-radius:4px">${i + 1} ${SHIP_WNAME[w]}${rdy[w] > 0.15 ? ' (' + rdy[w].toFixed(1) + 's)' : ''}</span>`).join(' ') + ' &nbsp; <span style="opacity:.8">1-4 or R to switch, click to fire</span>';
   const dmgTxt = s.disabledT > 0 ? `<br><b style="color:#ff8a7a">Dead in the water: repairs ${Math.ceil(s.disabledT)}s</b>` : s.dmg > 0 ? '<br><b style="color:#ffb060">Damaged</b>' : '';
-  const guns = s.turrets.length ? `<br>Guns: ${s.fireT > 0 ? `reloading ${s.fireT.toFixed(1)}s` : `<b style="color:#9be38a">READY</b>`} &nbsp; ${s.onTarget}/${s.turrets.length} turrets on target &nbsp; Click to fire${view === 'guns' ? ', right click to zoom' : ''}` : '';
-  el.innerHTML = `<b>${s.name}</b> &nbsp; ${Math.round(Math.abs(s.speed) * 1.94)} knots &nbsp; Throttle ${Math.round(s.throttle * 100)}% &nbsp; Rudder ${rud > 0 ? 'left ' + rud : rud < 0 ? 'right ' + -rud : 'centre'}${guns}${torp}${dmgTxt}<br><span style="opacity:.8">W/S throttle, X stop &nbsp; A/D steer &nbsp; C change view (${view === 'chase' ? 'behind the ship' : view === 'bridge' ? 'bridge' : 'gun sight'}) &nbsp; E leave the wheel</span>`;
+  const guns = s.turrets.length ? `<br>Guns: ${s.fireT > 0 ? `reloading ${s.fireT.toFixed(1)}s` : `<b style="color:#9be38a">READY</b>`} &nbsp; ${s.onTarget}/${s.turrets.length} turrets on target &nbsp; ${view === 'guns' ? 'right click to zoom' : ''}` : '';
+  el.innerHTML = `<b>${s.name}</b> &nbsp; ${Math.round(Math.abs(s.speed) * 1.94)} knots &nbsp; Throttle ${Math.round(s.throttle * 100)}% &nbsp; Rudder ${rud > 0 ? 'left ' + rud : rud < 0 ? 'right ' + -rud : 'centre'}${wl}${guns}${torp}${dmgTxt}<br><span style="opacity:.8">W/S throttle, X stop &nbsp; A/D steer &nbsp; C change view (${view === 'chase' ? 'behind the ship' : view === 'bridge' ? 'bridge' : 'gun sight'}) &nbsp; E leave the wheel</span>`;
 }
 function updateShipPrompt() {
   let near = null;
