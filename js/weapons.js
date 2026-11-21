@@ -333,7 +333,7 @@ function rayHit(origin, dir, maxD, shooterTeam, opts = {}) {
   if (opts.player && player.alive && player.vehicle && player.vehicle !== opts.ignorePlane) { /* plane handled below */ }
   for (const pl of planes) {
     if (!pl.alive || pl.team === shooterTeam || pl === opts.ignorePlane) continue;
-    const t = raySphere(origin, dir, pl.pos, 4.2);
+    const t = raySphere(origin, dir, pl.pos, pl.hitR || 4.2);   // a big bomber is a bigger target
     if (t !== null && t < (best ? best.dist : maxD)) best = { dist: t, point: origin.clone().addScaledVector(dir, t), plane: pl };
   }
   if (typeof CLOWN !== 'undefined' && CLOWN.state && CLOWN.state !== 'leave') {

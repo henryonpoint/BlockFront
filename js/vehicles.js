@@ -119,6 +119,7 @@ function makePlane(team, x, z, yaw, wait, kind) {
   const pl = { idx: planes.length, team, model: m, kind: kind || 'prop', spdMul: K ? K.spd : 1, maxBombs: K ? K.bombs : 1, bombRegenT: K ? K.regen : 25, bombBig: !!(K && K.bombBig), pos: new THREE.Vector3(), quat: new THREE.Quaternion(), speed: 0, throttle: 0, hp: K ? K.hp : 320, maxHp: K ? K.hp : 320, alive: true,
     pilot: null, remote: null, onGround: true, spawn: { x, z, yaw }, gunT: 0, bombs: 1, bombT: 0, bombRegen: 0, respawnT: 0, waitT: wait,
     aiYaw: yaw, aiPitch: 0, aiBank: 0, groundYaw: yaw, wp: null, wpT: 0, smokeT: 0, lastAttacker: null, inP: 0, inR: 0, inY: 0 };
+  if (K && K.big) { pl.hitR = 11; pl.crew = []; }
   resetPlane(pl, wait);
   planes.push(pl);
   return pl;
@@ -150,6 +151,7 @@ function buildPlanes() {
   const HK = { blue: ['f35', 'harrier', 'f22'], red: ['su35', 'harrier', 'su75'] };   /* Houston: modern jets, and a Harrier each */
   [[30, 6], [52, 30], [70, 55]].forEach(([off, wait], i) => makePlane('blue', RUNWAYS.blue.x + off, RUNWAYS.blue.z, RUNWAYS.blue.carrier ? 0 : Math.PI / 2, wait, HOUSTON ? HK.blue[i] : AFGHAN ? (i === 1 ? 'f16' : 'f18') : undefined));
   [[-30, 6], [-52, 30], [-70, 55]].forEach(([off, wait], i) => makePlane('red', RUNWAYS.red.x + off, RUNWAYS.red.z, -Math.PI / 2, wait, HOUSTON ? HK.red[i] : AFGHAN ? (i === 1 ? 'f16' : 'f18') : undefined));   /* Desert Combat: modern jets */
+  if ((GERMANY || PACIFIC) && RUNWAYS.blue && !RUNWAYS.blue.carrier) makePlane('blue', RUNWAYS.blue.x - 42, RUNWAYS.blue.z, Math.PI / 2, 20, 'b17');   /* a B-17 bomber on the WWII airfields */
   if (NORMANDY) {   // a big air battle over the beach: more fighters on both sides, up quickly
     [[8, 1], [-14, 12]].forEach(([off, wait]) => makePlane('blue', RUNWAYS.blue.x + off, RUNWAYS.blue.z, 0, wait));
     [[-8, 1], [14, 12]].forEach(([off, wait]) => makePlane('red', RUNWAYS.red.x + off, RUNWAYS.red.z, -Math.PI / 2, wait));
@@ -530,6 +532,10 @@ addEventListener('keydown', e => {
 
 // ----- AI flying -----
 function chooseAIWaypoint(pl) {
+  if (pl.kind === 'b17') {   // the bomber never dogfights: it flies high bombing runs over the enemy's points
+    let c = points.filter(p => p.owner && p.owner !== pl.team); if (!c.length) c = points.filter(p => p.owner !== pl.team); if (!c.length) c = points;
+    const p = pick(c); pl.wp = { x: p.x, z: p.z, point: p, alt: heightAt(p.x, p.z) + 110 }; pl.wpT = 40; return;
+  }
   if (DOGFIGHT) {   // nothing to bomb: always hunt the nearest enemy plane
     let best = null, bd = Infinity; for (const p of planes) if (p.alive && p.team !== pl.team && !p.onGround) { const d = p.pos.distanceTo(pl.pos); if (d < bd) { bd = d; best = p; } }
     if (best) { pl.wp = { plane: best }; pl.wpT = 8; return; }
@@ -606,6 +612,7 @@ function updateAIPlane(pl, dt) {
 }
 function updatePlanes(dt) {
   for (const pl of planes) {
+    if (pl.kind === 'b17' && pl.alive && typeof b17Tick === 'function') b17Tick(pl, dt);   // propellers, turrets, bomb doors and the computer gunners
     if (pl.model.gear) pl.model.gear.visible = pl.onGround || (pl.pos.y - heightAt(pl.pos.x, pl.pos.z) < 14 && pl.speed < 70);   // wheels down for landing and takeoff
     if (pl.remote) { if (pl.alive) { pl.model.g.position.copy(pl.pos); pl.model.g.quaternion.copy(pl.quat); pl.model.prop.rotation.z += (5 + pl.speed) * dt; } continue; }
     if (!pl.alive) { if (!net.active || net.isHost) { pl.respawnT -= dt; if (pl.respawnT <= 0) resetPlane(pl); } continue; }

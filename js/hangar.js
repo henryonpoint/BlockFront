@@ -12,11 +12,11 @@ const PLANE_UPGRADES = [
 ];
 const PLANE_SHOP = [
   { kind: 'prop', name: 'Fighter plane', cost: 1500 }, { kind: 'biplane', name: 'Biplane', cost: 1200 }, { kind: 'triplane', name: 'Red triplane', cost: 1400 },
-  { kind: 'f18', name: 'F-18 jet', cost: 4000 }, { kind: 'f16', name: 'F-16 Fighting Falcon', cost: 4500 }, { kind: 'f22', name: 'F-22 jet', cost: 5500 }, { kind: 'f35', name: 'F-35 Lightning II', cost: 6000 }, { kind: 'su35', name: 'Su-35 Flanker', cost: 6000 }, { kind: 'su75', name: 'Su-75 Checkmate', cost: 6500 }, { kind: 'f44', name: 'F-44 Black Reign', cost: 12000 }, { kind: 'stealth', name: 'Stealth bomber', cost: 9000 },
+  { kind: 'f18', name: 'F-18 jet', cost: 4000 }, { kind: 'f16', name: 'F-16 Fighting Falcon', cost: 4500 }, { kind: 'f22', name: 'F-22 jet', cost: 5500 }, { kind: 'f35', name: 'F-35 Lightning II', cost: 6000 }, { kind: 'su35', name: 'Su-35 Flanker', cost: 6000 }, { kind: 'su75', name: 'Su-75 Checkmate', cost: 6500 }, { kind: 'f44', name: 'F-44 Black Reign', cost: 12000 }, { kind: 'b17', name: 'B-17 Flying Fortress', cost: 8000 }, { kind: 'stealth', name: 'Stealth bomber', cost: 9000 },
 ];
 function buildPlaneHangars() {
   PH.built = true;
-  if (GERMANY || NORMANDY) for (let i = PLANE_SHOP.length - 1; i >= 0; i--) if (PLANE_SHOP[i].kind !== 'prop') PLANE_SHOP.splice(i, 1);   // WWII: no jets or WW1 planes for sale
+  if (GERMANY || NORMANDY) for (let i = PLANE_SHOP.length - 1; i >= 0; i--) if (PLANE_SHOP[i].kind !== 'prop' && PLANE_SHOP[i].kind !== 'b17') PLANE_SHOP.splice(i, 1);   // WWII: no jets or WW1 planes for sale
   if (DOGFIGHT || ZD30) return;   // dogfights are fought in the air: no ground base
   for (const t of ['blue', 'red']) {
     const r = RUNWAYS[t]; if (!r) continue;

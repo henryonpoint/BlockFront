@@ -398,6 +398,78 @@ function jetModel(team, kind) {
   }
   return { g, prop, bomb, canopy, gunYaw, gunPitch, gear };
 }
+// B-17 Flying Fortress: a huge four-engine bomber with ten guns and a crew to match. Olive drab on top, grey
+// underneath, a glass nose for the bombardier, turrets on top, underneath and in the nose, waist guns and a tail gunner
+function b17PlaneModel(team) {
+  const P = VPAINT[team] || VPAINT.blue, g = new THREE.Group(), RX = Math.PI / 2;
+  const olive = 0x5d6040, grey = 0x8c9088, dark = 0x2a2c2a, black = 0x1a1a1a, metal = 0x6a6e70;
+  const geo = vcached('b17' + team, () => {
+    const p = new Part();
+    const body = (prof, sx, sy, col, seg = 18) => { const gg = new THREE.LatheGeometry(prof.map(([r, z]) => new THREE.Vector2(Math.max(0.001, r), z)), seg); gg.rotateX(Math.PI / 2); p.add(gg, col, 0, 0, 0, 0, 0, 0, sx, sy, 1); };
+    const plate = (half, y, t, col) => { const sh = new THREE.Shape(), pts = half.concat(half.slice().reverse().map(([x, z]) => [-x, z])); pts.forEach(([x, z], i) => i ? sh.lineTo(x, z) : sh.moveTo(x, z)); sh.closePath(); p.add(new THREE.ExtrudeGeometry(sh, { depth: t, bevelEnabled: false }), col, 0, y, 0, RX, 0, 0); };
+    body([[0.6, -10.6], [0.95, -10.1], [1.15, -9.2], [1.3, -7.6], [1.36, -4.5], [1.36, 0.5], [1.26, 4.0], [1.02, 7.4], [0.72, 10.2], [0.42, 11.5]], 1, 1.05, olive);
+    p.ball(1, grey, 0, -0.55, -1.0, 1.18, 0.75, 9.2);                                                                   // grey belly
+    plate([[1.3, -3.4], [15.2, -1.5], [15.6, -0.9], [15.6, 0.3], [15.0, 0.6], [1.3, 1.8]], -0.15, 0.36, olive);          // the long, straight wings
+    plate([[1.3, -3.35], [15.1, -1.45], [15.5, 0.25], [1.3, 1.75]], -0.52, 0.03, grey);                                  // grey under the wings
+    plate([[0.5, 8.4], [5.6, 9.6], [5.9, 10.4], [5.4, 10.9], [0.5, 11.2]], 0.35, 0.16, olive);                          // tailplanes
+    { const sh = new THREE.Shape(); [[3.2, 1.0], [7.6, 1.9], [8.8, 3.6], [9.5, 5.6], [10.7, 5.8], [11.3, 4.6], [11.5, 1.0]].forEach(([z, y], i) => i ? sh.lineTo(z, y) : sh.moveTo(z, y)); sh.closePath(); const gg = new THREE.ExtrudeGeometry(sh, { depth: 0.22, bevelEnabled: false }); gg.rotateY(-Math.PI / 2); p.add(gg, olive, 0.11, 0, 0); }   // the tall tail with its long fillet
+    for (const sd of [-1, 1]) {
+      for (const x of [4.6, 8.8]) {   // four big radial engines
+        p.cyl(0.78, 0.72, 3.6, olive, x * sd, -0.12, -3.4, RX, 0, 0, 1, 16);
+        p.cyl(0.86, 0.86, 0.9, metal, x * sd, -0.12, -5.0, RX, 0, 0, 1, 16); p.cyl(0.6, 0.6, 0.05, black, x * sd, -0.12, -5.46, RX, 0, 0, 1, 14);   // cowling and the cylinders behind it
+        p.cyl(0.22, 0.3, 0.5, metal, x * sd, -0.12, -5.6, -RX, 0, 0, 1, 10);                                            // spinner
+        p.box(0.25, 0.25, 1.2, black, x * sd + 0.6 * sd, -0.55, -2.2);                                                  // exhaust
+      }
+      p.cyl(0.95, 0.95, 0.05, P.team, 10.5 * sd, 0.22, -0.2, 0, 0, 0, 1, 20);                                           // team roundel on the wing
+      p.cyl(0.42, 0.42, 0.06, 0xf2f2f2, 10.5 * sd, 0.23, -0.2, 0, 0, 0, 1, 16);
+      p.cyl(0.62, 0.62, 0.05, P.team, 1.37 * sd, 0.2, 6.0, 0, 0, RX, 1, 18); p.cyl(0.28, 0.28, 0.06, 0xf2f2f2, 1.38 * sd, 0.2, 6.0, 0, 0, RX, 1, 14);   // and on the side
+      p.box(0.08, 0.7, 1.1, dark, 1.3 * sd, 0.35, 3.6);                                                                 // the open waist windows
+      p.cyl(0.05, 0.05, 1.3, black, 1.55 * sd, 0.35, 3.6, 0, 0, RX, 1, 6);                                             // waist guns poking out
+      p.box(0.06, 0.4, 0.9, 0x223040, 1.18 * sd, 0.55, -8.6, 0, 0, sd * 0.25);                                          // cheek windows
+    }
+    p.box(1.6, 0.5, 1.6, 0x223040, 0, 1.1, -7.6, -0.35, 0, 0); p.box(1.64, 0.06, 0.06, black, 0, 1.26, -7.25);           // cockpit windows
+    p.box(0.7, 0.04, 1.6, 0x223040, 0, 1.36, -1.8);                                                                     // radio room hatch
+    p.box(0.6, 0.6, 0.9, olive, 0, 0.0, 11.4);                                                                          // tail gunner's position
+    for (const z of [-6.0, -3.0, 0.0, 3.0, 6.0]) p.box(2.6, 0.015, 0.03, 0x4a4c34, 0, 1.38, z);                          // panel lines
+    return p;
+  });
+  const m = new THREE.Mesh(geo, VEH_MAT); m.castShadow = true; g.add(m);
+  const glass = new THREE.MeshPhongMaterial({ color: 0x9fc5e0, transparent: true, opacity: 0.45, shininess: 120 });
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.62, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), glass); nose.rotation.x = -Math.PI / 2; nose.position.set(0, 0, -10.6); nose.scale.set(1, 1, 1.3); g.add(nose);
+  // turrets that turn: each has a yaw group and a pitch group holding twin guns
+  const turret = (x, y, z, dome, ball) => {
+    const yaw = new THREE.Group(); yaw.position.set(x, y, z); g.add(yaw); const pitch = new THREE.Group(); yaw.add(pitch);
+    const TP = new Part();
+    if (ball) TP.ball(0.68, dark, 0, 0, 0); else TP.box(0.7, 0.45, 0.7, dark, 0, 0, 0);
+    for (const sx of [-0.14, 0.14]) TP.cyl(0.05, 0.05, 1.5, black, sx, 0, -0.95, RX, 0, 0, 1, 6);
+    pitch.add(new THREE.Mesh(TP.build(), VEH_MAT));
+    if (dome) { const d = new THREE.Mesh(new THREE.SphereGeometry(0.62, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), glass); d.position.y = 0.1; yaw.add(d); }
+    return { yaw, pitch };
+  };
+  const turrets = { top: turret(0, 1.45, -5.2, true), ball: turret(0, -1.45, 0.9, false, true), chin: turret(0, -1.1, -9.6), tail: turret(0, 0.3, 11.9) };
+  turrets.tail.yaw.rotation.y = Math.PI;
+  // four propellers
+  const props = [];
+  for (const sd of [-1, 1]) for (const x of [4.6, 8.8]) {
+    const pr = new THREE.Group(); pr.position.set(x * sd, -0.12, -5.85); g.add(pr);
+    for (let i = 0; i < 3; i++) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.26, 1.9, 0.07), MATS.black); b.position.y = 0.95; const arm = new THREE.Group(); arm.rotation.z = i * Math.PI * 2 / 3; arm.add(b); pr.add(arm); }
+    const disc = new THREE.Mesh(new THREE.CircleGeometry(1.95, 24), new THREE.MeshBasicMaterial({ color: 0x222222, transparent: true, opacity: 0.1, side: THREE.DoubleSide, depthWrite: false })); pr.add(disc);
+    props.push(pr);
+  }
+  // bomb bay doors under the middle
+  const bay = [];
+  for (const sd of [-1, 1]) { const h = new THREE.Group(); h.position.set(0.55 * sd, -1.25, -1.6); g.add(h); const d = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.05, 2.8), new THREE.MeshLambertMaterial({ color: grey })); d.position.x = 0.27 * sd; h.add(d); bay.push(h); }
+  // landing gear: big wheels under the inner engines and a tail wheel
+  const GP = new Part();
+  for (const sd of [-1, 1]) { GP.cyl(0.12, 0.12, 1.0, metal, 4.6 * sd, -0.95, -2.6); GP.cyl(0.62, 0.62, 0.42, black, 4.6 * sd, -1.0, -2.6, 0, 0, RX, 1, 16); GP.cyl(0.28, 0.28, 0.44, metal, 4.6 * sd, -1.0, -2.6, 0, 0, RX, 1, 10); }
+  GP.cyl(0.08, 0.08, 0.6, metal, 0, -1.0, 9.6); GP.cyl(0.3, 0.3, 0.2, black, 0, -1.3, 9.6, 0, 0, RX, 1, 12);
+  const gear = new THREE.Mesh(GP.build(), VEH_MAT); g.add(gear);
+  const prop = new THREE.Object3D(), bomb = new THREE.Object3D(), canopy = new THREE.Object3D(); g.add(prop, bomb, canopy);
+  const gunYaw = new THREE.Group(); g.add(gunYaw); const gunPitch = new THREE.Group(); gunYaw.add(gunPitch);
+  g.traverse(o => { if (o.isMesh) o.receiveShadow = true; });
+  scene.add(g);
+  return { g, prop, bomb, canopy, gunYaw, gunPitch, gear, props, turrets, bay };
+}
 // World War 1 fighters: a red triplane (three stacked wings, like the famous Red Baron's) and a two-winged biplane
 function ww1Model(team, kind) {
   const tri = kind === 'triplane', g = new THREE.Group();
@@ -466,6 +538,7 @@ const PLANE_KINDS = {
   triplane: { name: 'Red triplane', spd: 0.72, hp: 200, bombs: 0, regen: 999, model: team => ww1Model(team, 'triplane') },
   biplane: { name: 'Biplane', spd: 0.78, hp: 220, bombs: 0, regen: 999, model: team => ww1Model(team, 'biplane') },
   harrier: { name: 'AV-8B Harrier', spd: 1.5, hp: 420, bombs: 2, regen: 15, vtol: true, model: team => jetModel(team, 'harrier') },
+  b17: { name: 'B-17 Flying Fortress', spd: 0.8, hp: 1800, bombs: 12, regen: 6, big: true, model: team => b17PlaneModel(team) },
   stealth: { name: 'Stealth bomber', spd: 1.35, hp: 700, bombs: 2, regen: 30, bombBig: true, model: team => jetModel(team, 'stealth') },
 };
 
