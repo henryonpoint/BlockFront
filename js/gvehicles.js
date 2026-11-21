@@ -23,6 +23,20 @@ const VTYPES = {
       ...[0.1, 1.2, 2.3].flatMap(z => [{ p: [-0.75, 1.75, z], role: 'ride', pose: 'sit', exposed: true, side: 1 }, { p: [0.75, 1.75, z], role: 'ride', pose: 'sit', exposed: true, side: -1 }])],
   },
 };
+// the Humvee on the modern maps: tougher than a jeep, an enclosed cab, and a heavy .50 cal on the roof for the gunner
+VTYPES.humvee = {
+  name: 'Humvee', hp: 760, maxSpeed: 30, accel: 11, turn: 1.6, radius: 2.3, len: 4.6, wid: 2.2, bulletMult: 0.35, expMult: 0.9, camDist: 9.5, fiftyCal: true,
+  seats: [{ p: [-0.5, 1.35, -0.35], role: 'drive', pose: 'sit', exposed: false }, { p: [0, 1.75, 0.45], role: 'gun', pose: 'stand', exposed: true },
+    { p: [0.5, 1.35, -0.35], role: 'ride', pose: 'sit', exposed: false }, { p: [0.5, 1.35, 0.85], role: 'ride', pose: 'sit', exposed: false }],
+};
+// the big wide Humvee: the same truck scaled up, wider and taller on bigger wheels, much tougher, a bit slower, six seats
+const BIGH = [1.35, 1.2, 1.2];   // how much bigger it is (wide, tall, long); the model is scaled by the same amounts
+VTYPES.bighumvee = {
+  name: 'Big Humvee', hp: 1300, maxSpeed: 26, accel: 9, turn: 1.3, radius: 2.9, len: 5.5, wid: 2.9, bulletMult: 0.22, expMult: 0.7, camDist: 11, fiftyCal: true,
+  seats: [[-0.5, 1.35, -0.35, 'drive', 'sit', false], [0, 1.75, 0.45, 'gun', 'stand', true], [0.5, 1.35, -0.35, 'ride', 'sit', false],
+    [-0.5, 1.35, 0.85, 'ride', 'sit', false], [0.5, 1.35, 0.85, 'ride', 'sit', false], [0, 1.35, 1.55, 'ride', 'sit', false]]
+    .map(([x, y, z, role, pose, exposed]) => ({ p: [x * BIGH[0], y * BIGH[1], z * BIGH[2]], role, pose, exposed })),
+};
 if (AFGHAN) Object.assign(VTYPES.jeep, {   // Desert Combat: the jeeps are Humvees, with an enclosed cab and a roof gun
   name: 'Humvee', hp: 720, maxSpeed: 30, radius: 2.3, len: 4.6, wid: 2.2, bulletMult: 0.35,
   seats: [{ p: [-0.5, 1.35, -0.35], role: 'drive', pose: 'sit', exposed: false }, { p: [0, 1.75, 0.45], role: 'gun', pose: 'stand', exposed: true },
@@ -345,7 +359,8 @@ function simVehicle(v, dt, inp) {
 
 // ---------- weapons ----------
 function vehicleMG(v, dir, shooter) {
-  v.mgT = 0.1;
+  const fifty = v.T.fiftyCal || (AFGHAN && v.type === 'jeep');   // the Humvee's .50 cal hits much harder and fires a little slower
+  v.mgT = fifty ? 0.12 : 0.1;
   v.model.mgMuzzle.getWorldPosition(_tmpV);
   const from = _tmpV.clone();
   if (typeof fxMuzzle === 'function') fxMuzzle(from, dir, 1.6);
@@ -353,8 +368,9 @@ function vehicleMG(v, dir, shooter) {
   const d = dir.clone().add(new THREE.Vector3(rand(-1, 1), rand(-1, 1), rand(-1, 1)).multiplyScalar(shooter === player ? 0.01 : 0.03)).normalize();
   const hit = rayHit(from, d, 260, v.team, { player: v.team !== player.team, ignoreGV: v });
   const end = hit ? hit.point : from.clone().addScaledVector(d, 260);
-  shootTracer(from, end, 0xffc860, 360, 0.07, () => applyHit(hit, d, { dmg: 26, force: 9 }, shooter));
-  netShot(from, end, 1); playAt('mg', from, 1.0);
+  shootTracer(from, end, 0xffc860, 360, fifty ? 0.09 : 0.07, () => applyHit(hit, d, fifty ? { dmg: 42, force: 14 } : { dmg: 26, force: 9 }, shooter));
+  netShot(from, end, 1); playAt('mg', from, fifty ? 1.25 : 1.0);
+  if (fifty && shooter === player) camShake = Math.max(camShake, 0.04);
 }
 function tankFire(v, shooter) {
   v.fireT = 3.2;
@@ -575,7 +591,7 @@ function npcInVehicle(n, dt) {
   } else if (role === 'gun') withGun(v, v.T.seats[n.seat].gun, () => {
     v.mgT -= dt;
     const tc = n.target && n.tgtVisible ? n.target : null;
-    const aim = n.gvTarget && v.type === 'jeep' ? n.gvTarget.pos.clone().add(new THREE.Vector3(0, 1.2, 0)) : tc ? tc.chest() : n.planeTarget ? n.planeTarget.pos.clone() : null;
+    const aim = n.gvTarget && (v.type === 'jeep' || v.type === 'humvee' || v.type === 'bighumvee') ? n.gvTarget.pos.clone().add(new THREE.Vector3(0, 1.2, 0)) : tc ? tc.chest() : n.planeTarget ? n.planeTarget.pos.clone() : null;
     if (aim) {
       n.burstT = (n.burstT || 0) - dt;
       if (aimMGAt(v, aim, dt) && v.mgT <= 0 && n.burstT < 0.9) { vehicleMG(v, mgDir(v), n); if (n.burstT < 0) n.burstT = rand(1.2, 2.2); }

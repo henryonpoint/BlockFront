@@ -105,9 +105,10 @@ function makeVehicleModel(type, team) {
   const glass = new Part(), glow = new Part();
   let main;
 
-  if (type === 'jeep' && AFGHAN) {   // a desert-tan Humvee: wide and low, long hood, boxy cab, cargo bed, armoured roof gun
-    main = vcached('humvee' + team, () => {
-      const p = new Part(), tan = team === 'red' ? 0x8c8458 : 0xb8a47a, tan2 = team === 'red' ? 0x6c6644 : 0xa28f68, dk = 0x3a3a34, blk = 0x1c1c1c;   // Iraqi ones in sand-olive
+  if ((type === 'jeep' && AFGHAN) || type === 'humvee' || type === 'bighumvee') {   // a Humvee (desert tan in the desert, woodland green or winter grey elsewhere): wide and low, long hood, boxy cab, cargo bed, armoured roof gun
+    const camo = AFGHAN || DESERT ? 'sand' : SNOW ? 'snow' : 'green';
+    main = vcached('humvee' + camo + team, () => {
+      const p = new Part(), tan = camo === 'snow' ? (team === 'red' ? 0xa8aaa4 : 0xc8ccc8) : camo === 'green' ? (team === 'red' ? 0x5a5a3c : 0x56603e) : team === 'red' ? 0x8c8458 : 0xb8a47a, tan2 = camo === 'snow' ? (team === 'red' ? 0x8a8c86 : 0xa8aca8) : camo === 'green' ? (team === 'red' ? 0x48482e : 0x444d30) : team === 'red' ? 0x6c6644 : 0xa28f68, dk = 0x3a3a34, blk = 0x1c1c1c;   // Iraqi ones in sand-olive
       p.box(2.1, 0.5, 4.4, tan, 0, 0.85, 0); p.box(1.8, 0.14, 4.2, dk, 0, 0.56, 0);                       // body, underside
       p.box(2.0, 0.34, 1.6, tan, 0, 1.26, -1.4); p.box(1.9, 0.5, 0.14, tan2, 0, 1.05, -2.2, -0.35);         // long hood, sloped grille
       for (let i = 0; i < 6; i++) p.box(0.06, 0.32, 0.05, dk, -0.5 + i * 0.2, 1.05, -2.29, -0.35);          // grille slots
@@ -499,6 +500,7 @@ function makeVehicleModel(type, team) {
   if (glow.pos.length) { const lm = new THREE.Mesh(glow.build(), VEH_GLOW); body.add(lm); }
   g.traverse(o => { if (o.isMesh) o.userData.isVehiclePart = true; });
   scene.add(g);
+  if (type === 'bighumvee') { body.scale.set(BIGH[0], BIGH[1], BIGH[2]); if (out.mgBase) out.mgBase *= BIGH[1]; }   // the big wide Humvee
   return out;
 }
 
@@ -728,12 +730,13 @@ function parkVehicle(type, team, x, z, yaw) {
 function buildMotorPools() {
   for (const t of TEAMS) {
     const B = BASES[t], s = teamSide(t), yaw = s > 0 ? 0 : Math.PI;
-    const row = [['bike', -30], ['jeep', -24], ['jeep', -18], ['jeep', -12], ['apc', -4], ['jeep', 5], ['jeep', 11], ['jeep', 17], ['buggy', 23], ['bike', 28]];
+    const modern = !WW2V && !(typeof AFGHAN !== 'undefined' && AFGHAN);   // modern maps get Humvees with a .50 cal alongside the jeeps
+    const row = [...(modern || (typeof AFGHAN !== 'undefined' && AFGHAN) ? [['bighumvee', -38]] : []), ['bike', -30], ['jeep', -24], [modern ? 'humvee' : 'jeep', -18], ['jeep', -12], ['apc', -4], [modern ? 'humvee' : 'jeep', 5], ['jeep', 11], [modern ? 'humvee' : 'jeep', 17], ['buggy', 23], ['bike', 28]];
     const ww2 = t => (typeof AFGHAN !== 'undefined' && AFGHAN) ? ((t === 'bike' || t === 'quad') ? 'jeep' : t) : !WW2V ? t : t === 'apc' ? 'truck' : (t === 'bike' || t === 'buggy' || t === 'quad') ? 'jeep' : t;   // WWII maps: jeeps and trucks only; Desert Combat: Humvees, APCs and desert patrol buggies
     for (const [type, dx] of row) parkVehicle(ww2(type), t, B.x + dx, B.z - s * 52, yaw);
     for (const name of t === 'blue' ? ['A', 'B'] : t === 'red' ? ['D', 'E'] : []) {
       const p = PD[name], toC = Math.atan2(-(0 - p.x), -(0 - p.z)), ox = Math.sign(p.x) * 26, oz = s * 22;
-      [['jeep', 0], ['jeep', 6], ['bike', 11], ['quad', 14]].forEach(([type, k]) => parkVehicle(ww2(type), t, p.x + ox + k * 0.9, p.z + oz + (k % 2) * 3, toC));
+      [['jeep', 0], [modern ? 'humvee' : 'jeep', 6], ['bike', 11], ['quad', 14]].forEach(([type, k]) => parkVehicle(ww2(type), t, p.x + ox + k * 0.9, p.z + oz + (k % 2) * 3, toC));
     }
   }
 }
