@@ -67,7 +67,8 @@ function fireWeapon(burstShot) {
     player.yaw += rand(-1, 1) * w.recoil * 0.05;
     if (w.burst && !burstShot) for (let k = 1; k < w.burst; k++) setTimeout(() => { if (curW() === w && player.alive && !switching && player.ammo[w.id].mag > 0) fireWeapon(true); }, k * 75);   // M16: three-round burst
   } else if (w.type === 'rocket') {
-    spawnRocket(origin, aimDir(0), player, { speed: 46, homing: true, dmg: 150, radius: 7 });
+    if (w.guided && guidedWanted()) fireGuidedMissile(origin, aimDir(0), { speed: 80, dmg: 340, radius: 8, life: 12, name: 'Missile' });
+    else spawnRocket(origin, aimDir(0), player, { speed: 46, homing: true, dmg: 150, radius: 7 });
     w.model.warhead.visible = false;
     for (let i = 0; i < 5; i++) smokePuff(camera.position.clone().addScaledVector(aimDir(0.3), -3.5), 0xcccccc, 0.25, 0.8);
     camShake = Math.max(camShake, 0.03);
@@ -614,6 +615,7 @@ addEventListener('mousemove', e => {
 });
 function lookDelta(mx, my) {
   mx *= SET.sens; my *= SET.sens; if (SET.invert) my = -my;
+  if (typeof MC !== 'undefined' && MC && MC.mode === 'fly') { MC.yaw -= mx * 0.0022; MC.pitch = clamp(MC.pitch - my * 0.0022, -1.45, 1.45); return; }   // steering a guided missile
   if (player.vehicle && (planeView === 'cockpit' || DOGFIGHT)) { const pl = player.vehicle; if (pl.aimYaw === undefined && planeView === 'cockpit') setPlaneView('cockpit'); if (pl.aimYaw === undefined) { const e = new THREE.Euler().setFromQuaternion(pl.quat, 'YXZ'); pl.aimYaw = e.y; pl.aimPitch = 0; } pl.aimYaw -= mx * 0.0021; pl.aimPitch = clamp((pl.aimPitch || 0) + my * 0.0021, -0.9, 0.9); { const ne = new THREE.Euler().setFromQuaternion(pl.quat, 'YXZ'); pl.aimYaw = ne.y + clamp(wrapAngle(pl.aimYaw - ne.y), -0.65, 0.65); pl.aimPitch = clamp(pl.aimPitch, ne.x - 0.5, ne.x + 0.5); }   /* the aim never runs far ahead of the nose, so the plane stays connected to the mouse */ return; }   // like a flight stick: pull the mouse back (towards you) to climb
   if (player.vehicle) { camOrbit.yaw = clamp(camOrbit.yaw - mx * 0.003, -2.5, 2.5); camOrbit.pitch = clamp(camOrbit.pitch - my * 0.003, -0.6, 0.8); camOrbit.t = 2; return; }
   if (player.turret) { const t = player.turret; t.yaw -= mx * 0.0022; t.pitch = clamp(t.pitch - my * 0.0022, -0.35, 1.2); return; }
@@ -710,6 +712,7 @@ function renderShop() {
   };
   const h1 = document.createElement('h3'); h1.textContent = 'Weapons'; grid.appendChild(h1);
   WEAPONS.forEach((w, i) => {
+    if (w.cheat) return;   // cheat-only weapons are not for sale
     const owned = player.owned[w.id];
     make(`${i + 1}. ${w.name}`, owned ? 'Ready in slot ' + (i + 1) : 'Unlocks slot ' + (i + 1), w.price, owned ? 'owned' : (player.money < w.price ? 'poor' : ''), () => { player.owned[w.id] = true; selectWeapon(i); });
   });
@@ -1098,6 +1101,14 @@ function updatePlayerInVehicle(dt) {
       const aim = hit ? hit.point : camera.position.clone().addScaledVector(dir, 500);
       aimTurretAt(v, aim, dt, 1.1);
       if (mouse.left && v.fireT <= 0) tankFire(v, player);
+    }
+  }
+  if (v.type === 'boat' && !WW2V && (S.role === 'drive' || S.role === 'gun')) {   // modern gun boats carry a guided missile: right click
+    v.msT = (v.msT || 0) - dt;
+    if (player._boatHint !== v) { player._boatHint = v; setTimeout(() => showMessage('Right click fires a guided missile you can steer', 3), 2600); }
+    if (mouse.right && v.msT <= 0 && guidedWanted()) {
+      const f = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion); if (S.role === 'drive') { f.y = Math.max(f.y, 0.05); f.normalize(); }
+      v.msT = 6; fireGuidedMissile(new THREE.Vector3(v.pos.x, v.pos.y + 2.2, v.pos.z).addScaledVector(f, 2), f, { speed: 100, dmg: 360, radius: 8, life: 11, name: 'Boat missile' });
     }
   }
   camOrbit.t -= dt;

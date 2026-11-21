@@ -45,6 +45,8 @@ function turretFire(t, dir, shooter) {
     flashLight.position.copy(origin); flashLight.intensity = Math.max(flashLight.intensity, 1.2);
   } else {
     t.fireT = 2.4;
+    if (shooter === player && !WW2V && typeof fireGuidedMissile === 'function' && guidedWanted()) { t.fireT = 3; fireGuidedMissile(origin.addScaledVector(dir, 0.8), dir, { speed: 95, dmg: 320, radius: 7, life: 11, name: 'Surface-to-air missile' }); return; }
+    if (shooter === player && !WW2V) return;   // still watching the last one
     spawnRocket(origin.addScaledVector(dir, 0.6), dir, shooter, { speed: 55, homing: true, dmg: 160, radius: 7 });
     playAt('rocket', origin);
   }
@@ -250,10 +252,11 @@ function missileTarget(pl) {
   return best;
 }
 function planeMissile(pl) {
-  if ((pl.missileT || 0) > 0) return;
+  if ((pl.missileT || 0) > 0 || (typeof MC !== 'undefined' && MC)) return;
   pl.missileT = 1.4;
   const t = pl.locked ? pl.lockTgt : null, f = planeFwd(pl), side = (pl.mSide = -(pl.mSide || 1));
   const right = new THREE.Vector3(1, 0, 0).applyQuaternion(pl.quat), from = pl.pos.clone().addScaledVector(right, side * 2.6).add(new THREE.Vector3(0, -0.4, 0)).addScaledVector(f, 2);
+  if (pl.pilot === player && typeof fireGuidedMissile === 'function') { fireGuidedMissile(from, t ? t.pos.clone().sub(from).normalize() : f, { speed: 150, dmg: 420, radius: 6, life: 9, name: 'Air-to-air missile' }); return; }   // you ride it and steer
   spawnRocket(from, t ? t.pos.clone().sub(from).normalize() : f, player, { speed: 160, homing: true, dmg: 420, radius: 6 });
   const pr = projectiles[projectiles.length - 1]; if (pr) { pr.target = t || null; pr.life = 6; }
   showMessage(t ? 'FOX TWO! Missile locked on and tracking' : 'Missile away (no lock: keep an enemy near your nose to lock on)', 1.6);

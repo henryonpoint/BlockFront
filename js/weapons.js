@@ -268,8 +268,10 @@ const WEAPONS = [
   { id: 'fifty', name: '.50 Cal Rifle', build: 'fifty', type: 'hit', rate: 1.7, spread: 0.03, dmg: 300, force: 45, pellets: 1, recoil: 0.32, sfx: 'sniper', mag: 5, reserve: 25, reloadT: 3.0, price: 2000, zoom: true, tracer: 0xffffff },
   { id: 'golden', name: 'Golden Gun', build: 'golden', type: 'hit', autoAim: true, rate: 0.6, spread: 0.004, dmg: 99999, force: 30, pellets: 1, recoil: 0.12, sfx: 'pistol', mag: 1, reserve: Infinity, reloadT: 1.5, price: 5000, tracer: 0xffd040 },
   { id: 'blaster', name: 'Laser Blaster', build: 'blaster', type: 'hit', laser: true, rate: 0.16, spread: 0.004, dmg: 32, force: 3, pellets: 1, recoil: 0.02, sfx: 'laser', mag: 24, reserve: 240, reloadT: 1.4, price: 900, tracer: 0xff3a30 },
+  { id: 'missile', name: 'Missile Launcher', build: 'missile', type: 'rocket', guided: true, cheat: true, rate: 2, recoil: 0.2, sfx: 'rocket', mag: 1, reserve: 12, reloadT: 1.8, price: 0 },   // cheats only: you ride and steer the missile
   { id: 'saber', name: 'Lightsaber', build: 'saber', type: 'melee', rate: 0.45, dmg: 160, force: 14, range: 3.6, recoil: 0, sfx: 'click', mag: 1, reserve: Infinity, reloadT: 0.1, price: 1500 },
 ];
+BUILD.missile = () => { const m = BUILD.rpg(), sand = new THREE.MeshLambertMaterial({ color: 0x9a9468 }); m.g.traverse(o => { if (o.isMesh && o.material === VM.olive) o.material = sand; }); return m; };   // a sand-coloured launcher tube
 const vmHolder = new THREE.Group(); vmHolder.scale.setScalar(0.8); vmScene.add(vmHolder);
 WEAPONS.forEach(w => { w.model = BUILD[w.build](); w.model.g.visible = false; vmHolder.add(w.model.g); });
 
@@ -457,6 +459,7 @@ function updateProjectiles(dt) {
     const pr = projectiles[i];
     pr.life -= dt; pr.age = (pr.age || 0) + dt;
     if (pr.type === 'rocket') {
+      if (pr.steer && typeof steerMissile === 'function' && steerMissile(pr, dt)) continue;   // a guided missile someone is riding
       if (pr.flak) {   // anti-aircraft shell: bursts when it passes close to an enemy plane, or at the range you aimed at
         let near = null; const P0 = pr.mesh.position, V = pr.vel, vv = V.lengthSq() * dt * dt;
         for (const pl of planes) {   // closest approach along this frame's flight, so a fast shell can't skip past

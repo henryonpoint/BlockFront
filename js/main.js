@@ -270,6 +270,7 @@ function render(dt) {
   updateBunkerLight();
   updatePlaneAim();
   if (typeof updatePolish === 'function') updatePolish(dt);
+  if (typeof missileCamera === 'function') missileCamera(dt);   // riding a guided missile, or watching it hit
   sky.position.copy(camera.position);
   sunLight.position.copy(camera.position).addScaledVector(SUN_DIR, 200);
   sunLight.target.position.copy(camera.position);
@@ -278,7 +279,7 @@ function render(dt) {
   if (typeof TOPVIEW !== 'undefined' && TOPVIEW.on) { renderTopView(); return; }
   renderer.clear();
   renderer.render(scene, camera);
-  if (started && player.alive && !player.vehicle && !player.turret && !player.gv && !player.planeGun && !player.ship) { renderer.clearDepth(); renderer.render(vmScene, vmCam); }
+  if (started && player.alive && !player.vehicle && !player.turret && !player.gv && !player.planeGun && !player.ship && !(typeof MC !== 'undefined' && MC)) { renderer.clearDepth(); renderer.render(vmScene, vmCam); }
   if (ZD30 && typeof renderNVG === 'function') renderNVG();
 }
 // ---------- title screen: a slow cinematic tour of the battlefield ----------
