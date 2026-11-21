@@ -334,9 +334,9 @@ function buildShips() {
   if (NORMANDY) { buildBattleship(-420, 470, -Math.PI / 2, 'blue'); buildCarrier(410, 475, Math.PI / 2, 'blue'); buildDestroyer(330, 410, -Math.PI / 2, 'blue', 96); buildSub(-420, 512, -Math.PI / 2, 'blue'); buildSub(-330, 522, -Math.PI / 2, 'blue'); buildSub(470, 515, Math.PI / 2, 'blue'); }
   if (PACIFIC) {   // a fleet for each side, offshore from its home island
     buildCarrier(330, 470, Math.PI / 2, 'blue'); buildBattleship(-330, 468, -Math.PI / 2, 'blue'); buildDestroyer(-200, 518, -Math.PI / 2, 'blue', 96); buildDestroyer(200, 520, Math.PI / 2, 'blue', 92);
-    buildSub(-460, 360, -Math.PI / 2, 'blue'); buildSub(460, 350, Math.PI / 2, 'blue');
+    buildSub(-460, 360, -Math.PI / 2, 'blue'); buildSub(57, 337, Math.PI / 2, 'blue');   // the second sub tied up off the end of the pier
     buildCarrier(-330, -470, -Math.PI / 2, 'red'); buildBattleship(330, -468, Math.PI / 2, 'red'); buildDestroyer(200, -518, Math.PI / 2, 'red', 96); buildDestroyer(-200, -520, -Math.PI / 2, 'red', 92);
-    buildSub(460, -360, Math.PI / 2, 'red'); buildSub(-460, -350, -Math.PI / 2, 'red');
+    buildSub(95, -301, 0, 'red'); buildSub(-460, -350, -Math.PI / 2, 'red');
   }
   if (WAKE) { buildBattleship(-410, 470, -Math.PI / 2, 'blue'); buildDestroyer(-215, 425, -Math.PI / 2, 'blue', 92); buildDestroyer(225, 515, -Math.PI / 2, 'blue', 104); buildDestroyer(345, 420, -Math.PI / 2, 'blue', 84); buildSub(-60, 515, -Math.PI / 2, 'blue'); buildSub(-230, 480, -Math.PI / 2, 'blue'); buildSub(140, 395, Math.PI / 2, 'blue'); buildSub(40, -440, Math.PI / 2, 'red'); }
 }
@@ -611,9 +611,17 @@ function updateShipPrompt() {
   let near = null;
   if (player.alive && !player.gv && !player.vehicle) for (const s of SHIPS2) { const hw = shipWorld(s, s.helm.u, s.helm.v); if (Math.hypot(player.pos.x - hw.x, player.pos.z - hw.z) < 3 && Math.abs(player.pos.y - (s.helm.y + WATER_Y)) < 2) near = s; }
   SH.near = near;
+  // swimming (or standing on a pier) beside a hull, below its deck: you can climb the ladder up to the wheel
+  let climb = null;
+  if (!near && !player.ship && player.alive && !player.gv && !player.vehicle) for (const s of SHIPS2) {
+    if ((s.depth || 0) > 1.2) continue;
+    const l = shipLocal(s, player.pos.x, player.pos.z); if (inHull(s, l.u, l.v, 3.5) && player.pos.y < WATER_Y + s.mainY - 0.15) { climb = s; break; }
+  }
+  SH.climb = climb;
   let el = document.getElementById('shipPrompt');
   if (!el) { el = document.createElement('div'); el.id = 'shipPrompt'; el.className = 'hud'; el.style.cssText = 'position:fixed;left:50%;top:62%;transform:translateX(-50%);background:rgba(0,0,0,.55);color:#fff;padding:6px 14px;border-radius:8px;font:600 14px system-ui,sans-serif;pointer-events:none'; document.body.appendChild(el); }
-  el.style.display = near && !player.ship ? 'block' : 'none';
+  el.style.display = (near || climb) && !player.ship ? 'block' : 'none';
+  if (climb) el.textContent = `Press E to climb aboard the ${climb.name.toLowerCase()}`;
   if (near) el.textContent = net.active && !net.isHost ? 'Only the host can steer ships online' : `Press E to take command of the ${near.name.toLowerCase()}`;
   const hud = document.getElementById('shipHud'); if (hud && !player.ship) { hud.style.display = 'none'; zPeriscopeOverlay(false); }
 }
@@ -621,6 +629,10 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyC' && player.ship && !e.repeat) { const opts = player.ship.kind === 'sub' ? ['chase', 'periscope', 'guns'] : player.ship.turrets.length ? SHIP_VIEWS : ['chase', 'bridge']; SH.view = opts[(opts.indexOf(SH.view || 'chase') + 1) % opts.length]; return; }
   if (e.code !== 'KeyE' || e.repeat || typeof started === 'undefined' || !started) return;
   if (player.ship) { if (player.ship.marker) player.ship.marker.visible = false; player.ship.captain = null; player.ship = null; if (camera.fov !== (SET.fov || 75)) { camera.fov = SET.fov || 75; camera.updateProjectionMatrix(); } showMessage('You left the wheel', 1.5); return; }
+  if (!SH.near && SH.climb) {   // up the ladder and straight to the wheel
+    const c = SH.climb, hw = shipWorld(c, c.helm.u, c.helm.v); player.pos.set(hw.x, c.helm.y + WATER_Y + 0.1, hw.z); player.velY = 0;
+    SH.climb = null; showMessage(`You climbed aboard the ${c.name.toLowerCase()}. Press E at the wheel to take command`, 3); return;
+  }
   if (SH.near && !(net.active && !net.isHost) && !SH.near.captain) { SH.near.captain = player; player.ship = SH.near; showMessage(`You have command of the ${SH.near.name.toLowerCase()}! W/S throttle, A/D steer`, 3); }
 });
 // online: the host sends where the ships are; everyone else moves theirs to match (carrying whoever is aboard)
