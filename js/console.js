@@ -178,8 +178,8 @@ function applyCheatCommand(e, from) {
 // ---------- spawning vehicles (works online: the host makes them and tells everyone) ----------
 // every vehicle in the game, plus the three planes
 const CHEAT_VEHICLES = Object.keys(VTYPES).map(id => ({ id, name: VTYPES[id].name }))
-  .concat([{ id: 'plane', name: 'Old fighter plane' }, { id: 'f18', name: 'F-18 Hornet' }, { id: 'f16', name: 'F-16 Fighting Falcon' }, { id: 'f22', name: 'F-22 Raptor' }, { id: 'f35', name: 'F-35 Lightning II' }, { id: 'su35', name: 'Su-35 Flanker' }, { id: 'su75', name: 'Su-75 Checkmate' }, { id: 'f44', name: 'F-44 Black Reign' }, { id: 'b17', name: 'B-17 Flying Fortress' }, { id: 'stealth', name: 'Stealth bomber' }, { id: 'triplane', name: 'Red triplane' }, { id: 'biplane', name: 'Biplane' }]);
-const PLANE_SPAWN = { plane: 'prop', f18: 'f18', f16: 'f16', f22: 'f22', f35: 'f35', su35: 'su35', su75: 'su75', f44: 'f44', b17: 'b17', stealth: 'stealth', triplane: 'triplane', biplane: 'biplane' };
+  .concat([{ id: 'plane', name: 'Old fighter plane' }, { id: 'f18', name: 'F-18 Hornet' }, { id: 'f16', name: 'F-16 Fighting Falcon' }, { id: 'f14', name: 'F-14 Tomcat' }, { id: 'f22', name: 'F-22 Raptor' }, { id: 'f35', name: 'F-35 Lightning II' }, { id: 'su35', name: 'Su-35 Flanker' }, { id: 'su75', name: 'Su-75 Checkmate' }, { id: 'f44', name: 'F-44 Black Reign' }, { id: 'b17', name: 'B-17 Flying Fortress' }, { id: 'stealth', name: 'Stealth bomber' }, { id: 'triplane', name: 'Red triplane' }, { id: 'biplane', name: 'Biplane' }]);
+const PLANE_SPAWN = { plane: 'prop', f18: 'f18', f16: 'f16', f14: 'f14', f22: 'f22', f35: 'f35', su35: 'su35', su75: 'su75', f44: 'f44', b17: 'b17', stealth: 'stealth', triplane: 'triplane', biplane: 'biplane' };
 const SPAWNED = [];   // [index, type, team, x*10, z*10, yaw*100] for every vehicle made from the console, in order
 const SPAWN_CAP = 30;
 function spawnSpot() {

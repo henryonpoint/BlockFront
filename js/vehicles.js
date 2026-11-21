@@ -1,7 +1,7 @@
 // ===================== vehicles.js : turrets and planes =====================
 const turrets = [];
 // the modern fighters: afterburner, head-up display, radar, guided missiles
-function isFighterJet(k) { return k === 'f18' || k === 'f22' || k === 'f35' || k === 'su35' || k === 'su75' || k === 'f44' || k === 'f16'; }
+function isFighterJet(k) { return k === 'f18' || k === 'f22' || k === 'f35' || k === 'su35' || k === 'su75' || k === 'f44' || k === 'f16' || k === 'f14'; }
 function makeTurret(x, z, type, yaw) {
   const y = heightAt(x, z);
   const g = new THREE.Group(); g.position.set(x, y, z); scene.add(g);
@@ -143,7 +143,7 @@ function buildPlanes() {
   if (ZD30) return;   // no airfield
   if (DOGFIGHT) {   // the dogfight: a squadron per team, starting in the air (players take over a plane when they deploy)
     for (const t of ['blue', 'red']) for (let i = 0; i < 9; i++) {
-      const B = BASES[t], s = teamSide(t), kind = JETFIGHT ? (i === 4 ? 'f44' : (t === 'blue' ? ['f18', 'f16', 'f22', 'f35'] : ['su35', 'su75', 'f22', 'f16'])[i % 4]) : WWIFIGHT ? (t === 'red' ? 'triplane' : 'biplane') : 'prop';
+      const B = BASES[t], s = teamSide(t), kind = JETFIGHT ? (i === 4 ? 'f44' : (t === 'blue' ? ['f18', 'f14', 'f16', 'f22', 'f35'] : ['su35', 'su75', 'f22', 'f16', 'f14'])[i % 5]) : WWIFIGHT ? (t === 'red' ? 'triplane' : 'biplane') : 'prop';
       makePlane(t, B.x + (i - 4) * 45, B.z - s * 120, s > 0 ? 0 : Math.PI, 0, kind);
     }
     return;
@@ -285,7 +285,7 @@ let cockpitFull = false;   // the third view: the full cockpit, with dashboard, 
 // each kind of plane has its own cockpit, built like the real one. tub: floor, walls, seat, stick and the nose ahead
 // (shown in both cockpit views); full: the dashboard, sights and canopy frame (the full cockpit view only)
 const _cockpits = {};
-function cockpitStyle(pl) { const k = pl && (pl.kind === 'harrier' || pl.kind === 'su35' || pl.kind === 'f16' ? 'f18' : pl.kind === 'f35' || pl.kind === 'su75' || pl.kind === 'f44' ? 'f22' : pl.kind); return k === 'triplane' || k === 'biplane' ? k : k === 'f18' || k === 'f22' || k === 'stealth' ? k : 'prop'; }
+function cockpitStyle(pl) { const k = pl && (pl.kind === 'harrier' || pl.kind === 'su35' || pl.kind === 'f16' || pl.kind === 'f14' ? 'f18' : pl.kind === 'f35' || pl.kind === 'su75' || pl.kind === 'f44' ? 'f22' : pl.kind); return k === 'triplane' || k === 'biplane' ? k : k === 'f18' || k === 'f22' || k === 'stealth' ? k : 'prop'; }
 function cockpitModel() {
   const st = cockpitStyle(player.vehicle || (_cockpit && { kind: _cockpit.userData.style }));
   if (_cockpit && _cockpit.userData.style === st) return _cockpit;
@@ -613,6 +613,7 @@ function updateAIPlane(pl, dt) {
 function updatePlanes(dt) {
   for (const pl of planes) {
     if (pl.kind === 'b17' && pl.alive && typeof b17Tick === 'function') b17Tick(pl, dt);   // propellers, turrets, bomb doors and the computer gunners
+    if (pl.model.wings) { const want = 0.35 + 0.85 * clamp((pl.speed - 45) / 55, 0, 1); for (const w of pl.model.wings) w.rotation.y += (-w.userData.side * want - w.rotation.y) * Math.min(1, dt * 1.5); }   // F-14: wings sweep back as it speeds up
     if (pl.model.gear) pl.model.gear.visible = pl.onGround || (pl.pos.y - heightAt(pl.pos.x, pl.pos.z) < 14 && pl.speed < 70);   // wheels down for landing and takeoff
     if (pl.remote) { if (pl.alive) { pl.model.g.position.copy(pl.pos); pl.model.g.quaternion.copy(pl.quat); pl.model.prop.rotation.z += (5 + pl.speed) * dt; } continue; }
     if (!pl.alive) { if (!net.active || net.isHost) { pl.respawnT -= dt; if (pl.respawnT <= 0) resetPlane(pl); } continue; }

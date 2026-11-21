@@ -152,7 +152,7 @@ function buildWorld2() {
 }
 
 // ---------- connecting ----------
-const GAME_BUILD = 95;   // bump when vehicles or the world change, so mismatched versions never mix
+const GAME_BUILD = 96;   // bump when vehicles or the world change, so mismatched versions never mix
 // the version number on the start screen and pause menu, so everyone can check they are on the same one
 const GAME_DATE = 'Nov 15, 2026';
 setTimeout(() => { const v = document.getElementById('verTag'); if (v) v.textContent = `Version ${GAME_BUILD}  \u00b7  ${GAME_DATE}`; const p = document.getElementById('verPause'); if (p) p.textContent = `Version ${GAME_BUILD}`; }, 0);
