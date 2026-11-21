@@ -87,6 +87,7 @@
     selectWeapon(owned[(k + 1) % owned.length]);
   });
   btn('tGren', () => press('KeyG'));
+  btn('tHook', () => { if (typeof grappleFire === 'function') grappleFire(); });   // the grappling hook: aim with the look side, tap to fire
   btn('tAir', () => press('KeyT'));
   btn('tShop', () => press('KeyB'));
   btn('tBuild', () => press('KeyV'));

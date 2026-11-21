@@ -66,6 +66,7 @@ function cheatsOK() { return !net.active || !!net.cheatsAllowed; }
     if (host) h += `<div class="row">${b(net.allowCheats ? 'Cheats allowed for everyone' : 'Allow cheats for everyone', net.allowCheats, 'allow')}</div>`;
     h += `<h3>Cheats</h3><div class="row">${b('God mode', CHEAT.god, 'god', !ok)}${b('Endless ammo', CHEAT.ammo, 'ammo', !ok)}${b('Endless money', CHEAT.money, 'money', !ok)}${b('+$10,000', false, 'cash', !ok)}${b('Full health', false, 'heal', !ok)}${b('☢ Mega nuke', false, 'meganuke', !ok)}${b('🔥 Napalm', false, 'napalm', !ok)}</div>`;
     if (typeof ZOMBIE !== 'undefined') h += `<h3>Zombies</h3><div class="row">${b(ZOMBIE.on ? 'Zombie mode on' : 'Zombie mode', ZOMBIE.on, 'zombie', !ok || (net.active && !net.isHost))}${b('Start an outbreak', false, 'outbreak', !ok || !ZOMBIE.on || (net.active && !net.isHost))}</div><div class="sub">With zombie mode on, soldiers killed by a nuke get back up as zombies, and anyone a zombie kills turns too.</div>`;
+    h += `<h3>Gear</h3><div class="row">${b('Grappling hook', !!player.grapple, 'grapple', !ok)}</div>`;
     h += `<h3>Weapons</h3><div class="row">${WEAPONS.map(w => b(w.name, player.owned[w.id], 'give:' + w.id, !ok)).join('')}</div>`;
     const vlist = typeof CHEAT_VEHICLES !== 'undefined' ? CHEAT_VEHICLES : [];
     if (vlist.length) h += `<h3>Spawn a vehicle next to you</h3><div class="row">${vlist.map(v => b(v.name, false, 'veh:' + v.id, !ok)).join('')}</div>`;
@@ -89,6 +90,7 @@ function cheatsOK() { return !net.active || !!net.cheatsAllowed; }
     else if (fn === 'money' && need()) CHEAT.money = !CHEAT.money;
     else if (fn === 'cash' && need()) { addMoney(10000, 'Cheat'); }
     else if (fn === 'heal' && need()) { player.hp = 100; player.armor = 100; }
+    else if (fn === 'grapple' && need()) { player.grapple = true; out(IS_TOUCH ? 'You have the grappling hook: tap HOOK to fire, JUMP to let go' : 'You have the grappling hook: aim and press Z, Space to let go'); }
     else if (fn === 'napalm' && need()) {   // pick the spot from above; the fire spreads along the way you are facing
       const yaw = player.yaw;
       close(); openTopView({ mode: 'air', span: 700, blast: 30, onPick: p => { closeTopView(); dropNapalm(new THREE.Vector3(p.x, 0, p.z), yaw, player, false); if (typeof netFx === 'function') netFx(['np', teamIdx(player.team), +p.x.toFixed(1), +p.z.toFixed(1), Math.round(yaw * 100)]); showMessage('NAPALM INBOUND!', 3); return true; } }); return;

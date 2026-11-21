@@ -74,4 +74,10 @@ addEventListener('keydown', e => {
   if (!player.grapple) { if (player.alive && !player.vehicle && !player.gv && !player.ship) showMessage('Buy the grappling hook in the shop (B) to use Z', 1.5); return; }
   grappleFire();
 });
-GEAR.splice(GEAR.findIndex(g => g.id === 'glider') + 1, 0, { id: 'grapple', name: 'Grappling Hook', desc: 'Aim at anything and press Z: it pulls you there and you hang on. Z again for the next spot, Space to let go. Rides moving vehicles. Yours until you go down', price: 900, buy: () => { player.grapple = true; showMessage('Grappling hook on your wrist! Aim and press Z. Space lets go', 3); } });
+// on a tablet or phone: a HOOK button next to JUMP, shown on foot once you have the hook (JUMP lets go)
+setInterval(() => {
+  const b = document.getElementById('tHook'); if (!b) return;
+  const on = typeof IS_TOUCH !== 'undefined' && IS_TOUCH && player.alive && player.grapple && !player.vehicle && !player.gv && !player.turret && !player.planeGun && !player.ship;
+  b.style.display = on ? 'flex' : 'none';
+}, 300);
+GEAR.splice(GEAR.findIndex(g => g.id === 'glider') + 1, 0, { id: 'grapple', name: 'Grappling Hook', desc: 'Aim at anything and press Z: it pulls you there and you hang on. Z again for the next spot, Space to let go. Rides moving vehicles. Yours until you go down', price: 900, buy: () => { player.grapple = true; showMessage(typeof IS_TOUCH !== 'undefined' && IS_TOUCH ? 'Grappling hook on your wrist! Aim and tap HOOK. JUMP lets go' : 'Grappling hook on your wrist! Aim and press Z. Space lets go', 3); } });
