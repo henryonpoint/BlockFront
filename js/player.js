@@ -331,6 +331,7 @@ function updatePlayer(dt) {
     poseChute(parachuteMesh, player.pos, player.yaw, player.chuteT, keys.KeyW ? 1 : 0, (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0));
   }
 
+  if (typeof grappleUpdate === 'function') grappleUpdate(dt);   // on the grappling hook: the cable decides where you are
   // ----- weapons -----
   cooldown -= dt;
   const w = curW();
@@ -719,7 +720,7 @@ function renderShop() {
     make(`${i + 1}. ${w.name}`, owned ? 'Ready in slot ' + (i + 1) : 'Unlocks slot ' + (i + 1), w.price, owned ? 'owned' : (player.money < w.price ? 'poor' : ''), () => { player.owned[w.id] = true; selectWeapon(i); });
   });
   const h2 = document.createElement('h3'); h2.textContent = 'Gear and support'; grid.appendChild(h2);
-  GEAR.forEach(g => make(g.name, g.desc, g.price, (g.id === 'vest' && (player.vest || 0) >= 2) || (g.id === 'superarmor' && (player.vest || 0) >= 4) ? 'owned' : player.money < g.price ? 'poor' : '', g.buy));   // armor you already wear shows as owned
+  GEAR.forEach(g => make(g.name, g.desc, g.price, (g.id === 'vest' && (player.vest || 0) >= 2) || (g.id === 'superarmor' && (player.vest || 0) >= 4) || (g.id === 'grapple' && player.grapple) ? 'owned' : player.money < g.price ? 'poor' : '', g.buy));   // armor you already wear shows as owned
   const h3 = document.createElement('h3'); h3.textContent = 'Build (press V in battle to place)'; grid.appendChild(h3);
   BUILD_KEYS.forEach(k => { const D = BUILDS[k], have = player.inventory[k] || 0; make(D.name + (have ? ` (have ${have})` : ''), D.desc, D.price, player.money < D.price ? 'poor' : '', () => { player.inventory[k] = (player.inventory[k] || 0) + 1; player.placeNext = k; }); });
 }
@@ -988,7 +989,7 @@ function boardPlane(pl) {
   showMessage(IS_TOUCH ? 'Hold THR + to speed up, then pull the stick down to lift off' : 'Hold Shift to speed up, then press S to lift off', 4);
 }
 function deployPlayer() {
-  player.glider = false; player.gliding = false;
+  player.glider = false; player.gliding = false; player.grapple = false; player.grap = null;
   if (player.planeGun) { player.planeGun.gunner = null; player.planeGun = null; }
   if (DOGFIGHT) {   // a dogfight: take over one of your team's planes, already flying
     spawnChar(player, 'base'); refillAmmo();
