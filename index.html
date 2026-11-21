@@ -250,6 +250,7 @@
   #tFire { right: 26px; bottom: 96px; width: 86px; height: 86px; font-size: 15px; background: rgba(239,68,68,0.35); }
   #tAim { right: 128px; bottom: 140px; width: 58px; height: 58px; }
   #tJump { right: 122px; bottom: 60px; width: 58px; height: 58px; }
+  #tView { right: 196px; bottom: 164px; width: 54px; height: 54px; font-size: 12px; background: rgba(120,120,200,0.38); }
   #tPos { right: 196px; bottom: 230px; width: 54px; height: 54px; font-size: 12px; background: rgba(200,160,60,0.38); }
   #tHook { right: 196px; bottom: 164px; width: 54px; height: 54px; font-size: 12px; background: rgba(45,170,170,0.38); }
   #tReload { right: 34px; bottom: 196px; width: 50px; height: 50px; }
@@ -292,6 +293,8 @@
     #tAim { right: 112px; bottom: 128px; width: 52px; height: 52px; }
     #tJump { right: 112px; bottom: 30px; width: 52px; height: 52px; }
     #tHook { right: 240px; bottom: 78px; width: 50px; height: 50px; }
+    #tView { right: 240px; bottom: 78px; width: 50px; height: 50px; }
+    #tPos { right: 240px; bottom: 136px; width: 50px; height: 50px; }
     #tUse { right: 180px; bottom: 78px; width: 50px; height: 50px; }
     #tReload { right: 26px; bottom: 156px; width: 46px; height: 46px; font-size: 10px; }
     #tSwap { right: 176px; bottom: 150px; width: 46px; height: 46px; font-size: 10px; }
@@ -344,7 +347,7 @@
 <div id="touchUI">
   <div id="tStick"><div id="tKnob"></div></div>
   <div id="tHint">Drag left side to move, right side to look</div>
-  <div class="tb" id="tFire">FIRE</div><div class="tb" id="tAim">AIM</div><div class="tb" id="tJump">JUMP</div><div class="tb" id="tHook" style="display:none">HOOK</div><div class="tb" id="tPos" style="display:none">POS</div>
+  <div class="tb" id="tFire">FIRE</div><div class="tb" id="tAim">AIM</div><div class="tb" id="tJump">JUMP</div><div class="tb" id="tHook" style="display:none">HOOK</div><div class="tb" id="tPos" style="display:none">POS</div><div class="tb" id="tView" style="display:none">VIEW</div>
   <div class="tb" id="tReload">RELOAD</div><div class="tb" id="tUse">USE</div><div class="tb" id="tSwap">SWAP</div>
   <div class="tb sm" id="tPause">II</div>
   <div id="tSide"><div class="tb sm" id="tShop">SHOP</div><div class="tb sm" id="tBuild">BUILD</div><div class="tb sm" id="tCrouch" style="font-size:8.5px">CROUCH</div><div class="tb sm" id="tGren">GREN</div><div class="tb sm" id="tAir">AIR</div><div class="tb sm" id="tMap">MAP</div><div class="tb sm" id="tScore">SCORE</div><div class="tb sm" id="tMusic">MUSIC</div></div>
@@ -461,60 +464,60 @@
 <script src="lib/three.min.js"></script>
 <script src="lib/cannon.min.js"></script>
 <script src="lib/peerjs.min.js"></script>
-<script src="js/core.js?v=96"></script>
-<script src="js/world.js?v=96"></script>
-<script src="js/bunker.js?v=96"></script>
-<script src="js/trenches.js?v=96"></script>
-<script src="js/tunnels.js?v=96"></script>
-<script src="js/chars.js?v=96"></script>
-<script src="js/fx.js?v=96"></script>
-<script src="js/models.js?v=96"></script>
-<script src="js/weapons.js?v=96"></script>
-<script src="js/ww2w.js?v=96"></script>
-<script src="js/vehicles.js?v=96"></script>
-<script src="js/gvehicles.js?v=96"></script>
-<script src="js/vmodels.js?v=96"></script>
-<script src="js/heliboat.js?v=96"></script>
-<script src="js/specials.js?v=96"></script>
-<script src="js/snowmap.js?v=96"></script>
-<script src="js/houston.js?v=96"></script>
-<script src="js/suburbs.js?v=96"></script>
-<script src="js/levels.js?v=96"></script>
-<script src="js/zd30.js?v=96"></script>
-<script src="js/wake.js?v=96"></script>
-<script src="js/pacific.js?v=96"></script>
-<script src="js/missiles.js?v=96"></script>
-<script src="js/ai.js?v=96"></script>
-<script src="js/build.js?v=96"></script>
-<script src="js/relaynet.js?v=96"></script>
-<script src="js/peernet.js?v=96"></script>
-<script src="js/net.js?v=96"></script>
-<script src="js/player.js?v=96"></script>
-<script src="js/grapple.js?v=96"></script>
-<script src="js/b17.js?v=96"></script>
-<script src="js/setup.js?v=96"></script>
-<script src="js/main.js?v=96"></script>
-<script src="js/lobby.js?v=96"></script>
-<script src="js/polish.js?v=96"></script>
-<script src="js/clown.js?v=96"></script>
-<script src="js/craters.js?v=96"></script>
-<script src="js/topview.js?v=96"></script>
-<script src="js/animals.js?v=96"></script>
-<script src="js/loot.js?v=96"></script>
-<script src="js/sticky.js?v=96"></script>
-<script src="js/nuke.js?v=96"></script>
-<script src="js/city.js?v=96"></script>
-<script src="js/towers.js?v=96"></script>
-<script src="js/treasure.js?v=96"></script>
-<script src="js/zombies.js?v=96"></script>
-<script src="js/achievements.js?v=96"></script>
-<script src="js/ships.js?v=96"></script>
-<script src="js/hangar.js?v=96"></script>
-<script src="js/sound.js?v=96"></script>
-<script src="js/controls.js?v=96"></script>
-<script src="js/chat.js?v=96"></script>
-<script src="js/console.js?v=96"></script>
-<script src="js/touch.js?v=96"></script>
-<script src="js/intro.js?v=96"></script>
+<script src="js/core.js?v=97"></script>
+<script src="js/world.js?v=97"></script>
+<script src="js/bunker.js?v=97"></script>
+<script src="js/trenches.js?v=97"></script>
+<script src="js/tunnels.js?v=97"></script>
+<script src="js/chars.js?v=97"></script>
+<script src="js/fx.js?v=97"></script>
+<script src="js/models.js?v=97"></script>
+<script src="js/weapons.js?v=97"></script>
+<script src="js/ww2w.js?v=97"></script>
+<script src="js/vehicles.js?v=97"></script>
+<script src="js/gvehicles.js?v=97"></script>
+<script src="js/vmodels.js?v=97"></script>
+<script src="js/heliboat.js?v=97"></script>
+<script src="js/specials.js?v=97"></script>
+<script src="js/snowmap.js?v=97"></script>
+<script src="js/houston.js?v=97"></script>
+<script src="js/suburbs.js?v=97"></script>
+<script src="js/levels.js?v=97"></script>
+<script src="js/zd30.js?v=97"></script>
+<script src="js/wake.js?v=97"></script>
+<script src="js/pacific.js?v=97"></script>
+<script src="js/missiles.js?v=97"></script>
+<script src="js/ai.js?v=97"></script>
+<script src="js/build.js?v=97"></script>
+<script src="js/relaynet.js?v=97"></script>
+<script src="js/peernet.js?v=97"></script>
+<script src="js/net.js?v=97"></script>
+<script src="js/player.js?v=97"></script>
+<script src="js/grapple.js?v=97"></script>
+<script src="js/b17.js?v=97"></script>
+<script src="js/setup.js?v=97"></script>
+<script src="js/main.js?v=97"></script>
+<script src="js/lobby.js?v=97"></script>
+<script src="js/polish.js?v=97"></script>
+<script src="js/clown.js?v=97"></script>
+<script src="js/craters.js?v=97"></script>
+<script src="js/topview.js?v=97"></script>
+<script src="js/animals.js?v=97"></script>
+<script src="js/loot.js?v=97"></script>
+<script src="js/sticky.js?v=97"></script>
+<script src="js/nuke.js?v=97"></script>
+<script src="js/city.js?v=97"></script>
+<script src="js/towers.js?v=97"></script>
+<script src="js/treasure.js?v=97"></script>
+<script src="js/zombies.js?v=97"></script>
+<script src="js/achievements.js?v=97"></script>
+<script src="js/ships.js?v=97"></script>
+<script src="js/hangar.js?v=97"></script>
+<script src="js/sound.js?v=97"></script>
+<script src="js/controls.js?v=97"></script>
+<script src="js/chat.js?v=97"></script>
+<script src="js/console.js?v=97"></script>
+<script src="js/touch.js?v=97"></script>
+<script src="js/intro.js?v=97"></script>
 </body>
 </html>

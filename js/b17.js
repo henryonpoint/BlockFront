@@ -5,13 +5,13 @@
 // that come into their part of the sky. With no pilot aboard, a computer pilot flies the bomber on bombing runs.
 const B17_ST = [
   { name: 'Pilot' },
-  { name: 'Bombardier', pos: [0, -0.55, -10.1], yc: 0, yr: 0.7, pmin: -1.52, pmax: -0.2, bomb: true },
-  { name: 'Nose gunner', pos: [0, -1.3, -10.2], yc: 0, yr: 1.2, pmin: -0.9, pmax: 0.35, tur: 'chin', gun: [0, -1.1, -9.6] },
-  { name: 'Top turret', pos: [0, 2.15, -5.2], yc: 0, yr: Math.PI, pmin: -0.08, pmax: 1.35, tur: 'top', gun: [0, 1.55, -5.2] },
-  { name: 'Ball turret', pos: [0, -2.0, 0.9], yc: 0, yr: Math.PI, pmin: -1.52, pmax: 0.08, tur: 'ball', gun: [0, -1.45, 0.9] },
-  { name: 'Left waist gunner', pos: [-1.05, 0.4, 3.6], yc: Math.PI / 2, yr: 1.15, pmin: -0.9, pmax: 0.8, gun: [-1.6, 0.35, 3.6] },
-  { name: 'Right waist gunner', pos: [1.05, 0.4, 3.6], yc: -Math.PI / 2, yr: 1.15, pmin: -0.9, pmax: 0.8, gun: [1.6, 0.35, 3.6] },
-  { name: 'Tail gunner', pos: [0, 0.45, 11.4], yc: Math.PI, yr: 1.0, pmin: -0.7, pmax: 0.7, tur: 'tail', gun: [0, 0.3, 12.2] },
+  { name: 'Bombardier', pos: [0, -0.7, -10.95], yc: 0, yr: 0.7, pmin: -1.52, pmax: -0.2, bomb: true, hide: 'chin' },
+  { name: 'Nose gunner', pos: [0, -0.92, -9.75], yc: 0, yr: 1.2, pmin: -0.9, pmax: 0.35, tur: 'chin', gun: [0, -1.1, -9.6] },
+  { name: 'Top turret', pos: [0, 2.35, -5.2], yc: 0, yr: Math.PI, pmin: -0.08, pmax: 1.35, tur: 'top', gun: [0, 1.55, -5.2] },
+  { name: 'Ball turret', pos: [0, -1.32, 0.95], yc: 0, yr: Math.PI, pmin: -1.52, pmax: 0.08, tur: 'ball', gun: [0, -1.45, 0.9] },
+  { name: 'Left waist gunner', pos: [-1.32, 0.38, 5.2], yc: Math.PI / 2 + 0.4, yr: 1.0, pmin: -0.9, pmax: 0.8, gun: [-1.5, 0.35, 5.2] },
+  { name: 'Right waist gunner', pos: [1.32, 0.38, 5.2], yc: -Math.PI / 2 - 0.4, yr: 1.0, pmin: -0.9, pmax: 0.8, gun: [1.5, 0.35, 5.2] },
+  { name: 'Tail gunner', pos: [0, 0.72, 12.1], yc: Math.PI, yr: 1.0, pmin: -0.7, pmax: 0.7, tur: 'tail', gun: [0, 0.3, 12.2] },
 ];
 const _bq = new THREE.Quaternion(), _bv = new THREE.Vector3(), _be = new THREE.Euler();
 function b17Yaw(pl) { return _be.setFromQuaternion(pl.quat, 'YXZ').y; }
@@ -69,6 +69,7 @@ updatePlaneGun = function (dt) {
   camera.position.copy(seat);
   camera.rotation.set(player.pitch + (Math.random() - 0.5) * camShake * 0.3, player.yaw, 0, 'YXZ');
   const fov = S.bomb && mouse.right ? 22 : (SET.fov || 75) + 5; if (Math.abs(camera.fov - fov) > 0.1) { camera.fov += (fov - camera.fov) * Math.min(1, dt * 10); camera.updateProjectionMatrix(); }
+  for (const k in pl.model.turrets) { const T = pl.model.turrets[k]; T.housing.visible = k !== S.tur && k !== S.hide; T.yaw.visible = k !== S.hide; }   // nothing of your own turret in the way
   if (S.tur) pl.tAim = Object.assign(pl.tAim || {}, { [S.tur]: { yaw: rel + (S.tur === 'tail' ? 0 : S.yc), pitch: player.pitch } });
   const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
   player.gunT -= dt; player.gunBombT -= dt;
@@ -132,6 +133,7 @@ function b17Hud(pl) {
 // every frame for each B-17: spin the propellers, turn the turrets, open the bomb doors, and let the computer gunners shoot
 function b17Tick(pl, dt) {
   const M = pl.model;
+  if (player.planeGun !== pl) for (const k in M.turrets) { M.turrets[k].housing.visible = true; M.turrets[k].yaw.visible = true; }
   for (let i = 1; i < pl.crew.length; i++) if (pl.crew[i] === player && (player.planeGun !== pl || player.b17st !== i)) pl.crew[i] = null;   // you went down or moved on: the seat is free again
   for (const pr of M.props) pr.rotation.z += (6 + pl.speed * 0.9) * dt * (pl.onGround && pl.speed < 1 && !pl.pilot && pl.waitT > 1 ? 0.15 : 1);
   pl.bayT = Math.max(0, (pl.bayT || 0) - dt);

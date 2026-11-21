@@ -732,8 +732,9 @@ function updateShipPrompt() {
   if (SH.torpCam && (!player.ship || !player.alive)) endTorpCam();
   const hud = document.getElementById('shipHud'); if (hud && !player.ship) { hud.style.display = 'none'; zPeriscopeOverlay(false); }
 }
+function shipNextView() { if (!player.ship) return; const opts = player.ship.kind === 'sub' ? ['chase', 'periscope', 'guns'] : player.ship.turrets.length ? SHIP_VIEWS : ['chase', 'bridge']; SH.view = opts[(opts.indexOf(SH.view || 'chase') + 1) % opts.length]; }
 addEventListener('keydown', e => {
-  if (e.code === 'KeyC' && player.ship && !e.repeat) { const opts = player.ship.kind === 'sub' ? ['chase', 'periscope', 'guns'] : player.ship.turrets.length ? SHIP_VIEWS : ['chase', 'bridge']; SH.view = opts[(opts.indexOf(SH.view || 'chase') + 1) % opts.length]; return; }
+  if (e.code === 'KeyC' && player.ship && !e.repeat) { shipNextView(); return; }
   if (e.code !== 'KeyE' || e.repeat || typeof started === 'undefined' || !started) return;
   if (player.ship) { if (SH.torpCam) endTorpCam(); if (player.ship.marker) player.ship.marker.visible = false; player.ship.captain = null; player.ship = null; if (camera.fov !== (SET.fov || 75)) { camera.fov = SET.fov || 75; camera.updateProjectionMatrix(); } showMessage('You left the wheel', 1.5); return; }
   if (!SH.near && SH.climb) {   // up the ladder and straight to the wheel

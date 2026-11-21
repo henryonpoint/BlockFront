@@ -87,6 +87,12 @@
     selectWeapon(owned[(k + 1) % owned.length]);
   });
   btn('tGren', () => press('KeyG'));
+  btn('tView', () => {   // change the camera: plane cockpit or outside, helicopter views, ship views
+    if (player.ship && typeof shipNextView === 'function') shipNextView();
+    else if (player.vehicle) press('KeyV');
+    else if (player.gv && player.gv.T.heli && player.seat === 0) press('KeyV');
+  });
+  setInterval(() => { const b = $('tView'); if (b) b.style.display = player.alive && (player.vehicle || player.ship || (player.gv && player.gv.T.heli && player.seat === 0)) ? 'flex' : 'none'; }, 300);
   btn('tPos', () => { if (typeof b17NextPos === 'function') b17NextPos(); });   // B-17: step to the next crew position
   btn('tHook', () => { if (typeof grappleFire === 'function') grappleFire(); });   // the grappling hook: aim with the look side, tap to fire
   btn('tAir', () => press('KeyT'));

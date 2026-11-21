@@ -452,9 +452,8 @@ function b17PlaneModel(team) {
       }
       p.cyl(0.95, 0.95, 0.05, P.team, 10.5 * sd, 0.22, -0.2, 0, 0, 0, 1, 20);                                           // team roundel on the wing
       p.cyl(0.42, 0.42, 0.06, 0xf2f2f2, 10.5 * sd, 0.23, -0.2, 0, 0, 0, 1, 16);
-      p.cyl(0.62, 0.62, 0.05, P.team, 1.37 * sd, 0.2, 6.0, 0, 0, RX, 1, 18); p.cyl(0.28, 0.28, 0.06, 0xf2f2f2, 1.38 * sd, 0.2, 6.0, 0, 0, RX, 1, 14);   // and on the side
-      p.box(0.08, 0.7, 1.1, dark, 1.3 * sd, 0.35, 3.6);                                                                 // the open waist windows
-      p.cyl(0.05, 0.05, 1.3, black, 1.55 * sd, 0.35, 3.6, 0, 0, RX, 1, 6);                                             // waist guns poking out
+      p.cyl(0.62, 0.62, 0.05, P.team, 1.37 * sd, 0.2, -5.8, 0, 0, RX, 1, 18); p.cyl(0.28, 0.28, 0.06, 0xf2f2f2, 1.38 * sd, 0.2, -5.8, 0, 0, RX, 1, 14);   // and on the side, ahead of the wing
+      for (const dz of [-0.6, 0.6]) p.box(0.06, 0.8, 0.08, dark, 1.2 * sd, 0.35, 5.2 + dz); p.box(0.06, 0.08, 1.2, dark, 1.2 * sd, 0.78, 5.2); p.box(0.06, 0.08, 1.2, dark, 1.2 * sd, -0.08, 5.2);   // the open waist windows (just a frame: the gunner looks out through them)
       p.box(0.06, 0.4, 0.9, 0x223040, 1.18 * sd, 0.55, -8.6, 0, 0, sd * 0.25);                                          // cheek windows
     }
     p.box(1.6, 0.5, 1.6, 0x223040, 0, 1.1, -7.6, -0.35, 0, 0); p.box(1.64, 0.06, 0.06, black, 0, 1.26, -7.25);           // cockpit windows
@@ -469,12 +468,12 @@ function b17PlaneModel(team) {
   // turrets that turn: each has a yaw group and a pitch group holding twin guns
   const turret = (x, y, z, dome, ball) => {
     const yaw = new THREE.Group(); yaw.position.set(x, y, z); g.add(yaw); const pitch = new THREE.Group(); yaw.add(pitch);
-    const TP = new Part();
-    if (ball) TP.ball(0.68, dark, 0, 0, 0); else TP.box(0.7, 0.45, 0.7, dark, 0, 0, 0);
-    for (const sx of [-0.14, 0.14]) TP.cyl(0.05, 0.05, 1.5, black, sx, 0, -0.95, RX, 0, 0, 1, 6);
-    pitch.add(new THREE.Mesh(TP.build(), VEH_MAT));
+    const HP = new Part(), BP = new Part();
+    if (ball) HP.ball(0.68, dark, 0, 0, 0); else HP.box(0.7, 0.45, 0.7, dark, 0, 0, 0);
+    for (const sx of [-0.14, 0.14]) BP.cyl(0.035, 0.04, 1.5, black, sx, 0, -0.95, RX, 0, 0, 1, 6);
+    const housing = new THREE.Mesh(HP.build(), VEH_MAT); pitch.add(housing); pitch.add(new THREE.Mesh(BP.build(), VEH_MAT));   // the body can hide while you sit in it; the guns stay
     if (dome) { const d = new THREE.Mesh(new THREE.SphereGeometry(0.62, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), glass); d.position.y = 0.1; yaw.add(d); }
-    return { yaw, pitch };
+    return { yaw, pitch, housing };
   };
   const turrets = { top: turret(0, 1.45, -5.2, true), ball: turret(0, -1.45, 0.9, false, true), chin: turret(0, -1.1, -9.6), tail: turret(0, 0.3, 11.9) };
   turrets.tail.yaw.rotation.y = Math.PI;
