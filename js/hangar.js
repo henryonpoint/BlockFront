@@ -12,7 +12,7 @@ const PLANE_UPGRADES = [
 ];
 const PLANE_SHOP = [
   { kind: 'prop', name: 'Fighter plane', cost: 1500 }, { kind: 'biplane', name: 'Biplane', cost: 1200 }, { kind: 'triplane', name: 'Red triplane', cost: 1400 },
-  { kind: 'f18', name: 'F-18 jet', cost: 4000 }, { kind: 'f22', name: 'F-22 jet', cost: 5500 }, { kind: 'stealth', name: 'Stealth bomber', cost: 9000 },
+  { kind: 'f18', name: 'F-18 jet', cost: 4000 }, { kind: 'f22', name: 'F-22 jet', cost: 5500 }, { kind: 'f35', name: 'F-35 Lightning II', cost: 6000 }, { kind: 'su35', name: 'Su-35 Flanker', cost: 6000 }, { kind: 'su75', name: 'Su-75 Checkmate', cost: 6500 }, { kind: 'stealth', name: 'Stealth bomber', cost: 9000 },
 ];
 function buildPlaneHangars() {
   PH.built = true;

@@ -368,7 +368,7 @@ function hijackVehicle(v, by) {
 // the cockpit's head-up display: horizon and pitch ladder, heading tape, speed and height boxes, throttle and boost
 let _fhud = null;
 function drawFlightHud(pl) {
-  if (pl && !(pl.kind === 'f18' || pl.kind === 'f22' || pl.kind === 'harrier' || pl.kind === 'stealth')) pl = null;   // vintage planes have no head-up display: just the gunsight and the dials
+  if (pl && !(isFighterJet(pl.kind) || pl.kind === 'harrier' || pl.kind === 'stealth')) pl = null;   // vintage planes have no head-up display: just the gunsight and the dials
   if (!pl) { if (_fhud) _fhud.style.display = 'none'; return; }
   if (!_fhud) { _fhud = document.createElement('canvas'); _fhud.className = 'hud'; _fhud.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:4'; document.body.appendChild(_fhud); }
   const dpr = Math.min(2, devicePixelRatio || 1), W = innerWidth, H = innerHeight;
@@ -404,7 +404,7 @@ function drawFlightHud(pl) {
   box(cx - 270, 'SPEED km/h', Math.round(pl.speed * 3.6)); box(cx + 270, 'HEIGHT m', alt);
   c.font = '600 12px system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
   c.fillText('THR ' + Math.round(pl.throttle * 100) + '%' + (pl.ab ? '  AB' : ''), cx - 270, cy + 32);
-  if (pl.abFuel !== undefined && (pl.kind === 'f18' || pl.kind === 'f22')) { c.strokeRect(cx - 300, cy + 44, 60, 6); c.fillRect(cx - 300, cy + 44, 60 * pl.abFuel, 6); }
+  if (pl.abFuel !== undefined && (isFighterJet(pl.kind))) { c.strokeRect(cx - 300, cy + 44, 60, 6); c.fillRect(cx - 300, cy + 44, 60 * pl.abFuel, 6); }
   c.fillText(Math.round(pl.hp / pl.maxHp * 100) + '% hull', cx + 270, cy + 32);
   if (pl.pullUp) { c.font = '800 22px system-ui,-apple-system,Segoe UI,Roboto,sans-serif'; c.fillText('PULL UP', cx, cy + 120); }
   else if (pl.locked) { c.font = '800 20px system-ui,-apple-system,Segoe UI,Roboto,sans-serif'; c.fillStyle = '#ffd54f'; c.fillText('MISSILE LOCK', cx, cy + 120); }
@@ -432,7 +432,7 @@ let _noseEl = null;
 // red diamonds around enemy aircraft while you fly, with how far away they are, so they are easy to find
 const _airTags = [];
 function updateAirTargets() {
-  const me = player.vehicle, flying = me && (me.kind === 'f18' || me.kind === 'f22' || me.kind === 'harrier');   // modern jets' radar only: vintage planes find their targets by eye
+  const me = player.vehicle, flying = me && (isFighterJet(me.kind) || me.kind === 'harrier');   // modern jets' radar only: vintage planes find their targets by eye
   let n = 0;
   if (flying) {
     camera.updateMatrixWorld();
@@ -940,11 +940,11 @@ function updateHUD(dt) {
   if (player.vehicle) {
     const pl = player.vehicle; ph.style.display = 'block';
     $('pSpeed').textContent = Math.round(pl.speed * 3.6) + ' km/h'; $('pAlt').textContent = Math.round(pl.pos.y - heightAt(pl.pos.x, pl.pos.z)) + ' m';
-    $('pThr').textContent = Math.round(pl.throttle * 100) + '%' + (pl.ab ? ' AB' : pl.abFuel !== undefined && (pl.kind === 'f18' || pl.kind === 'f22') ? ` (boost ${Math.round(pl.abFuel * 100)}%)` : ''); $('pBombs').textContent = pl.bombs; $('pHp').textContent = Math.max(0, Math.round(pl.hp / pl.maxHp * 100)) + '%';
+    $('pThr').textContent = Math.round(pl.throttle * 100) + '%' + (pl.ab ? ' AB' : pl.abFuel !== undefined && (isFighterJet(pl.kind)) ? ` (boost ${Math.round(pl.abFuel * 100)}%)` : ''); $('pBombs').textContent = pl.bombs; $('pHp').textContent = Math.max(0, Math.round(pl.hp / pl.maxHp * 100)) + '%';
     const ck = planeView === 'cockpit';
     $('pTip').textContent = IS_TOUCH ? (pl.onGround ? (pl.speed < 24 ? 'Hold THR + to speed up' : 'Pull the stick DOWN to lift off!') : 'Stick: pitch and roll   FIRE guns   BOMB   USE bails out')
       : pl.onGround ? (pl.speed < 24 ? 'Hold Shift to speed up (C to slow down)' : ck ? 'Look up (or press S) to lift off!' : 'Press S to lift off!')
-      : pl.pullUp ? 'PULL UP! Ground ahead' : ck ? `Mouse: steer where you look   Shift/C throttle   Click guns   Right click ${pl.kind === 'f18' || pl.kind === 'f22' ? 'guided missile' : 'bomb'}   V views   F bail out` : `W/S pitch   A/D roll   Q/E rudder   Shift/C throttle   Space guns   X ${pl.kind === 'f18' || pl.kind === 'f22' ? 'missile' : 'bomb'}   V cockpit   F bail out`;
+      : pl.pullUp ? 'PULL UP! Ground ahead' : ck ? `Mouse: steer where you look   Shift/C throttle   Click guns   Right click ${isFighterJet(pl.kind) ? 'guided missile' : 'bomb'}   V views   F bail out` : `W/S pitch   A/D roll   Q/E rudder   Shift/C throttle   Space guns   X ${isFighterJet(pl.kind) ? 'missile' : 'bomb'}   V cockpit   F bail out`;
     $('pTip').style.color = pl.pullUp ? '#ff6b5a' : '';
     if (!pl._tipT) pl._tipT = simTime;
     $('pTip').style.display = pl.pullUp || pl.onGround || simTime - pl._tipT < 8 ? '' : 'none';   // the long hint goes away once you are flying

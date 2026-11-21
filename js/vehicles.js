@@ -1,5 +1,7 @@
 // ===================== vehicles.js : turrets and planes =====================
 const turrets = [];
+// the modern fighters: afterburner, head-up display, radar, guided missiles
+function isFighterJet(k) { return k === 'f18' || k === 'f22' || k === 'f35' || k === 'su35' || k === 'su75'; }
 function makeTurret(x, z, type, yaw) {
   const y = heightAt(x, z);
   const g = new THREE.Group(); g.position.set(x, y, z); scene.add(g);
@@ -140,12 +142,12 @@ function buildPlanes() {
   if (ZD30) return;   // no airfield
   if (DOGFIGHT) {   // the dogfight: a squadron per team, starting in the air (players take over a plane when they deploy)
     for (const t of ['blue', 'red']) for (let i = 0; i < 9; i++) {
-      const B = BASES[t], s = teamSide(t), kind = JETFIGHT ? (i % 2 ? 'f22' : 'f18') : WWIFIGHT ? (t === 'red' ? 'triplane' : 'biplane') : 'prop';
+      const B = BASES[t], s = teamSide(t), kind = JETFIGHT ? (t === 'blue' ? ['f18', 'f22', 'f35'] : ['su35', 'su75', 'f22'])[i % 3] : WWIFIGHT ? (t === 'red' ? 'triplane' : 'biplane') : 'prop';
       makePlane(t, B.x + (i - 4) * 45, B.z - s * 120, s > 0 ? 0 : Math.PI, 0, kind);
     }
     return;
   }
-  const HK = { blue: ['f18', 'harrier', 'f22'], red: ['f22', 'harrier', 'f18'] };   /* Houston: modern jets, and a Harrier each */
+  const HK = { blue: ['f35', 'harrier', 'f22'], red: ['su35', 'harrier', 'su75'] };   /* Houston: modern jets, and a Harrier each */
   [[30, 6], [52, 30], [70, 55]].forEach(([off, wait], i) => makePlane('blue', RUNWAYS.blue.x + off, RUNWAYS.blue.z, RUNWAYS.blue.carrier ? 0 : Math.PI / 2, wait, HOUSTON ? HK.blue[i] : AFGHAN ? 'f18' : undefined));
   [[-30, 6], [-52, 30], [-70, 55]].forEach(([off, wait], i) => makePlane('red', RUNWAYS.red.x + off, RUNWAYS.red.z, -Math.PI / 2, wait, HOUSTON ? HK.red[i] : AFGHAN ? 'f18' : undefined));   /* Desert Combat: modern jets */
   if (NORMANDY) {   // a big air battle over the beach: more fighters on both sides, up quickly
@@ -215,7 +217,7 @@ function planeLeadTarget(pl, maxAng = 0.26, range = 520) {
 function planeGuns(pl, shooter, accurate) {
   pl.gunT = 0.07;
   const fwd = planeFwd(pl), right = new THREE.Vector3(1, 0, 0).applyQuaternion(pl.quat);
-  const lock = shooter === player && (pl.kind === 'f18' || pl.kind === 'f22' || pl.kind === 'harrier') ? planeLeadTarget(pl) : null;   // modern jets' guns help you aim; vintage guns go where you point them
+  const lock = shooter === player && (isFighterJet(pl.kind) || pl.kind === 'harrier') ? planeLeadTarget(pl) : null;   // modern jets' guns help you aim; vintage guns go where you point them
   for (const s of [-1, 1]) {
     const o = pl.pos.clone().addScaledVector(right, s * 2.4).addScaledVector(fwd, 2);
     const aim = lock ? lock.lead.clone().sub(o).normalize() : fwd.clone();
@@ -281,7 +283,7 @@ let cockpitFull = false;   // the third view: the full cockpit, with dashboard, 
 // each kind of plane has its own cockpit, built like the real one. tub: floor, walls, seat, stick and the nose ahead
 // (shown in both cockpit views); full: the dashboard, sights and canopy frame (the full cockpit view only)
 const _cockpits = {};
-function cockpitStyle(pl) { const k = pl && (pl.kind === 'harrier' ? 'f18' : pl.kind); return k === 'triplane' || k === 'biplane' ? k : k === 'f18' || k === 'f22' || k === 'stealth' ? k : 'prop'; }
+function cockpitStyle(pl) { const k = pl && (pl.kind === 'harrier' || pl.kind === 'su35' ? 'f18' : pl.kind === 'f35' || pl.kind === 'su75' ? 'f22' : pl.kind); return k === 'triplane' || k === 'biplane' ? k : k === 'f18' || k === 'f22' || k === 'stealth' ? k : 'prop'; }
 function cockpitModel() {
   const st = cockpitStyle(player.vehicle || (_cockpit && { kind: _cockpit.userData.style }));
   if (_cockpit && _cockpit.userData.style === st) return _cockpit;
@@ -433,7 +435,7 @@ function updatePlayerPlane(pl, dt) {
   pl.inP = lerp(pl.inP, pitchIn, Math.min(1, dt * 5)); pl.inR = lerp(pl.inR, rollIn, Math.min(1, dt * 5)); pl.inY = lerp(pl.inY, yawIn, Math.min(1, dt * 5));
   const fwd = planeFwd(pl);
   // afterburner (modern jets): keep holding Shift at full throttle; it uses a boost bar that fills back up
-  const jetAB = pl.kind === 'f18' || pl.kind === 'f22';
+  const jetAB = isFighterJet(pl.kind);
   if (pl.abFuel === undefined) pl.abFuel = 1;
   pl.ab = jetAB && (keys.ShiftLeft || keys.ShiftRight) && pl.throttle >= 0.99 && pl.abFuel > 0.02 && !pl.onGround;
   pl.abFuel = clamp(pl.abFuel + (pl.ab ? -dt / 6 : dt / 14), 0, 1);
@@ -491,7 +493,7 @@ function updatePlayerPlane(pl, dt) {
   }
   }
   if ((mouse.left || keys.Space) && pl.gunT <= 0) planeGuns(pl, player, true);
-  const jet = pl.kind === 'f18' || pl.kind === 'f22' || pl.kind === 'harrier';
+  const jet = isFighterJet(pl.kind) || pl.kind === 'harrier';
   if ((mouse.right || keys.KeyX) && !pl.onGround) { if (jet) planeMissile(pl); else planeBomb(pl, player); }   // modern fighters fire guided missiles
   planeTick(pl, dt);
   if (planeView === 'cockpit' && typeof cockpitCamera === 'function') cockpitCamera(pl);
